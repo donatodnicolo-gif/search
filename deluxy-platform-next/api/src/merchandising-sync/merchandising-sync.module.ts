@@ -14,6 +14,8 @@ import { Public, Roles } from '../common/decorators';
 import { ProductType, Role } from '../common/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { SettingsModule, SettingsService } from '../settings/settings.module';
+// Le due letture del contratto §2-quater vivono col canale app: qui si riusano, non si riscrivono.
+import { cittaDaIndirizzo, oraMinima } from '../app-api/dati-partner';
 
 /** Un prodotto come lo espone Merchandising. */
 type ProdottoMerch = {
@@ -384,6 +386,17 @@ export class MerchandisingSyncService {
           where: { id: product.partnerId },
           select: {
             insegna: true, legacyId: true, city: true,
+            /**
+             * ⭐ 11/09/2026 (istruzione utente: «passa all'app merchandising questi campi») — INDIRIZZO
+             * E ORARI anche qui, non solo nella lettura `/app/partner`.
+             *
+             * `custom.partner_address` è il posto da cui parte la consegna e `custom.minimo_orario`
+             * l'ora da cui si può consegnare: se viaggiano col prodotto arrivano subito, mentre dalla
+             * lettura arrivano solo quando di là qualcuno la richiama. La città resta come ripiego —
+             * l'indirizzo è compilato su tutti e 126 i partner attivi, la città su 13.
+             */
+            address: true,
+            openingHours: { select: { openTime: true, closed: true } },
             provinces: { select: { province: { select: { code: true } } } },
           },
         })
@@ -417,7 +430,9 @@ export class MerchandisingSyncService {
               insegna: partner.insegna,
               // Numerico o niente: vedi l'avvertenza qui sopra.
               legacyId: typeof partner.legacyId === 'number' ? partner.legacyId : null,
-              city: partner.city ?? null,
+              city: (partner.city ?? '').trim() || cittaDaIndirizzo(partner.address) || null,
+              address: (partner.address ?? '').trim() || null,
+              minimoOrario: oraMinima(partner.openingHours),
               provinces: partner.provinces.map((p) => p.province?.code).filter(Boolean),
             }
           : null,

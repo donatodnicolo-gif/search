@@ -840,10 +840,33 @@
     }
   },
   "deliveries": {
-    "ordine": { "apri": "Vedi l’ordine", "titolo": "Ordine", "negozio": "Negozio", "stato": "Stato", "importo": "Importo", "cliente": "Cliente", "prodotto": "Prodotto", "note": "Note", "vaiAVendite": "Apri in Vendite", "errore": "Ordine non leggibile: riprova." },
-    "export": { "bottone": "Esporta per Excel", "vuoto": "Nessuna consegna da estrarre con questi filtri.", "corso": "Preparo il file…", "troncato": "Estrazione fermata a 20.000 righe: restringi il periodo per averle tutte.", "errore": "Estrazione non riuscita: riprova." },
-    "ordina": { "label": "Ordina per", "asc": "Crescente ↑", "desc": "Decrescente ↓" },
-    "margine": { "titolo": "Margine Deluxy {{pct}} % ({{euro}} €): sotto il 5 %" },
+    "ordine": {
+      "apri": "Vedi l’ordine",
+      "titolo": "Ordine",
+      "negozio": "Negozio",
+      "stato": "Stato",
+      "importo": "Importo",
+      "cliente": "Cliente",
+      "prodotto": "Prodotto",
+      "note": "Note",
+      "vaiAVendite": "Apri in Vendite",
+      "errore": "Ordine non leggibile: riprova."
+    },
+    "export": {
+      "bottone": "Esporta per Excel",
+      "vuoto": "Nessuna consegna da estrarre con questi filtri.",
+      "corso": "Preparo il file…",
+      "troncato": "Estrazione fermata a 20.000 righe: restringi il periodo per averle tutte.",
+      "errore": "Estrazione non riuscita: riprova."
+    },
+    "ordina": {
+      "label": "Ordina per",
+      "asc": "Crescente ↑",
+      "desc": "Decrescente ↓"
+    },
+    "margine": {
+      "titolo": "Margine Deluxy {{pct}} % ({{euro}} €): sotto il 5 %"
+    },
     "nonConsegnate": {
       "chip": "Non consegnata",
       "alert": "{{n}} non consegnate da gestire.",
@@ -2284,6 +2307,7 @@
       "notEditable": "Non modificabile",
       "notPhysical": "Non fisico",
       "prodottoApp": "Prodotto app (solo piattaforma consegne, non esposto a Merchandising)",
+      "servizio": "Prodotto di servizio (biglietti e simili: si assegna in dotazione ai partner)",
       "isSuperProvince": "Super provincia",
       "controlStock": "Controlla stock",
       "approved": "Approvato",
@@ -2923,7 +2947,16 @@
     "createNew": "Crea una scheda nuova nel registro"
   },
   "sales": {
-    "filtri": { "provincia": "Provincia", "partner": "Partner", "brand": "Negozio", "tipologia": "Tipologia", "dal": "Consegna dal", "al": "al", "tutte": "tutte", "tutti": "tutti" },
+    "filtri": {
+      "provincia": "Provincia",
+      "partner": "Partner",
+      "brand": "Negozio",
+      "tipologia": "Tipologia",
+      "dal": "Consegna dal",
+      "al": "al",
+      "tutte": "tutte",
+      "tutti": "tutti"
+    },
     "title": "Vendite",
     "caption": "Gli ordini smistati ai partner.",
     "cercaFornitore": "Cerca fornitore",
@@ -3124,7 +3157,9 @@
       "PICKUP": "Ritiro",
       "DELIVERY": "Consegna"
     },
-    "assegna": { "a": "Assegna a…" },
+    "assegna": {
+      "a": "Assegna a…"
+    },
     "col": {
       "type": "Tipo",
       "time": "Quando",
@@ -3405,11 +3440,26 @@
     "nuovo": "Nuovo capogruppo",
     "vuoto": "Nessun capogruppo",
     "vuotoHint": "Se ne crea uno da qui o dal modulo partner («Chi paga»).",
-    "col": { "nome": "Ragione sociale", "pIva": "P.IVA", "sdi": "SDI", "pec": "PEC", "sedi": "Sedi", "registro": "Registro" },
+    "col": {
+      "nome": "Ragione sociale",
+      "pIva": "P.IVA",
+      "sdi": "SDI",
+      "pec": "PEC",
+      "sedi": "Sedi",
+      "registro": "Registro"
+    },
     "collegato": "Collegato",
     "pagaDaSe": "paga da sé",
     "fatturaLui": "fattura il capogruppo",
-    "campo": { "nome": "Ragione sociale", "pIva": "Partita IVA", "codiceFiscale": "Codice fiscale", "codiceSdi": "Codice SDI", "pec": "PEC", "email": "Email fatture", "note": "Note" },
+    "campo": {
+      "nome": "Ragione sociale",
+      "pIva": "Partita IVA",
+      "codiceFiscale": "Codice fiscale",
+      "codiceSdi": "Codice SDI",
+      "pec": "PEC",
+      "email": "Email fatture",
+      "note": "Note"
+    },
     "avvisoSedi": "Salvando, i dati di fatturazione si riscrivono su tutte le sedi che fatturano sotto questo capogruppo.",
     "creato": "Capogruppo creato ✓",
     "salvato": "Capogruppo salvato ✓"
@@ -3748,6 +3798,7 @@
       "prodotto": "Prodotto",
       "daRitirare": "Da ritirare",
       "inConsegna": "In consegna",
+      "inDotazione": "In dotazione",
       "inSospeso": "In sospeso",
       "consegnati": "Consegnati",
       "giacenza": "Giacenza",
@@ -3784,6 +3835,19 @@
     "sezione": {
       "daFare": "Da fare",
       "storico": "Storico"
+    },
+    "dotazione": {
+      "titolo": "Merce di servizio assegnata",
+      "spiega": "Biglietti, buste, nastri: materiale che sta fisicamente dal partner e che nessuna consegna racconta. È una giacenza vera e non cambia col periodo.",
+      "partner": "Partner",
+      "prodotto": "Prodotto",
+      "quantita": "Quantità",
+      "note": "Note",
+      "assegna": "Assegna",
+      "nessuna": "Nessuna assegnazione",
+      "nessunProdotto": "Nessun prodotto ha il flag «servizio»: si mette dalla scheda del prodotto.",
+      "nonPiuServizio": "il prodotto non ha più il flag servizio",
+      "confermaTogli": "Togliere «{{prodotto}}» dalla dotazione di {{partner}}?"
     }
   }
 }

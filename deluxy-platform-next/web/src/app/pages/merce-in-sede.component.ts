@@ -142,6 +142,10 @@ import { AltezzaViewportDirective } from '../core/altezza-viewport.directive';
               @if (sezione() === 'daFare') {
                 <th class="num"><button type="button" class="th-ordina" (click)="ordinaPer('daRitirare')">{{ 'merce.col.daRitirare' | translate }}{{ freccia('daRitirare') }}</button></th>
                 <th class="num"><button type="button" class="th-ordina" (click)="ordinaPer('inConsegna')">{{ 'merce.col.inConsegna' | translate }}{{ freccia('inConsegna') }}</button></th>
+                <!-- ⭐ 11/09/2026 (regola utente): la merce di servizio assegnata al partner. -->
+                @if (vista() === 'partner') {
+                  <th class="num"><button type="button" class="th-ordina" (click)="ordinaPer('inDotazione')">{{ 'merce.col.inDotazione' | translate }}{{ freccia('inDotazione') }}</button></th>
+                }
               } @else {
                 <th class="num"><button type="button" class="th-ordina" (click)="ordinaPer('consegnati')">{{ 'merce.col.consegnati' | translate }}{{ freccia('consegnati') }}</button></th>
                 <th class="num"><button type="button" class="th-ordina" (click)="ordinaPer('inSospeso')">{{ 'merce.col.inSospeso' | translate }}{{ freccia('inSospeso') }}</button></th>
@@ -156,6 +160,7 @@ import { AltezzaViewportDirective } from '../core/altezza-viewport.directive';
                 @if (sezione() === 'daFare') {
                   <td class="num">{{ r.daRitirare || '—' }}</td>
                   <td class="num">{{ r.inConsegna || '—' }}</td>
+                  @if (vista() === 'partner') { <td class="num dotazione">{{ r.inDotazione || '—' }}</td> }
                 } @else {
                   <td class="num muted">{{ r.consegnati || '—' }}</td>
                   <td class="num" [class.attenzione]="r.inSospeso > 0">{{ r.inSospeso || '—' }}</td>
@@ -256,6 +261,86 @@ import { AltezzaViewportDirective } from '../core/altezza-viewport.directive';
         </table>
       </div>
     }
+
+    <!--
+      ⭐⭐ 11/09/2026 (regola utente): «metti prodotti con flag servizio, che saranno ad esempio i
+      biglietti che si possono assegnare per singoli stock ai vari partner: l'assegnazione fa comparire
+      questo prodotto in merce».
+
+      Sta in fondo e non in cima di proposito: la pagina serve a sapere che merce ci si aspetta oggi, e
+      la dotazione è una giacenza ferma che si guarda una volta ogni tanto. Metterla in testa
+      sposterebbe tutti i giorni l'occhio su ciò che non cambia mai.
+    -->
+    @if (sezione() === 'daFare' && vistaDotazione()) {
+      <section class="card dotazione-pannello">
+        <header class="testa">
+          <h2>{{ 'merce.dotazione.titolo' | translate }}</h2>
+          <p class="muted">{{ 'merce.dotazione.spiega' | translate }}</p>
+        </header>
+
+        @if (eUfficio()) {
+          <form class="riga-assegna" (ngSubmit)="assegna()">
+            <label class="fld"><span>{{ 'merce.dotazione.partner' | translate }}</span>
+              <select class="field" [(ngModel)]="nuovo.partnerId" name="dotPartner" required>
+                <option value="">—</option>
+                @for (p of partnerDisponibili(); track p.id) { <option [value]="p.id">{{ p.insegna }}</option> }
+              </select>
+            </label>
+            <label class="fld"><span>{{ 'merce.dotazione.prodotto' | translate }}</span>
+              <select class="field" [(ngModel)]="nuovo.productId" name="dotProdotto" required>
+                <option value="">—</option>
+                @for (p of prodottiServizio(); track p.id) { <option [value]="p.id">{{ p.nome }}</option> }
+              </select>
+            </label>
+            <label class="fld stretta"><span>{{ 'merce.dotazione.quantita' | translate }}</span>
+              <input class="field" type="number" min="0" [(ngModel)]="nuovo.quantita" name="dotQta" required />
+            </label>
+            <label class="fld"><span>{{ 'merce.dotazione.note' | translate }}</span>
+              <input class="field" type="text" [(ngModel)]="nuovo.note" name="dotNote" />
+            </label>
+            <button class="btn btn-primary" type="submit" [disabled]="!nuovo.partnerId || !nuovo.productId || salvando()">
+              {{ 'merce.dotazione.assegna' | translate }}
+            </button>
+          </form>
+          @if (!prodottiServizio().length) {
+            <p class="avviso">{{ 'merce.dotazione.nessunProdotto' | translate }}</p>
+          }
+          @if (erroreDotazione()) { <p class="avviso attenzione">{{ erroreDotazione() }}</p> }
+        }
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                @if (eUfficio() && !detentore()) { <th>{{ 'merce.dotazione.partner' | translate }}</th> }
+                <th>{{ 'merce.dotazione.prodotto' | translate }}</th>
+                <th class="num">{{ 'merce.dotazione.quantita' | translate }}</th>
+                <th>{{ 'merce.dotazione.note' | translate }}</th>
+                @if (eUfficio()) { <th></th> }
+              </tr>
+            </thead>
+            <tbody>
+              @for (d of dotazione(); track d.id) {
+                <tr>
+                  @if (eUfficio() && !detentore()) { <td class="strong">{{ d.partner }}</td> }
+                  <td>
+                    {{ d.prodotto }}
+                    @if (d.nonPiuDiServizio) { <small class="attenzione"> · {{ 'merce.dotazione.nonPiuServizio' | translate }}</small> }
+                  </td>
+                  <td class="num dotazione">{{ d.quantita }}</td>
+                  <td class="muted">{{ d.note }}</td>
+                  @if (eUfficio()) {
+                    <td class="num"><button type="button" class="link-azione" (click)="togli(d)">{{ 'common.delete' | translate }}</button></td>
+                  }
+                </tr>
+              } @empty {
+                <tr><td [attr.colspan]="6" class="vuoto">{{ 'merce.dotazione.nessuna' | translate }}</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    }
   `,
   styles: [
     `
@@ -289,6 +374,17 @@ import { AltezzaViewportDirective } from '../core/altezza-viewport.directive';
       tr.cliccabile:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
       .tipo, .variante { display: block; font-size: 11.5px; color: var(--text-secondary); font-weight: 400; }
       .vuoto { color: var(--text-secondary); text-align: center; padding: 26px; }
+      .dotazione-pannello { margin-top: 16px; padding: 14px 16px 6px; }
+      .dotazione-pannello .testa h2 { font-size: 15px; margin: 0 0 2px; letter-spacing: -0.01em; }
+      .dotazione-pannello .testa p { margin: 0 0 12px; font-size: 12px; }
+      .dotazione-pannello .table-wrap { overflow-x: auto; }
+      .riga-assegna { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 12px; }
+      .riga-assegna .fld { display: flex; flex-direction: column; gap: 4px; min-width: 180px; }
+      .riga-assegna .fld.stretta { min-width: 90px; }
+      .riga-assegna .fld span { font-size: 11px; color: var(--text-secondary); }
+      .avviso { font-size: 12px; color: var(--text-secondary); margin: 0 0 10px; }
+      td.dotazione, .num.dotazione { font-variant-numeric: tabular-nums; font-weight: 600; }
+      .link-azione { background: none; border: 0; color: var(--text-secondary); cursor: pointer; font-size: 12px; text-decoration: underline; }
       .dettaglio td { background: var(--surface-2, #fbfbfd); white-space: normal; }
       .fasi { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
       .consegne { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -384,6 +480,7 @@ export class MerceInSedeComponent {
 
   constructor() {
     this.scegliPeriodo('oggi');
+    this.caricaDotazione();
   }
 
   eUfficio(): boolean {
@@ -420,6 +517,88 @@ export class MerceInSedeComponent {
       default: return; // personalizzato: decide chi guarda, coi due campi data
     }
     this.carica();
+  }
+
+  /**
+   * ⭐⭐ 11/09/2026 (regola utente) — LA DOTAZIONE: la merce di servizio assegnata ai partner.
+   *
+   * «Prodotti con flag servizio, che saranno ad esempio i biglietti che si possono assegnare per
+   * singoli stock ai vari partner: l'assegnazione fa comparire questo prodotto in merce.»
+   *
+   * ⚠️ È l'unica giacenza VERA della pagina: tutto il resto si ricava dalle consegne aperte, e «da
+   * ritirare» è un impegno, non un oggetto. I biglietti in un cassetto ci sono davvero — per questo
+   * la dotazione non ha data e non segue il periodo.
+   */
+  readonly dotazione = signal<RigaDotazione[]>([]);
+  readonly prodottiServizio = signal<{ id: string; nome: string }[]>([]);
+  readonly partnerDisponibili = signal<{ id: string; insegna: string }[]>([]);
+  readonly salvando = signal(false);
+  readonly erroreDotazione = signal<string | null>(null);
+  nuovo: { partnerId: string; productId: string; quantita: number; note: string } = { partnerId: '', productId: '', quantita: 1, note: '' };
+
+  /** Il pannello si vede se c'è qualcosa da vedere: all'ufficio sempre, al partner solo se ne ha. */
+  readonly vistaDotazione = computed(() => this.eUfficio() || this.dotazione().length > 0);
+
+  caricaDotazione(): void {
+    let p = new HttpParams();
+    const d = this.detentore();
+    if (d?.tipo === 'partner') p = p.set('partnerId', d.id);
+    this.http.get<{ righe: RigaDotazione[] }>(`${environment.apiUrl}/merce-in-sede/dotazione`, { params: p }).subscribe({
+      next: (r) => this.dotazione.set(r?.righe ?? []),
+      error: () => this.dotazione.set([]),
+    });
+    if (!this.eUfficio() || this.prodottiServizio().length) return;
+    // ⚠️ Le due tendine si caricano una volta sola: sono elenchi corti e non cambiano mentre si guarda.
+    this.http.get<{ prodotti?: { id: string; name: string }[] } | { id: string; name: string }[]>(
+      `${environment.apiUrl}/products`, { params: new HttpParams().set('servizio', 'true').set('limit', '200') },
+    ).subscribe({
+      next: (r) => {
+        const lista = Array.isArray(r) ? r : (r?.prodotti ?? []);
+        this.prodottiServizio.set(lista.map((x) => ({ id: x.id, nome: x.name })));
+      },
+      error: () => this.prodottiServizio.set([]),
+    });
+    this.http.get<{ partners?: { id: string; insegna: string }[] } | { id: string; insegna: string }[]>(
+      `${environment.apiUrl}/partners`, { params: new HttpParams().set('limit', '500') },
+    ).subscribe({
+      next: (r) => {
+        const lista = Array.isArray(r) ? r : (r?.partners ?? []);
+        this.partnerDisponibili.set(lista.map((x) => ({ id: x.id, insegna: x.insegna })));
+      },
+      error: () => this.partnerDisponibili.set([]),
+    });
+  }
+
+  assegna(): void {
+    if (!this.nuovo.partnerId || !this.nuovo.productId) return;
+    this.salvando.set(true);
+    this.erroreDotazione.set(null);
+    this.http.post(`${environment.apiUrl}/merce-in-sede/dotazione`, {
+      partnerId: this.nuovo.partnerId,
+      productId: this.nuovo.productId,
+      quantita: Number(this.nuovo.quantita) || 0,
+      note: this.nuovo.note || null,
+    }).subscribe({
+      next: () => {
+        this.salvando.set(false);
+        this.nuovo = { partnerId: '', productId: '', quantita: 1, note: '' };
+        this.caricaDotazione();
+        // La colonna «in dotazione» del livello 1 viene dal server: si ricarica, o mostrerebbe il vecchio numero.
+        this.carica();
+      },
+      error: (e: { error?: { message?: string } }) => {
+        this.salvando.set(false);
+        this.erroreDotazione.set(e?.error?.message ?? this.translate.instant('merce.errore'));
+      },
+    });
+  }
+
+  togli(d: RigaDotazione): void {
+    if (!confirm(this.translate.instant('merce.dotazione.confermaTogli', { prodotto: d.prodotto, partner: d.partner }))) return;
+    this.http.delete(`${environment.apiUrl}/merce-in-sede/dotazione/${d.id}`).subscribe({
+      next: () => { this.caricaDotazione(); this.carica(); },
+      error: () => this.erroreDotazione.set(this.translate.instant('merce.errore')),
+    });
   }
 
   private parametri(): HttpParams {
@@ -517,6 +696,7 @@ interface Contatori {
   cancellazioniRichieste: { pezzi: number; consegne: number };
 }
 
-interface Detentore { tipo: 'partner' | 'valet'; id: string; nome: string; daRitirare: number; inConsegna: number; inSospeso: number; consegnati: number }
+interface Detentore { tipo: 'partner' | 'valet'; id: string; nome: string; daRitirare: number; inConsegna: number; inSospeso: number; consegnati: number; inDotazione: number }
 interface RigaProdotto { nome: string; variante: string | null; daRitirare: number; inConsegna: number; inSospeso: number; consegnati: number; giacenza: number | null }
+interface RigaDotazione { id: string; partnerId: string; partner: string; productId: string; prodotto: string; sku: string; variante: string | null; quantita: number; note: string; nonPiuDiServizio: boolean }
 interface ConsegnaMerce { code: number; data: string; stato: string; quantita: number; partner: string | null; valet: string | null; luogo: string | null; destinazione: string | null }

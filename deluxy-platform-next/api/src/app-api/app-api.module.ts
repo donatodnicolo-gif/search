@@ -20,6 +20,7 @@ import {
 import { ApiQuery, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '../common/decorators';
 import { PrismaService } from '../prisma/prisma.service';
+import { cittaDaIndirizzo, oraMinima } from './dati-partner';
 import { DeliveriesModule } from '../deliveries/deliveries.module';
 import { DeliveriesService } from '../deliveries/deliveries.service';
 import { CreateDeliveryDto } from '../deliveries/dto/create-delivery.dto';
@@ -1304,6 +1305,21 @@ export class AppApiService {
       .map((g) => ({ provincia: g.provincia, nome: g.nome, partner: [...g.partner.values()].map((p) => ({ id: p.id, insegna: p.insegna, liste: [...p.liste].filter(Boolean) })) }));
   }
 
+  /**
+   * ⭐⭐ 11/09/2026 (istruzione utente: «passa all'app merchandising questi campi» — contratto
+   * CONTRATTO-APP-DELIVERY §2-quater) — L'INDIRIZZO E L'ORA MINIMA DEL PARTNER.
+   *
+   * Merchandising ha contato che cosa riceve: cinque campi, e la città valorizzata su **13 partner su
+   * 126**. Con quelli non può riempire i campi del negozio `custom.partner_address` (da dove parte la
+   * consegna) e `custom.minimo_orario` (da che ora si può consegnare) — e questi non si indovinano:
+   * dire al cliente che ritira dove non si ritira è peggio che non dirgli niente.
+   *
+   * Qui c'è tutto: `Partner.address` è pieno su **126 partner su 126**, e 94 hanno gli orari.
+   *
+   * ⚠️ La CITTÀ si ricava dall'indirizzo quando il campo è vuoto, ma lo si DICHIARA
+   * (`cittaDaIndirizzo`): un dato deteriorato che si spaccia per un dato inserito è il modo più
+   * comodo di non accorgersi mai che 113 schede sono da riempire.
+   */
   async partner() {
     const righe = await this.prisma.partner.findMany({
       where: { active: true, deleted: false },
@@ -1312,6 +1328,9 @@ export class AppApiService {
         id: true,
         insegna: true,
         city: true,
+        // ⬇ i due campi chiesti da Merchandising: l'indirizzo di ritiro e gli orari.
+        address: true,
+        openingHours: { select: { dayOfWeek: true, openTime: true, closed: true } },
         // ⚠️ Solo la SIGLA della provincia, non la provincia intera: alla
         // tendina serve «MI», e tutto il resto sarebbe roba che viaggia per
         // niente su una chiamata fatta a ogni apertura del modulo.
@@ -1323,13 +1342,21 @@ export class AppApiService {
         services: { select: { serviceTypeId: true } },
       },
     });
-    return righe.map((p) => ({
-      id: p.id,
-      insegna: p.insegna,
-      citta: p.city ?? '',
-      province: p.provinces.map((x) => x.province.code),
-      servizi: p.services.map((s) => s.serviceTypeId),
-    }));
+    return righe.map((p) => {
+      const dedotta = cittaDaIndirizzo(p.address);
+      const citta = (p.city ?? '').trim() || dedotta || '';
+      return {
+        id: p.id,
+        insegna: p.insegna,
+        citta,
+        // true = la città non era compilata e viene letta dall'indirizzo: chi la usa sa che è dedotta.
+        cittaDaIndirizzo: !(p.city ?? '').trim() && !!dedotta,
+        indirizzo: (p.address ?? '').trim(),
+        minimoOrario: oraMinima(p.openingHours),
+        province: p.provinces.map((x) => x.province.code),
+        servizi: p.services.map((s) => s.serviceTypeId),
+      };
+    });
   }
 
   /**
@@ -1426,8 +1453,21 @@ export class AppApiService {
       // prodotto va a preventivo prima di proporlo.
       tipologiaVendita: true,
       partnerId: true,
-      partner: { select: { insegna: true } },
-      variants: { select: { id: true, name: true, sku: true, price: true, publicPrice: true } },
+      /**
+       * ⭐⭐ 11/09/2026 (istruzione utente: «passa all'app merchandising questi campi» — contratto
+       * §2-quater) — GIORNI DI PREPARAZIONE E ORA MINIMA, dove servono davvero.
+       *
+       * Di là diventano due campi del negozio: `prodotto.consegna` (i giorni) e `custom.minimo_orario`
+       * (l'ora), e da quelli il sito scrive al cliente «Oggi e Domani», «48 ore», «Su Prenotazione».
+       * Erano vuoti su tutti e 42 i prodotti arrivati finora, non perché venissero ignorati ma perché
+       * questa lettura non li conteneva. `prepDays` è compilato su 1.393 prodotti attivi su 1.783.
+       *
+       * ⚠️ L'ora minima viaggia col PRODOTTO anche se è un dato del partner: è lì che serve il conto,
+       * e chi legge non deve incrociare due chiamate per sapere da che ora si consegna una torta.
+       */
+      prepDays: true,
+      partner: { select: { insegna: true, openingHours: { select: { openTime: true, closed: true } } } },
+      variants: { select: { id: true, name: true, sku: true, price: true, publicPrice: true, prepDays: true } },
     } as const;
     const [righe, generico] = await Promise.all([
       this.prisma.product.findMany({ where: dove, orderBy: { name: 'asc' }, take: 30, select: seleziona }),
@@ -1451,7 +1491,13 @@ export class AppApiService {
       // ⭐ 07/09/2026: la TIPOLOGIA usciva dalla query ma non dalla risposta, e il Customer
       // Service non poteva fare il controllo a monte («questo è un prodotto a numero»).
       tipologia: p.tipologiaVendita ?? null,
-      varianti: (p.variants ?? []).map((v) => ({ id: v.id, nome: v.name, sku: v.sku ?? '', prezzo: v.price ?? null, prezzoPubblico: v.publicPrice ?? null })),
+      varianti: (p.variants ?? []).map((v) => ({
+        id: v.id, nome: v.name, sku: v.sku ?? '', prezzo: v.price ?? null, prezzoPubblico: v.publicPrice ?? null,
+        giorniMinimi: v.prepDays ?? null,
+      })),
+      // I due campi del contratto §2-quater: i giorni di preavviso e l'ora da cui il partner può consegnare.
+      giorniMinimi: p.prepDays ?? null,
+      minimoOrario: oraMinima(p.partner?.openingHours),
       partnerId: p.partnerId ?? '',
       partner: p.partner?.insegna ?? '',
     });

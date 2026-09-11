@@ -839,10 +839,33 @@
     }
   },
   "deliveries": {
-    "ordine": { "apri": "View the order", "titolo": "Order", "negozio": "Store", "stato": "Status", "importo": "Amount", "cliente": "Customer", "prodotto": "Product", "note": "Notes", "vaiAVendite": "Open in Sales", "errore": "Order unavailable: please try again." },
-    "export": { "bottone": "Export to Excel", "vuoto": "No deliveries to export with these filters.", "corso": "Preparing the file…", "troncato": "Export stopped at 20,000 rows: narrow the period to get them all.", "errore": "Export failed: try again." },
-    "ordina": { "label": "Sort by", "asc": "Ascending ↑", "desc": "Descending ↓" },
-    "margine": { "titolo": "Deluxy margin {{pct}} % ({{euro}} €): below 5 %" },
+    "ordine": {
+      "apri": "View the order",
+      "titolo": "Order",
+      "negozio": "Store",
+      "stato": "Status",
+      "importo": "Amount",
+      "cliente": "Customer",
+      "prodotto": "Product",
+      "note": "Notes",
+      "vaiAVendite": "Open in Sales",
+      "errore": "Order unavailable: please try again."
+    },
+    "export": {
+      "bottone": "Export to Excel",
+      "vuoto": "No deliveries to export with these filters.",
+      "corso": "Preparing the file…",
+      "troncato": "Export stopped at 20,000 rows: narrow the period to get them all.",
+      "errore": "Export failed: try again."
+    },
+    "ordina": {
+      "label": "Sort by",
+      "asc": "Ascending ↑",
+      "desc": "Descending ↓"
+    },
+    "margine": {
+      "titolo": "Deluxy margin {{pct}} % ({{euro}} €): below 5 %"
+    },
     "nonConsegnate": {
       "chip": "Not delivered",
       "alert": "{{n}} not delivered to handle.",
@@ -2282,6 +2305,7 @@
       "notEditable": "Not editable",
       "notPhysical": "Non-physical",
       "prodottoApp": "App product (delivery platform only, not exposed to Merchandising)",
+      "servizio": "Service item (cards and the like: assigned as stock to partners)",
       "isSuperProvince": "Super province",
       "controlStock": "Track stock",
       "approved": "Approved",
@@ -2921,7 +2945,16 @@
     "emptyHere": "Nothing here to send."
   },
   "sales": {
-    "filtri": { "provincia": "Province", "partner": "Partner", "brand": "Store", "tipologia": "Type", "dal": "Delivery from", "al": "to", "tutte": "all", "tutti": "all" },
+    "filtri": {
+      "provincia": "Province",
+      "partner": "Partner",
+      "brand": "Store",
+      "tipologia": "Type",
+      "dal": "Delivery from",
+      "al": "to",
+      "tutte": "all",
+      "tutti": "all"
+    },
     "title": "Sales",
     "caption": "Orders dispatched to partners.",
     "cercaFornitore": "Find supplier",
@@ -3122,7 +3155,9 @@
       "PICKUP": "Pickup",
       "DELIVERY": "Delivery"
     },
-    "assegna": { "a": "Assign to…" },
+    "assegna": {
+      "a": "Assign to…"
+    },
     "col": {
       "type": "Type",
       "time": "When",
@@ -3403,11 +3438,26 @@
     "nuovo": "New parent entity",
     "vuoto": "No parent entities",
     "vuotoHint": "Create one here or from the partner form («Who pays»).",
-    "col": { "nome": "Company name", "pIva": "VAT", "sdi": "SDI", "pec": "PEC", "sedi": "Locations", "registro": "Registry" },
+    "col": {
+      "nome": "Company name",
+      "pIva": "VAT",
+      "sdi": "SDI",
+      "pec": "PEC",
+      "sedi": "Locations",
+      "registro": "Registry"
+    },
     "collegato": "Linked",
     "pagaDaSe": "pays by itself",
     "fatturaLui": "parent entity is invoiced",
-    "campo": { "nome": "Company name", "pIva": "VAT number", "codiceFiscale": "Fiscal code", "codiceSdi": "SDI code", "pec": "PEC", "email": "Invoice email", "note": "Notes" },
+    "campo": {
+      "nome": "Company name",
+      "pIva": "VAT number",
+      "codiceFiscale": "Fiscal code",
+      "codiceSdi": "SDI code",
+      "pec": "PEC",
+      "email": "Invoice email",
+      "note": "Notes"
+    },
     "avvisoSedi": "On save, billing data is rewritten on every location invoiced through this parent entity.",
     "creato": "Parent entity created ✓",
     "salvato": "Parent entity saved ✓"
@@ -3746,6 +3796,7 @@
       "prodotto": "Product",
       "daRitirare": "To collect",
       "inConsegna": "Out for delivery",
+      "inDotazione": "On hand",
       "inSospeso": "Pending",
       "consegnati": "Delivered",
       "giacenza": "In stock",
@@ -3782,6 +3833,19 @@
     "sezione": {
       "daFare": "To do",
       "storico": "History"
+    },
+    "dotazione": {
+      "titolo": "Service goods assigned",
+      "spiega": "Cards, envelopes, ribbons: material physically held by the partner that no delivery accounts for. A real stock, unaffected by the period.",
+      "partner": "Partner",
+      "prodotto": "Product",
+      "quantita": "Quantity",
+      "note": "Notes",
+      "assegna": "Assign",
+      "nessuna": "Nothing assigned",
+      "nessunProdotto": "No product carries the «service» flag: set it on the product page.",
+      "nonPiuServizio": "the product no longer carries the service flag",
+      "confermaTogli": "Remove «{{prodotto}}» from {{partner}} stock?"
     }
   }
 }

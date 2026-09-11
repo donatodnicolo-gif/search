@@ -84,6 +84,7 @@ export class ProductsService {
       ['isSuperProvince', query.superProvince],
       ['controlStock', query.inStock],
       ['isSuperProduct', query.superProduct],
+      ['servizio', query.servizio],
     ] as const) {
       if (valore !== undefined) siNo[campo] = valore;
     }

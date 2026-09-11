@@ -134,6 +134,8 @@ interface ImageRow { url: string; }
           <label class="toggle"><input type="checkbox" name="active" [(ngModel)]="model.active" /><span>{{ 'common.active' | translate }}</span></label>
           <label class="toggle"><input type="checkbox" name="notPhysical" [(ngModel)]="model.notPhysical" /><span>{{ 'productForm.toggle.notPhysical' | translate }}</span></label>
           <label class="toggle"><input type="checkbox" name="prodottoApp" [(ngModel)]="model.prodottoApp" /><span>{{ 'productForm.toggle.prodottoApp' | translate }}</span></label>
+          <!-- ⭐ 11/09/2026 (regola utente): il prodotto di SERVIZIO si assegna in dotazione ai partner. -->
+          <label class="toggle"><input type="checkbox" name="servizio" [(ngModel)]="model.servizio" /><span>{{ 'productForm.toggle.servizio' | translate }}</span></label>
         </div>
 
         <div class="sub-head mt2">{{ 'productForm.section.platforms.title' | translate }}</div>
@@ -491,6 +493,7 @@ export class ProductFormComponent {
     stock: null as number | null,
     notPhysical: false,
     prodottoApp: false,
+    servizio: false,
     isSuperProvince: false,
     approved: false,
     active: true,
@@ -649,6 +652,7 @@ export class ProductFormComponent {
       controlStock: m.controlStock,
       notPhysical: m.notPhysical,
       prodottoApp: m.prodottoApp,
+      servizio: m.servizio,
       isSuperProvince: m.isSuperProvince,
       approved: m.approved,
       active: m.active,

@@ -228,6 +228,16 @@ export class CreateProductDto {
   @IsBoolean()
   prodottoApp?: boolean;
 
+  /**
+   * ⭐⭐ 11/09/2026 (regola utente): «prodotti con flag SERVIZIO, che saranno ad esempio i biglietti che
+   * si possono assegnare per singoli stock ai vari partner». Col flag il prodotto si può assegnare come
+   * dotazione in Merce in sede; senza, l'assegnazione viene rifiutata.
+   */
+  @ApiPropertyOptional({ default: false, description: 'Prodotto di SERVIZIO (biglietti, buste, nastri): si assegna in dotazione ai partner' })
+  @IsOptional()
+  @IsBoolean()
+  servizio?: boolean;
+
   @ApiPropertyOptional({ default: false, description: 'Super provincia' })
   @IsOptional()
   @IsBoolean()

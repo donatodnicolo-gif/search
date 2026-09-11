@@ -26,28 +26,28 @@ datasource db {
 // isSupport: admin "support" -> vede Finanza / marginalita'
 // ------------------------------------------------------------
 model User {
-  id           String   @id @default(cuid())
+  id                      String             @id @default(cuid())
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
-  legacyId             Int?      @unique
-  email        String   @unique
-  passwordHash String?  // null finché l'utente non accetta l'invito e sceglie la password
-  firstName    String
-  lastName     String
-  role         String
-  isSupport    Boolean  @default(false)
+  legacyId                Int?               @unique
+  email                   String             @unique
+  passwordHash            String? // null finché l'utente non accetta l'invito e sceglie la password
+  firstName               String
+  lastName                String
+  role                    String
+  isSupport               Boolean            @default(false)
   /// Quando è entrato l'ultima volta: base della regola «valet fermo 90 giorni
   /// → inattivo». Null = mai registrato (il campo esiste dal 26/08/2026).
-  lastLoginAt  DateTime?
+  lastLoginAt             DateTime?
   // Stato dell'ACCESSO (separato dall'operatività dell'anagrafica):
   //  invited   -> creato, non ha ancora scelto la password (non può entrare)
   //  active    -> può accedere
   //  suspended -> sospeso temporaneo (non può entrare, torna attivabile)
   //  archived  -> cessato (non può entrare; il record resta per lo storico)
-  status       String   @default("invited")
+  status                  String             @default("invited")
   // Invito: token monouso a scadenza con cui la persona sceglie la password
-  inviteToken          String?   @unique
-  inviteTokenExpiresAt DateTime?
-  activatedAt          DateTime?
+  inviteToken             String?            @unique
+  inviteTokenExpiresAt    DateTime?
+  activatedAt             DateTime?
   /// RESET PASSWORD (27/08/2026). Token monouso a scadenza breve.
   ///
   /// ⚠️ In colonna sta l'IMPRONTA sha256 del token, non il token: chi legge il
@@ -58,32 +58,32 @@ model User {
   /// reset hanno regole diverse (l'invito attiva l'account, il reset no) e
   /// riusare la stessa colonna vorrebbe dire che chiedere un reset annulla un
   /// invito in sospeso.
-  resetTokenHash       String?   @unique
-  resetTokenExpiresAt  DateTime?
-  resetRequestedAt     DateTime?
+  resetTokenHash          String?            @unique
+  resetTokenExpiresAt     DateTime?
+  resetRequestedAt        DateTime?
   /// CAMBIO OBBLIGATORIO AL PRIMO ACCESSO (31/08/2026). Vero per gli account a
   /// cui è stata data una password temporanea nota (es. la bonifica delle
   /// password «123»): il login riesce, ma la sessione è vincolata alla scelta
   /// di una password nuova prima di poter fare altro.
-  mustChangePassword   Boolean   @default(false)
-  partnerId    String?
-  partner      Partner? @relation(fields: [partnerId], references: [id])
-  valetId      String?  @unique
-  valet        Valet?   @relation(fields: [valetId], references: [id])
-  operationId  String?    @unique
-  operation    Operation? @relation(fields: [operationId], references: [id])
+  mustChangePassword      Boolean            @default(false)
+  partnerId               String?
+  partner                 Partner?           @relation(fields: [partnerId], references: [id])
+  valetId                 String?            @unique
+  valet                   Valet?             @relation(fields: [valetId], references: [id])
+  operationId             String?            @unique
+  operation               Operation?         @relation(fields: [operationId], references: [id])
   /// account di accesso di un cliente (ruolo CUSTOMER)
-  customerId   String?    @unique
-  customer     Customer?  @relation(fields: [customerId], references: [id])
-  savedViews   SavedView[]
-  events       UserEvent[]
-  notifications      Notification[]
-  pushSubscriptions  PushSubscription[]
-  deliveriesCreated      Delivery[] @relation("DeliveryCreataDa")
-  deliveriesReadAsPartner Delivery[] @relation("DeliveryLettaDaPartner")
-  deliveriesReadAsValet   Delivery[] @relation("DeliveryLettaDaValet")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  customerId              String?            @unique
+  customer                Customer?          @relation(fields: [customerId], references: [id])
+  savedViews              SavedView[]
+  events                  UserEvent[]
+  notifications           Notification[]
+  pushSubscriptions       PushSubscription[]
+  deliveriesCreated       Delivery[]         @relation("DeliveryCreataDa")
+  deliveriesReadAsPartner Delivery[]         @relation("DeliveryLettaDaPartner")
+  deliveriesReadAsValet   Delivery[]         @relation("DeliveryLettaDaValet")
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
 }
 
 // ============================================================
@@ -94,19 +94,19 @@ model User {
 /// Una notifica destinata a un utente. Resta a storico anche dopo la lettura:
 /// il contatore in header conta solo quelle con readAt = null.
 model Notification {
-  id     String @id @default(cuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// Valori in NotificationType (api/src/common/enums.ts).
-  type   String
-  title  String
-  body   String
+  type       String
+  title      String
+  body       String
   /// Entita' che ha generato la notifica, per portare l'utente al dettaglio
   /// al click (es. "delivery" + id della consegna).
   entityType String?
   entityId   String?
-  readAt    DateTime?
-  createdAt DateTime  @default(now())
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
 
   // Il contatore delle non lette e' la query piu' frequente dell'app.
   @@index([userId, readAt])
@@ -116,10 +116,10 @@ model Notification {
 /// Iscrizione Web Push di un browser (una per dispositivo/browser).
 /// L'endpoint e' l'identificatore univoco assegnato dal push service.
 model PushSubscription {
-  id       String @id @default(cuid())
-  userId   String
-  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  endpoint String @unique
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
   /// Chiavi del client per cifrare il payload (standard Web Push).
   p256dh    String
   auth      String
@@ -135,8 +135,8 @@ model UserEvent {
   id         String   @id @default(cuid())
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  action     String   // created | invited | activated | suspended | archived | reactivated | role_changed
-  actorId    String?  // id dell'utente che ha compiuto l'azione (null = sistema)
+  action     String // created | invited | activated | suspended | archived | reactivated | role_changed
+  actorId    String? // id dell'utente che ha compiuto l'azione (null = sistema)
   actorEmail String?
   note       String?
   createdAt  DateTime @default(now())
@@ -168,11 +168,11 @@ model SavedView {
 // Geografia: province e citta'
 // ------------------------------------------------------------
 model Province {
-  id                String             @id @default(cuid())
+  id                String                     @id @default(cuid())
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
-  legacyId             Int?      @unique
+  legacyId          Int?                       @unique
   name              String
-  code              String             @unique // es. "MI"
+  code              String                     @unique // es. "MI"
   aree              AreaProvincia[]
   cities            City[]
   partnerProvinces  PartnerProvince[]
@@ -187,7 +187,7 @@ model Province {
 model City {
   id         String   @id @default(cuid())
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
-  legacyId             Int?      @unique
+  legacyId   Int?     @unique
   name       String
   provinceId String
   province   Province @relation(fields: [provinceId], references: [id])
@@ -254,100 +254,100 @@ model CommissioneIncasso {
 //   servizio prezzo fisso del partner <-> salario prezzo fisso del valet
 // ------------------------------------------------------------
 model ServiceType {
-  id              String           @id @default(cuid())
+  id                String             @id @default(cuid())
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
-  legacyId             Int?      @unique
-  name            String
-  code            String           @unique
-  pricingModel    String // VENDITA | PREZZO_FISSO | A_ORA | MAGAZZINO | CORPORATE
-  scope           String           @default("partner") // partner | valet | both
-  basePrice       Float? // magazzino: prezzo fisso
-  perPiecePrice   Float? // magazzino: prezzo a pezzo
-  transportPrice  Float? // magazzino: prezzo consegna
-  deliveryPrice   Float? // magazzino: prezzo consegna (nuovo)
-  minHours        Int?             @default(1)
+  legacyId          Int?               @unique
+  name              String
+  code              String             @unique
+  pricingModel      String // VENDITA | PREZZO_FISSO | A_ORA | MAGAZZINO | CORPORATE
+  scope             String             @default("partner") // partner | valet | both
+  basePrice         Float? // magazzino: prezzo fisso
+  perPiecePrice     Float? // magazzino: prezzo a pezzo
+  transportPrice    Float? // magazzino: prezzo consegna
+  deliveryPrice     Float? // magazzino: prezzo consegna (nuovo)
+  minHours          Int?               @default(1)
   // Setup prenotazione (usato dalle regole di richiesta servizio)
-  noticeDays      Int? // giorni di preavviso
-  slotHours       Int? // fascia oraria: 1 | 2 | 4 (ore)
-  maxOrderTime    String? // ora massima inserimento giornaliero "HH:MM" (fine generazione fasce consegna)
-  minOrderTime    String? // ora minima inserimento giornaliero "HH:MM" (inizio generazione fasce consegna)
-  allowFlexibleTime Boolean        @default(false) // consente la fascia di consegna flessibile (dalle–alle)
-  notes           String?
-  hideCustomerInfo Boolean         @default(false)
+  noticeDays        Int? // giorni di preavviso
+  slotHours         Int? // fascia oraria: 1 | 2 | 4 (ore)
+  maxOrderTime      String? // ora massima inserimento giornaliero "HH:MM" (fine generazione fasce consegna)
+  minOrderTime      String? // ora minima inserimento giornaliero "HH:MM" (inizio generazione fasce consegna)
+  allowFlexibleTime Boolean            @default(false) // consente la fascia di consegna flessibile (dalle–alle)
+  notes             String?
+  hideCustomerInfo  Boolean            @default(false)
   /// ⭐ 05/09/2026 (regola utente): SOLO questo servizio a ore chiede al valet
   /// di dichiarare le ore e al partner di approvarle («Servizio Ora con
   /// Approvazione»). Gli altri servizi a ore si chiudono come le altre
   /// consegne. Il 04/09 il flusso valeva per tutti gli A_ORA e sei consegne di
   /// Chanel/Clivati/Nikky sono rimaste in «ore da approvare» senza che nessuno
   /// dovesse approvarle.
-  hoursApproval    Boolean         @default(false)
-  active          Boolean          @default(true)
-  partnerServices PartnerService[]
-  valetServices   ValetService[]
+  hoursApproval     Boolean            @default(false)
+  active            Boolean            @default(true)
+  partnerServices   PartnerService[]
+  valetServices     ValetService[]
   recurringServices RecurringService[]
-  deliveries      Delivery[]
-  deliveryRules   DeliveryRule[]
+  deliveries        Delivery[]
+  deliveryRules     DeliveryRule[]
 }
 
 // ------------------------------------------------------------
 // Partner (negozi)
 // ------------------------------------------------------------
 model Partner {
-  id                  String            @id @default(cuid())
+  id                      String                     @id @default(cuid())
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
-  legacyId             Int?      @unique
-  insegna             String
-  businessName        String? // ragione sociale
-  email               String            @unique
-  vatNumber           String? // P.IVA
-  fiscalCode          String? // CF
-  address             String?
+  legacyId                Int?                       @unique
+  insegna                 String
+  businessName            String? // ragione sociale
+  email                   String                     @unique
+  vatNumber               String? // P.IVA
+  fiscalCode              String? // CF
+  address                 String?
   /// Citta' e coordinate dal database originario. La citta' NON e' sempre
   /// dentro l'indirizzo (32 partner e 78 valet ce l'hanno solo qui), e le
   /// coordinate servono a calcolare le distanze senza richiamare Maps.
-  city                String?
-  latitude            Float?
-  longitude           Float?
-  phone               String?
-  contactName         String? // referente
-  invoicingEnabled    Boolean           @default(false)
-  invoiceEmail        String?
-  smsTemplatesEnabled Boolean           @default(false)
-  notificationsEnabled Boolean          @default(true)
-  documentation       String?
-  notes               String?
-  woocommerceApiKey   String?           @unique
+  city                    String?
+  latitude                Float?
+  longitude               Float?
+  phone                   String?
+  contactName             String? // referente
+  invoicingEnabled        Boolean                    @default(false)
+  invoiceEmail            String?
+  smsTemplatesEnabled     Boolean                    @default(false)
+  notificationsEnabled    Boolean                    @default(true)
+  documentation           String?
+  notes                   String?
+  woocommerceApiKey       String?                    @unique
   // Stato pagamenti del partner (legacy): active | inactive | blocked
-  paymentStatus       String            @default("active")
+  paymentStatus           String                     @default("active")
   // Metodo di pagamento (legacy): bankTransfer | creditCard | directDebitMandate
-  paymentMethod       String?
+  paymentMethod           String?
   // Referente: nome (contactName) + cognome
-  contactSurname      String?
+  contactSurname          String?
   // Notifiche granulari (come nell'app reale)
-  whatsappNotifications Boolean         @default(false)
-  mailNotifications   Boolean           @default(false)
+  whatsappNotifications   Boolean                    @default(false)
+  mailNotifications       Boolean                    @default(false)
   /// ⭐ 06/09/2026 (regola utente): «Consegna Partner Automatico» — ogni consegna inserita
   /// per questo partner nasce «consegna da fornitore» (deliveredByPartner) col valet
   /// «Partner Consegna». Colonna aggiunta con scripts/applica-migrazione-partner-auto.mjs.
-  autoDeliveredByPartner Boolean        @default(false)
+  autoDeliveredByPartner  Boolean                    @default(false)
   /// ⭐ 06/09/2026 (regola utente): sui servizi di VENDITA, il minimo d'ordine che il partner vuole ricevere (€ al cliente); null = nessun minimo.
-  minimoOrdineVendita    Float?
+  minimoOrdineVendita     Float?
   /// ⭐ 06/09/2026 (regola utente): per le consegne che fa LUI, il raggio massimo (km) che accetta; null = nessun limite.
-  raggioMaxConsegnaKm    Float?
+  raggioMaxConsegnaKm     Float?
   /// ⭐ 06/09/2026 sera (regola utente): ESCLUSO DALLE PROPOSTE — i partner «nostri» di ripiego
   /// (Artista Locale, Deluxy Flowers, Cakedesignme) non entrano nelle liste a cui proporre gli ordini
   /// e non rendono «con partner» una provincia. Lo decide l'ufficio dalla scheda; il partner non se lo toglie.
-  esclusoDalleProposte   Boolean        @default(false)
+  esclusoDalleProposte    Boolean                    @default(false)
   /// ⭐ 06/09/2026 sera (regola utente): quando il fioraio ha compilato il suo LISTINO dei fiori a stelo.
   /// Vuoto = al primo accesso gli si chiede di riempirlo.
   listinoFioriCompilatoIl DateTime?
-  mestieri            PartnerMestiere[]
-  aree                PartnerArea[]
-  consegnaProvince    PartnerConsegnaProvincia[]
+  mestieri                PartnerMestiere[]
+  aree                    PartnerArea[]
+  consegnaProvince        PartnerConsegnaProvincia[]
   // Pagamenti e contratto
-  bankAccount         String? // IBAN
-  bankAccountName     String? // intestatario conto
-  sdiCode             String? // codice SDI fatturazione elettronica
+  bankAccount             String? // IBAN
+  bankAccountName         String? // intestatario conto
+  sdiCode                 String? // codice SDI fatturazione elettronica
 
   // ===== Cambio delle coordinate bancarie in due passi (⭐ 08/09/2026) =====
   //
@@ -366,17 +366,17 @@ model Partner {
   // il database non deve poter completare una verifica al posto del partner.
 
   /// Impronta SHA-256 del codice di verifica in corso. Mai il codice.
-  bankCodeHash        String?
+  bankCodeHash      String?
   /// Quando scade il codice: passata questa, la richiesta non vale più.
-  bankCodeExpiresAt   DateTime?
+  bankCodeExpiresAt DateTime?
   /// Tentativi sbagliati. Oltre il tetto la richiesta decade: un codice a sei cifre
   /// senza limite si indovina, con abbastanza tentativi.
-  bankCodeAttempts    Int      @default(0)
+  bankCodeAttempts  Int       @default(0)
   /// Quando è partita la richiesta: serve a non far rimandare il codice a raffica.
-  bankCodeSentAt      DateTime?
+  bankCodeSentAt    DateTime?
   /// I valori PROPOSTI, in attesa di conferma: JSON {bankAccount, bankAccountName}.
   /// Restano qui, staccati dai campi veri, finché il codice non arriva.
-  bankPending         String?
+  bankPending       String?
 
   // ⚠️⚠️ 08/09/2026 — LA FALLA CHE L'AGENTE OSTILE HA TROVATO NELLA PRIMA VERSIONE.
   //
@@ -390,31 +390,31 @@ model Partner {
   // il titolare vero se ne accorge).
 
   /// Quando è cambiato l'indirizzo email del partner. Null = mai cambiato da qui.
-  emailCambiataIl     DateTime?
+  emailCambiataIl        DateTime?
   /// L'indirizzo precedente: per un mese il codice di verifica arriva anche là.
-  emailPrecedente     String?
+  emailPrecedente        String?
   // --- dati amministrativi che arrivano dal registro Anagrafiche ---
   /// Referente amministrazione del registro (non il referente commerciale).
-  adminName           String?
-  adminEmail          String?
-  adminPhone          String?
+  adminName              String?
+  adminEmail             String?
+  adminPhone             String?
   /// Stato finanziario secondo il registro: da_verificare | regolare | in_ritardo | insoluto.
   /// ⚠️ Nel registro vale `da_verificare` su 1.034 anagrafiche su 1.057, cioe' e'
   /// il valore predefinito: solo 23 dicono davvero qualcosa.
-  financialStatus     String?
-  certifiedEmail      String? // PEC
-  contractStart       DateTime?
-  contractEnd         DateTime?
+  financialStatus        String?
+  certifiedEmail         String? // PEC
+  contractStart          DateTime?
+  contractEnd            DateTime?
   /// Il vecchio sistema aveva gia' avvisato della scadenza del contratto.
   /// Si importa per non rimandare a quel partner un avviso che ha gia' avuto.
-  contractExpiryNotified Boolean        @default(false)
+  contractExpiryNotified Boolean   @default(false)
   // Notifiche extra
-  activityReminder    Boolean           @default(false) // promemoria attività
+  activityReminder       Boolean   @default(false) // promemoria attività
   // KM a livello partner (soglia inclusa entro il comune + extra fuori città)
-  kmIncluded          Float?
-  extraOutOfCityPrice Float?
+  kmIncluded             Float?
+  extraOutOfCityPrice    Float?
   // Commissione del partner (Fee%): usata dalla Finanza per Fee value = Fee% x prezzo partner.
-  commissionPercent   Float             @default(0)
+  commissionPercent      Float     @default(0)
 
   // ===== CONDIZIONI DI PAGAMENTO (⭐ 08/09/2026, regola utente) =====
   //
@@ -455,64 +455,66 @@ model Partner {
   /// ⚠️ OBBLIGATORIO per i partner con servizi di VENDITA (`pricingModel =
   /// 'VENDITA'`): lì la domanda non è rimandabile, perché decide se le
   /// commissioni si scalano dagli incassi o si incassano a parte.
-  compensazioneIncassi  Boolean?
+  compensazioneIncassi Boolean?
 
   /// Giorni per incassare dal partner sui servizi NON di vendita.
   /// null = non concordato (si incassa a vista fattura).
-  incassoServiziGiorni  Int?
+  incassoServiziGiorni Int?
 
   /// Da quando decorrono i giorni di incasso — il «flag di specifica» chiesto
   /// dall'utente: true = fine mese della fattura, false = data della fattura.
   /// Sul vendor non c'è il flag perché là la decorrenza è sempre fine mese.
-  incassoServiziFineMese Boolean          @default(false)
+  incassoServiziFineMese Boolean               @default(false)
   /// Il partner tiene merce da noi. Nel legacy e' `partner.partnerHasWarehouse`:
   /// se e' spento, i servizi di magazzino a listino NON si mostrano, anche quando
   /// la riga esiste (3 partner su 267 sono in questo stato, fra cui 142 RESTAURANT).
-  hasWarehouse        Boolean           @default(false)
+  hasWarehouse           Boolean               @default(false)
   // Tipo codice di consegna (quando deliveryCodeRequired): UNIQUE_PER_DELIVERY | UNIQUE_PER_CUSTOMER
-  deliveryCodeCheckType String          @default("UNIQUE_PER_DELIVERY")
+  deliveryCodeCheckType  String                @default("UNIQUE_PER_DELIVERY")
   // Indirizzo di ritiro multiplo (+ lista indirizzi come JSON per compat. SQLite)
-  isMultiPickup       Boolean           @default(false)
-  pickupAddresses     String? // JSON array di indirizzi di ritiro aggiuntivi
-  chatThread          ChatThread?
+  isMultiPickup          Boolean               @default(false)
+  pickupAddresses        String? // JSON array di indirizzi di ritiro aggiuntivi
+  chatThread             ChatThread?
   // Campi di vendita
-  storeUrl            String?
-  imageUrl            String?
+  storeUrl               String?
+  imageUrl               String?
   // Sicurezza
-  valetIdentityCheck  Boolean           @default(false)
-  deliveryCodeRequired Boolean          @default(false)
+  valetIdentityCheck     Boolean               @default(false)
+  deliveryCodeRequired   Boolean               @default(false)
   // Partner magazzino
-  isWarehouse         Boolean           @default(false)
-  active              Boolean           @default(true)
+  isWarehouse            Boolean               @default(false)
+  active                 Boolean               @default(true)
   /// ELIMINATO (31/08/2026): stato più forte di «disattivato». Un partner
   /// disattivato non riceve consegne ma resta nello storico e in fatturazione;
   /// uno ELIMINATO sparisce anche da lì (fatturazione, liste). Non è una
   /// cancellazione dei dati: lo storico resta, ma non si mostra più.
-  deleted             Boolean           @default(false)
-  provinces           PartnerProvince[]
-  services            PartnerService[]
-  categories          PartnerCategory[]
-  openingHours        OpeningHour[]
-  dayExceptions       PartnerDayException[]
-  daySlots            PartnerDaySlot[]
-  products            Product[]
-  deliveries          Delivery[]
-  recurringServices   RecurringService[]
-  customers           Customer[]
-  users               User[]
-  smsTemplates        SmsTemplate[]
-  sales               Sale[]
-  deliveryRules       DeliveryRulePartner[]
-  invoices            Invoice[]
+  deleted                Boolean               @default(false)
+  provinces              PartnerProvince[]
+  services               PartnerService[]
+  categories             PartnerCategory[]
+  openingHours           OpeningHour[]
+  dayExceptions          PartnerDayException[]
+  daySlots               PartnerDaySlot[]
+  products               Product[]
+  deliveries             Delivery[]
+  recurringServices      RecurringService[]
+  customers              Customer[]
+  users                  User[]
+  smsTemplates           SmsTemplate[]
+  sales                  Sale[]
+  deliveryRules          DeliveryRulePartner[]
+  invoices               Invoice[]
   /// ⭐ 10/09/2026 (regola utente): CHI PAGA per questo punto vendita. Null = paga da sé.
-  capogruppoId        String?
-  capogruppo          Capogruppo?       @relation(fields: [capogruppoId], references: [id], onDelete: SetNull)
+  capogruppoId           String?
+  capogruppo             Capogruppo?           @relation(fields: [capogruppoId], references: [id], onDelete: SetNull)
   /// true = si fattura da solo; false = fattura il capogruppo (Finance legge da lì).
-  pagaDaSe            Boolean           @default(true)
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
-  priorityEntries     PriorityEntry[]
-  quoteRequests       QuoteRequest[]
+  pagaDaSe               Boolean               @default(true)
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+  priorityEntries        PriorityEntry[]
+  quoteRequests          QuoteRequest[]
+  /// Le assegnazioni di merce di servizio (biglietti e simili) fatte a questo partner.
+  merceDiServizio        PartnerProductStock[]
 }
 
 // ------------------------------------------------------------
@@ -561,15 +563,15 @@ model QuoteRequest {
 /// al posto delle province una per una. PartnerProvince resta la lista EFFETTIVA (unione delle aree).
 /// Tabelle e aree iniziali con scripts/applica-migrazione-aree.mjs.
 model Area {
-  id        String   @id @default(cuid())
-  nome      String   @unique
+  id        String          @id @default(cuid())
+  nome      String          @unique
   note      String?
-  attiva    Boolean  @default(true)
+  attiva    Boolean         @default(true)
   province  AreaProvincia[]
   partners  PartnerArea[]
   valets    ValetArea[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 }
 
 model AreaProvincia {
@@ -663,19 +665,19 @@ model PartnerService {
 /// smistamento usava quella, e le sue 455 righe avevano tutte `priority = 0`:
 /// ordinava per un campo uguale per tutti, cioe' non ordinava affatto.
 model PriorityList {
-  id         String   @id @default(cuid())
+  id         String          @id @default(cuid())
   /// id nel database originario MySQL
-  legacyId   Int?     @unique
+  legacyId   Int?            @unique
   provinceId String
-  province   Province @relation(fields: [provinceId], references: [id])
+  province   Province        @relation(fields: [provinceId], references: [id])
   /// ⭐ 06/09/2026: le liste NUOVE sono per (provincia, mestiere); quelle per categoria restano come transizione.
   categoryId String?
-  category   Category? @relation(fields: [categoryId], references: [id])
+  category   Category?       @relation(fields: [categoryId], references: [id])
   mestiereId String?
-  mestiere   Mestiere? @relation(fields: [mestiereId], references: [id])
+  mestiere   Mestiere?       @relation(fields: [mestiereId], references: [id])
   entries    PriorityEntry[]
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
 
   @@unique([provinceId, categoryId])
   @@unique([provinceId, mestiereId])
@@ -683,15 +685,15 @@ model PriorityList {
 
 /// Un partner dentro una lista priorita', con la sua posizione.
 model PriorityEntry {
-  id       String       @id @default(cuid())
+  id        String       @id @default(cuid())
   /// id nel database originario MySQL
-  legacyId Int?         @unique
-  listId   String
-  list     PriorityList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  legacyId  Int?         @unique
+  listId    String
+  list      PriorityList @relation(fields: [listId], references: [id], onDelete: Cascade)
   partnerId String
-  partner   Partner     @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  partner   Partner      @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   /// Posizione: 1 = primo a cui si propone.
-  position  Int         @default(1)
+  position  Int          @default(1)
 
   @@unique([listId, partnerId])
   @@index([listId, position])
@@ -764,75 +766,75 @@ model PartnerDayException {
 // (es. endpoint /api/experts/...). Qui usiamo "valet" come nel linguaggio
 // di business.
 model Valet {
-  id                  String            @id @default(cuid())
+  id           String    @id @default(cuid())
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
-  legacyId             Int?      @unique
-  firstName           String
-  lastName            String
-  email               String            @unique
-  phone               String?
-  address             String?
+  legacyId     Int?      @unique
+  firstName    String
+  lastName     String
+  email        String    @unique
+  phone        String?
+  address      String?
   /// Citta' e coordinate dal database originario. La citta' NON e' sempre
   /// dentro l'indirizzo (32 partner e 78 valet ce l'hanno solo qui), e le
   /// coordinate servono a calcolare le distanze senza richiamare Maps.
-  city                String?
-  latitude            Float?
-  longitude           Float?
-  hasVat              Boolean           @default(false) // flag P.IVA
-  vatNumber           String?
-  fiscalCode          String?
-  birthPlace          String?
-  birthDate           DateTime?
-  iban                String?
+  city         String?
+  latitude     Float?
+  longitude    Float?
+  hasVat       Boolean   @default(false) // flag P.IVA
+  vatNumber    String?
+  fiscalCode   String?
+  birthPlace   String?
+  birthDate    DateTime?
+  iban         String?
   /// ⭐ Non e' una persona: e' il segnaposto «Consegna Partner», usato quando
   /// la consegna se l'e' fatta il partner e non c'e' nessun valet da pagare.
   ///
   /// Serve una colonna perche' riconoscerlo dal NOME sarebbe pericoloso: c'e'
   /// un valet vero che si chiama «Consegna Amin» (una persona, 220 consegne da
   /// pagare) e una regola larga su «consegna» lo cancellerebbe dagli stipendi.
-  placeholder         Boolean           @default(false)
-  isTeamLeader        Boolean           @default(false)
+  placeholder  Boolean   @default(false)
+  isTeamLeader Boolean   @default(false)
 
   // Team leader: province dove può assegnare + partner associati + partner esclusi (JSON array di id, compat. SQLite)
-  teamLeaderProvinces String?
-  teamLeaderPartners  String?
+  teamLeaderProvinces        String?
+  teamLeaderPartners         String?
   teamLeaderExcludedPartners String? // partner esclusi dallo scope del team leader
-  vehicle             String? // mezzi (anche piu' d'uno, separati da virgola): Auto | Bicicletta | Furgone | Moto/Scooter
+  vehicle                    String? // mezzi (anche piu' d'uno, separati da virgola): Auto | Bicicletta | Furgone | Moto/Scooter
   /// Modello per ciascun mezzo scelto, JSON {"Auto":"Fiat Panda",...}
-  vehicleModels       String?
-  withholdingPercent  Float             @default(0) // % ritenuta rimborso
+  vehicleModels              String?
+  withholdingPercent         Float                     @default(0) // % ritenuta rimborso
   // Stipendio
-  salaryFrequency     String            @default("monthly") // monthly | weekly
-  weeklyDepositLimit  Float?
+  salaryFrequency            String                    @default("monthly") // monthly | weekly
+  weeklyDepositLimit         Float?
   // KM a livello valet
-  minimumKmIncluded   Float? // soglia KM inclusi entro il comune
-  extraOutOfCityPrice Float? // rimborso extra fuori dal comune
-  notes               String?
-  notifyByEmail       Boolean           @default(true)
-  notifyByWhatsapp    Boolean           @default(false)
-  active              Boolean           @default(true)
+  minimumKmIncluded          Float? // soglia KM inclusi entro il comune
+  extraOutOfCityPrice        Float? // rimborso extra fuori dal comune
+  notes                      String?
+  notifyByEmail              Boolean                   @default(true)
+  notifyByWhatsapp           Boolean                   @default(false)
+  active                     Boolean                   @default(true)
   /// ELIMINATO (31/08/2026): come per i partner, un valet «eliminato» sparisce
   /// da Stipendi ed elenchi ma resta a storico (reversibile). Usato per chi non
   /// ha più nulla da pagare dal 2025.
-  deleted             Boolean           @default(false)
-  provinces           ValetProvince[]
-  aree                ValetArea[]
-  services            ValetService[]
-  deliveries          Delivery[]
-  recurringServices   RecurringService[]
+  deleted                    Boolean                   @default(false)
+  provinces                  ValetProvince[]
+  aree                       ValetArea[]
+  services                   ValetService[]
+  deliveries                 Delivery[]
+  recurringServices          RecurringService[]
   /// Eccezioni di giorno che assegnano QUESTO valet solo in certi giorni.
-  varianteRicorrenti  RecurringServiceVariant[]
-  activities          Activity[]
-  availabilities      ValetAvailability[]
-  openingHours        ValetOpeningHour[]
-  salaries            Salary[]
-  chatThread          ChatThread?
-  payments            Payment[]
-  deliveryRules       ValetDeliveryRuleValet[]
-  receipts            Receipt[]
-  user                User?
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
+  varianteRicorrenti         RecurringServiceVariant[]
+  activities                 Activity[]
+  availabilities             ValetAvailability[]
+  openingHours               ValetOpeningHour[]
+  salaries                   Salary[]
+  chatThread                 ChatThread?
+  payments                   Payment[]
+  deliveryRules              ValetDeliveryRuleValet[]
+  receipts                   Receipt[]
+  user                       User?
+  createdAt                  DateTime                  @default(now())
+  updatedAt                  DateTime                  @updatedAt
 }
 
 model ValetProvince {
@@ -945,18 +947,18 @@ model ValetAvailability {
 /// (65 categorie, non si toccano) e i partner. Tabelle create con
 /// scripts/applica-migrazione-mestieri.mjs, che le semina e colloca le categorie.
 model Mestiere {
-  id                    String   @id @default(cuid())
-  chiave                String   @unique
+  id                    String            @id @default(cuid())
+  chiave                String            @unique
   nome                  String
-  ordine                Int      @default(0)
+  ordine                Int               @default(0)
   /// I prodotti NON unici di questo mestiere si smistano da soli (oggi: solo Fiorista).
-  smistamentoAutomatico Boolean  @default(false)
-  attivo                Boolean  @default(true)
+  smistamentoAutomatico Boolean           @default(false)
+  attivo                Boolean           @default(true)
   categorie             Category[]
   partners              PartnerMestiere[]
   liste                 PriorityList[]
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
 }
 
 /// Partner × mestiere: sostituisce le 400 assegnazioni fini di PartnerCategory nella lingua dei partner.
@@ -974,15 +976,15 @@ model PartnerMestiere {
 }
 
 model Category {
-  id               String             @id @default(cuid())
+  id                String             @id @default(cuid())
   /// ⭐ 06/09/2026: il mestiere che raccoglie questa categoria (null = da assegnare).
-  mestiereId       String?
-  mestiere         Mestiere?          @relation(fields: [mestiereId], references: [id])
+  mestiereId        String?
+  mestiere          Mestiere?          @relation(fields: [mestiereId], references: [id])
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
-  legacyId             Int?      @unique
-  name             String             @unique
-  notes            String?
-  aiPrompt         String? // prompt per generazione AI (es. torte)
+  legacyId          Int?               @unique
+  name              String             @unique
+  notes             String?
+  aiPrompt          String? // prompt per generazione AI (es. torte)
   /// Fuori dal catalogo corrente, ma non cancellata.
   ///
   /// ⚠️ Archiviare una categoria NON tocca i prodotti che ce l'hanno: 16
@@ -991,13 +993,13 @@ model Category {
   /// quel nome una scheda del 2023 diventa illeggibile.
   ///
   /// Sparisce dalle tendine di scelta, resta ovunque sia già scritta.
-  archived         Boolean            @default(false)
-  archivedAt       DateTime?
-  products         Product[]
-  discounts        CategoryDiscount[] // sconto % per provincia
-  fields           CategoryField[] // campi testuali extra per i prodotti della categoria
+  archived          Boolean            @default(false)
+  archivedAt        DateTime?
+  products          Product[]
+  discounts         CategoryDiscount[] // sconto % per provincia
+  fields            CategoryField[] // campi testuali extra per i prodotti della categoria
   partnerCategories PartnerCategory[]
-  priorityLists    PriorityList[]
+  priorityLists     PriorityList[]
 }
 
 // Campo testuale extra definito a livello categoria.
@@ -1023,37 +1025,37 @@ model CategoryDiscount {
 }
 
 model Product {
-  id                      String             @id @default(cuid())
+  id                     String                  @id @default(cuid())
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
-  legacyId             Int?      @unique
-  name                    String
-  description             String?
-  shortDesc               String? // "Plus del prodotto" (max 80 char)
-  price                   Float
-  publicPrice             Float? // prezzo pubblico
-  sku                     String?
-  prepDays                Int? // giorni di preparazione
-  line                    String? // linea/brand
-  imageUrl                String? // immagine principale
-  images                  String? // JSON array di URL immagine (galleria/Shopify)
-  platformDescriptions    String? // JSON { piattaforma: descrizione } per SELECT PLATFORMS
+  legacyId               Int?                    @unique
+  name                   String
+  description            String?
+  shortDesc              String? // "Plus del prodotto" (max 80 char)
+  price                  Float
+  publicPrice            Float? // prezzo pubblico
+  sku                    String?
+  prepDays               Int? // giorni di preparazione
+  line                   String? // linea/brand
+  imageUrl               String? // immagine principale
+  images                 String? // JSON array di URL immagine (galleria/Shopify)
+  platformDescriptions   String? // JSON { piattaforma: descrizione } per SELECT PLATFORMS
   /// JSON { piattaforma: idProdotto } sulle 6 piattaforme di vendita del legacy.
-  platformProductIds      String?
+  platformProductIds     String?
   /// Storico prezzi del legacy (JSON).
-  priceHistory            String?
+  priceHistory           String?
   /// Campi extra della categoria, valorizzati sul prodotto (JSON).
-  categoryMetaFields      String?
+  categoryMetaFields     String?
   /// Codice di riferimento interno del legacy.
-  reference               String?
+  reference              String?
   /// Provincia dichiarata sul prodotto nel legacy.
-  legacyProvince          String?
+  legacyProvince         String?
   /// Disponibilita' dichiarata nel legacy.
-  availability            String?
+  availability           String?
   /// Origine della creazione (creationSource).
-  createdFrom             String?
-  approvalEmailSent       Boolean            @default(false)
-  deletedAt               DateTime?
-  approved                Boolean            @default(false)
+  createdFrom            String?
+  approvalEmailSent      Boolean                 @default(false)
+  deletedAt              DateTime?
+  approved               Boolean                 @default(false)
   /// Chi lo vende: UNICO (di un partner solo) | NON_UNICO (lista priorità).
   ///
   /// ⚠️ SUPERPRODOTTO non è un tipo: nel legacy `uniqueProduct` e
@@ -1061,70 +1063,77 @@ model Product {
   /// il 24/08/2026 che restano separate. Sono due domande diverse — *chi lo
   /// vende* e *com'è fatto* — e un prodotto può essere unico E combinato.
   /// Averle fuse in un enum rendeva quella combinazione inesprimibile.
-  type                    String // UNICO | NON_UNICO
+  type                   String // UNICO | NON_UNICO
   /// ⭐ 06/09/2026 sera (regola utente): COME SI VENDE questo prodotto — decide come il Customer
   /// Service lo propone. unico = listino del partner · quantita = prezzo per pezzo × numero (12 rose)
   /// · mix = composizione a valore, si propone con lo sconto e la lista di priorità · preventivo =
   /// si chiede il preventivo ai partner del mestiere prima di accettare. Casa definitiva: Merchandising.
-  tipologiaVendita        String?
+  tipologiaVendita       String?
   /// ⭐ 07/09/2026 — NOTE DI SPECIFICA ("20-25 fiori", "18-20 cm", "6/8 porzioni"): che cosa
   /// c'è dentro davvero. La casa è Merchandising, che le ricostruisce dalla descrizione del
   /// negozio; qui arrivano con la vendita e si mostrano al FIORAIO, che deve sapere quanti
   /// fiori mettere nel bouquet.
-  note                    String?
+  note                   String?
   /// Com'è fatto: combinazione di più prodotti (i componenti stanno in
   /// ProductComponent). Indipendente da `type`.
-  isSuperProduct          Boolean            @default(false)
-  partnerId               String?
-  partner                 Partner?           @relation(fields: [partnerId], references: [id])
-  categoryId              String?
-  category                Category?          @relation(fields: [categoryId], references: [id])
-  visibleToOtherPartners  Boolean            @default(false)
+  isSuperProduct         Boolean                 @default(false)
+  partnerId              String?
+  partner                Partner?                @relation(fields: [partnerId], references: [id])
+  categoryId             String?
+  category               Category?               @relation(fields: [categoryId], references: [id])
+  visibleToOtherPartners Boolean                 @default(false)
   // Flag prodotto (come app reale)
-  notEditable             Boolean            @default(false) // non modificabile
-  controlStock            Boolean            @default(false) // controlla stock
-  stock                   Int? // giacenza (se controlStock)
-  notPhysical             Boolean            @default(false) // prodotto non fisico
+  notEditable            Boolean                 @default(false) // non modificabile
+  controlStock           Boolean                 @default(false) // controlla stock
+  stock                  Int? // giacenza (se controlStock)
+  notPhysical            Boolean                 @default(false) // prodotto non fisico
   /// ⭐ 10/09/2026 (regola utente): «PRODOTTO APP» — vive solo nella piattaforma consegne e NON si
   /// espone a Merchandising: fuori dal calendario dei prodotti unici e da ogni allineamento per SKU.
-  prodottoApp             Boolean            @default(false)
-  isSuperProvince         Boolean            @default(false) // super provincia
-  useAlternateName        Boolean            @default(false)
-  alternateName           String? // nome alternativo del prodotto
+  prodottoApp            Boolean                 @default(false)
+  /// ⭐⭐ 11/09/2026 (regola utente): «prodotti con flag SERVIZIO, che saranno ad esempio i biglietti
+  /// che si possono assegnare per singoli stock ai vari partner: l'assegnazione fa comparire questo
+  /// prodotto in merce». Non si vende e non si consegna da solo: è materiale di servizio che sta
+  /// FISICAMENTE dal partner — biglietti, buste, nastri — e che qualcuno gli ha dato.
+  /// Le assegnazioni stanno in `PartnerProductStock`.
+  servizio               Boolean                 @default(false)
+  isSuperProvince        Boolean                 @default(false) // super provincia
+  useAlternateName       Boolean                 @default(false)
+  alternateName          String? // nome alternativo del prodotto
   // Piattaforme di vendita abilitate (JSON array: deluxy|cakes|flowers|business|experience|dotcom)
-  platforms               String?
+  platforms              String?
   // Varianti
-  hasVariants             Boolean            @default(false)
-  optionTitle             String? // titolo opzione varianti (es. "Dimensione")
-  variants                ProductVariant[]
+  hasVariants            Boolean                 @default(false)
+  optionTitle            String? // titolo opzione varianti (es. "Dimensione")
+  variants               ProductVariant[]
   // Partner aggiuntivi che vendono il prodotto (oltre al partner proprietario)
-  partnerLinks            ProductPartnerLink[]
-  isAutoDiscounted        Boolean            @default(false)
-  parentProductId         String?
-  parentProduct           Product?           @relation("DiscountedVariants", fields: [parentProductId], references: [id])
-  discountedVariants      Product[]          @relation("DiscountedVariants")
-  components              ProductComponent[] @relation("SuperProduct")
-  usedInSuperProducts     ProductComponent[] @relation("ComponentProduct")
-  fields                  ProductField[]
-  deliveryProducts        DeliveryProduct[]
-  sales                   Sale[]
+  partnerLinks           ProductPartnerLink[]
+  isAutoDiscounted       Boolean                 @default(false)
+  parentProductId        String?
+  parentProduct          Product?                @relation("DiscountedVariants", fields: [parentProductId], references: [id])
+  discountedVariants     Product[]               @relation("DiscountedVariants")
+  components             ProductComponent[]      @relation("SuperProduct")
+  usedInSuperProducts    ProductComponent[]      @relation("ComponentProduct")
+  fields                 ProductField[]
+  deliveryProducts       DeliveryProduct[]
+  sales                  Sale[]
   /// ⭐ 04/09/2026 (regola utente): per provincia, a quale partner e a che
   /// prezzo vanno le vendite di questo prodotto (proposta → regola).
-  reconciliations         ProductReconciliation[]
-  active                  Boolean            @default(true)
+  reconciliations        ProductReconciliation[]
+  active                 Boolean                 @default(true)
   // Archiviato: stato SEPARATO da `active`. Un prodotto disattivato resta
   // visibile nella lista principale; uno archiviato va nella sezione Archivio.
-  archived                Boolean            @default(false)
-  archivedAt              DateTime?
+  archived               Boolean                 @default(false)
+  archivedAt             DateTime?
   /// Perche' e' finito in archivio: `partner-disattivato` quando ci e' andato
   /// da solo, `null` quando l'ha archiviato una persona.
   ///
   /// Serve a poter DISFARE la regola automatica: riattivando il partner si
   /// ripescano solo i prodotti che erano stati archiviati per causa sua, e non
   /// quelli che qualcuno aveva archiviato apposta.
-  archivedReason          String?
-  createdAt               DateTime           @default(now())
-  updatedAt               DateTime           @updatedAt
+  archivedReason         String?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  partnerProductStocks   PartnerProductStock[]
 }
 
 // Variante di prodotto (es. taglia S/M/L), con proprio prezzo e SKU
@@ -1135,56 +1144,56 @@ model Product {
 /// smistamento propone quel prodotto in quella provincia SOLO a quel partner a
 /// quel prezzo (SalesService.candidati). Rifiutata = mai piu' proposta.
 model ProductReconciliation {
-  id              String    @id @default(cuid())
-  productId       String
-  product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id               String          @id @default(cuid())
+  productId        String
+  product          Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
   /// ⭐ 06/09/2026 (regola utente): la regola vale «solo se la variante è la stessa» — null = prodotto senza variante.
   productVariantId String?
-  variant         ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
-  provinceId      String
-  partnerId       String
+  variant          ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+  provinceId       String
+  partnerId        String
   /// ⭐ 04/09/2026 (regola utente): «l'associazione è per prezzo dato al
   /// partner per quel prodotto». `partnerPrice` E' IL PATTO: quanto incassa il
   /// partner per quel prodotto in quella provincia. `price` e
   /// `discountPercent` restano come RIFERIMENTO (importo al cliente e quota
   /// Deluxy visti nelle vendite passate), non come regola.
-  partnerPrice    Float?
-  price           Float
-  discountPercent Float     @default(0)
+  partnerPrice     Float?
+  price            Float
+  discountPercent  Float           @default(0)
   /// I numeri da cui e' nata: quante vendite e, in JSON, per partner.
-  salesCount      Int       @default(0)
-  stats           String    @default("[]")
-  lastSaleId      String?
-  lastOrderNumber String?
+  salesCount       Int             @default(0)
+  stats            String          @default("[]")
+  lastSaleId       String?
+  lastOrderNumber  String?
   /// proposta | accettata | rifiutata
-  status          String    @default("proposta")
+  status           String          @default("proposta")
   /// notte | manuale
-  trigger         String    @default("manuale")
-  decidedAt       DateTime?
-  decidedBy       String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  trigger          String          @default("manuale")
+  decidedAt        DateTime?
+  decidedBy        String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
   @@unique([productId, provinceId, productVariantId])
   @@index([status, updatedAt])
 }
 
 model ProductVariant {
-  reconciliations ProductReconciliation[]
+  reconciliations  ProductReconciliation[]
   /// id nel database originario MySQL
-  legacyId     Int?    @unique
-  id           String  @id @default(cuid())
-  productId    String
-  name         String // valore opzione (es. "Media")
-  price        Float?
-  publicPrice  Float? // prezzo pubblico variante
-  sku          String? // SKU variante (auto: <SKU prodotto>-NN progressivo)
-  imageUrl     String? // immagine della variante
-  note         String? // nota di specifica della TAGLIA (⭐ 07/09/2026): «Medio: 10-15 fiori»
-  prepDays     Int? // giorni di preparazione variante
-  controlStock Boolean @default(false) // controlla stock variante
-  stock        Int? // giacenza variante
-  active       Boolean @default(true)
+  legacyId         Int?                    @unique
+  id               String                  @id @default(cuid())
+  productId        String
+  name             String // valore opzione (es. "Media")
+  price            Float?
+  publicPrice      Float? // prezzo pubblico variante
+  sku              String? // SKU variante (auto: <SKU prodotto>-NN progressivo)
+  imageUrl         String? // immagine della variante
+  note             String? // nota di specifica della TAGLIA (⭐ 07/09/2026): «Medio: 10-15 fiori»
+  prepDays         Int? // giorni di preparazione variante
+  controlStock     Boolean                 @default(false) // controlla stock variante
+  stock            Int? // giacenza variante
+  active           Boolean                 @default(true)
   /// La stessa variante in Merchandising, che ne e' la casa.
   ///
   /// La variante dice COM'E' FATTO il prodotto (taglia, colore), e questo e'
@@ -1194,10 +1203,10 @@ model ProductVariant {
   /// ⚠️ 5.201 varianti esistono in tutte e due le app con lo stesso SKU. Il
   /// collegamento non le sposta: dichiara chi comanda, cosi' quando i due
   /// valori discordano si sa quale guardare invece di indovinare.
-  merchandisingId String?
-  product      Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  merchandisingId  String?
+  product          Product                 @relation(fields: [productId], references: [id], onDelete: Cascade)
   deliveryProducts DeliveryProduct[]
-  sales        Sale[]
+  sales            Sale[]
 }
 
 // Associazione prodotto <-> partner aggiuntivo (PRODUCTS PARTNER)
@@ -1238,7 +1247,7 @@ model ProductField {
 model Customer {
   id         String     @id @default(cuid())
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
-  legacyId             Int?      @unique
+  legacyId   Int?       @unique
   firstName  String
   lastName   String
   email      String?
@@ -1262,22 +1271,22 @@ model Customer {
 // `giorni` e' una maschera lun..dom ("1000000" = solo lunedi').
 // ------------------------------------------------------------
 model RecurringService {
-  id                 String       @id @default(cuid())
+  id                 String                    @id @default(cuid())
   nome               String
   partnerId          String
-  partner            Partner      @relation(fields: [partnerId], references: [id])
+  partner            Partner                   @relation(fields: [partnerId], references: [id])
   serviceTypeId      String
-  serviceType        ServiceType  @relation(fields: [serviceTypeId], references: [id])
+  serviceType        ServiceType               @relation(fields: [serviceTypeId], references: [id])
   valetId            String?
-  valet              Valet?       @relation(fields: [valetId], references: [id])
+  valet              Valet?                    @relation(fields: [valetId], references: [id])
   /// COME SI RIPETE (27/08/2026). Prima esisteva solo il giro settimanale, e
   /// «il 1° di ogni mese» o «ogni tre giorni» non si potevano dire.
   ///   SETTIMANALE  -> i giorni della settimana in `giorni`, ogni `ogni` settimane
   ///   GIORNALIERO  -> ogni `ogni` giorni, contati da `dataInizio`
   ///   MENSILE      -> i giorni del mese in `giorniMese`, ogni `ogni` mesi
-  frequenza          String       @default("SETTIMANALE")
+  frequenza          String                    @default("SETTIMANALE")
   /// Ogni quante settimane / giorni / mesi. 1 = tutte.
-  ogni               Int          @default(1)
+  ogni               Int                       @default(1)
   /// Solo per MENSILE: i giorni del mese separati da virgola, es. "1,15".
   /// ⚠️ Un 31 nei mesi corti NON si arrotonda al 30: il giorno non esiste e
   /// la consegna non si genera. Inventarla sarebbe peggio che saltarla.
@@ -1294,14 +1303,14 @@ model RecurringService {
   hours              Float? // per i servizi a ora
   dataInizio         DateTime
   dataFine           DateTime?
-  attivo             Boolean      @default(true)
+  attivo             Boolean                   @default(true)
   note               String?
   ultimaGenerazione  DateTime?
   deliveries         Delivery[]
   /// Le ECCEZIONI per certi giorni (vedi RecurringServiceVariant).
   varianti           RecurringServiceVariant[]
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
 }
 
 /// ECCEZIONI PER GIORNO di un servizio ricorrente (27/08/2026, chiesto
@@ -1342,141 +1351,141 @@ model RecurringServiceVariant {
 // DDT: lo stesso ddtNumber su piu' ritiri (DeliveryPickup) = una consegna
 // ------------------------------------------------------------
 model Delivery {
-  id                 String            @id @default(cuid())
+  id                   String              @id @default(cuid())
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
-  legacyId             Int?      @unique
+  legacyId             Int?                @unique
   // Numero progressivo leggibile (assegnato dal service: max(code)+1;
   // autoincrement su campo non-id non e' supportato da SQLite)
-  code               Int               @unique
-  date               DateTime // giorno della consegna
-  serviceTypeId      String
-  serviceType        ServiceType       @relation(fields: [serviceTypeId], references: [id])
-  partnerId          String
-  partner            Partner           @relation(fields: [partnerId], references: [id])
-  valetId            String?
-  valet              Valet?            @relation(fields: [valetId], references: [id])
+  code                 Int                 @unique
+  date                 DateTime // giorno della consegna
+  serviceTypeId        String
+  serviceType          ServiceType         @relation(fields: [serviceTypeId], references: [id])
+  partnerId            String
+  partner              Partner             @relation(fields: [partnerId], references: [id])
+  valetId              String?
+  valet                Valet?              @relation(fields: [valetId], references: [id])
   /// CONSEGNE DA FORNITORE (31/08/2026, regola dell'utente). Vero quando la
   /// consegna la fa il PARTNER stesso, non un valet Deluxy: al posto di
   /// assegnare un valet si accende questo flag. Per quelle consegne il partner
   /// proprietario vede i dati anagrafici del destinatario (gli servono per
   /// consegnare) e dispone dei bottoni «in consegna / consegnata / non
   /// consegnata» come un valet — ma solo per le SUE consegne con questo flag.
-  deliveredByPartner Boolean           @default(false)
-  customerId         String?
-  customer           Customer?         @relation(fields: [customerId], references: [id])
-  status             String            @default("created")
-  paymentStatus      String            @default("default") // default | paid | toBePaid
+  deliveredByPartner   Boolean             @default(false)
+  customerId           String?
+  customer             Customer?           @relation(fields: [customerId], references: [id])
+  status               String              @default("created")
+  paymentStatus        String              @default("default") // default | paid | toBePaid
   // Token del link pubblico di monitoraggio (bottone MONITORARE).
   // Casuale e opaco: niente @unique per evitare il rebuild tabella in SQLite,
   // la ricerca usa findFirst.
-  trackingToken      String?
+  trackingToken        String?
   // Conferma di consegna (dal link pubblico "consegnata"): chi ha ritirato.
-  receivedBy         String?
+  receivedBy           String?
   // Fascia oraria consegna + ritiro (se non flessibile => fascia di 1 ora)
-  deliveryTimeFrom   String? // "09:00"
-  deliveryTimeTo     String? // "13:00"
-  deliveryFlexible   Boolean           @default(false)
-  pickupTimeFrom     String? // "10:00"
-  pickupTimeTo       String? // "12:00"
-  pickupFlexible     Boolean           @default(false)
-  pickupAddress      String?
+  deliveryTimeFrom     String? // "09:00"
+  deliveryTimeTo       String? // "13:00"
+  deliveryFlexible     Boolean             @default(false)
+  pickupTimeFrom       String? // "10:00"
+  pickupTimeTo         String? // "12:00"
+  pickupFlexible       Boolean             @default(false)
+  pickupAddress        String?
   // Destinatario
-  recipientFirstName String
-  recipientLastName  String
-  recipientAddress   String
+  recipientFirstName   String
+  recipientLastName    String
+  recipientAddress     String
   // Coordinate geocodificate dell'indirizzo destinatario (per la mappa consegne).
   // Popolate una volta alla creazione/modifica; null se non geocodificabile.
-  latitude           Float?
-  longitude          Float?
-  recipientIntercom  String? // citofono
+  latitude             Float?
+  longitude            Float?
+  recipientIntercom    String? // citofono
   /// ⭐ 11/09/2026 (regola utente) — IL LUOGO scelto cercando l'indirizzo: «Hotel Da Vinci Milano», «Ospedale
   /// Niguarda», «Tribunale». Lo riempie da solo il modulo quando su Google si sceglie un POSTO e il suo nome
   /// non è già dentro l'indirizzo. Non è un dato del cliente: è la differenza fra suonare a un citofono e
   /// passare da una reception, e il valet deve saperlo prima di arrivare.
-  recipientPlace     String?
-  recipientPhone     String?
-  recipientEmail     String?
+  recipientPlace       String?
+  recipientPhone       String?
+  recipientEmail       String?
   // Mittente
-  senderFirstName    String?
-  senderLastName     String?
-  senderPhone        String?
+  senderFirstName      String?
+  senderLastName       String?
+  senderPhone          String?
   /// Consegna ANONIMA (03/09/2026): il mittente non si mostra a NESSUNO in
   /// lettura; i dati restano in banca per chi spegne il flag in modifica.
-  anonymousSender    Boolean  @default(false)
+  anonymousSender      Boolean             @default(false)
   // Pagamento alla consegna (contanti detratti dallo stipendio del valet)
-  paymentOnDelivery  Boolean           @default(false)
-  paymentAmount      Float?
-  tryAndReturn       Boolean           @default(false)
-  deliveryCodeRequired Boolean         @default(false)
+  paymentOnDelivery    Boolean             @default(false)
+  paymentAmount        Float?
+  tryAndReturn         Boolean             @default(false)
+  deliveryCodeRequired Boolean             @default(false)
   // Note
-  notes              String?
-  internalNotes      String? // visibili solo ad admin/operation/valet
+  notes                String?
+  internalNotes        String? // visibili solo ad admin/operation/valet
   /// Nata da un SERVIZIO RICORRENTE: quale (e la coppia servizio+data non si rigenera).
   /// Le richieste testuali da cui questa consegna e` nata.
-  richieste  RichiestaConsegna[]
-  recurringServiceId String?
-  recurringService   RecurringService? @relation(fields: [recurringServiceId], references: [id], onDelete: SetNull)
+  richieste            RichiestaConsegna[]
+  recurringServiceId   String?
+  recurringService     RecurringService?   @relation(fields: [recurringServiceId], references: [id], onDelete: SetNull)
   /// ⭐ 04/09/2026 (regola utente): ORE DICHIARATE DAL VALET, in attesa del sì
   /// del partner. Il valet chiude un servizio A ORA dicendo quando ha davvero
   /// iniziato e finito; il partner approva (valgono le sue) o rifiuta (valgono
   /// quelle previste). Alla decisione si riscrivono ore, prezzo e fatturazione.
-  hoursFrom          String?   // "HH:MM" proposto dal valet
-  hoursTo            String?
-  hoursProposedAt    DateTime?
+  hoursFrom            String? // "HH:MM" proposto dal valet
+  hoursTo              String?
+  hoursProposedAt      DateTime?
   /// Le ore PREVISTE, fotografate prima della proposta: se il partner rifiuta
   /// si torna a queste, e senza la fotografia non si potrebbe.
-  hoursOriginal      Float?
+  hoursOriginal        Float?
   /// approvate | rifiutate
-  hoursDecision      String?
-  hoursDecidedAt     DateTime?
-  hoursDecidedBy     String?
+  hoursDecision        String?
+  hoursDecidedAt       DateTime?
+  hoursDecidedBy       String?
   /// ⭐ 05/09/2026 (regola utente): COSTI RIMBORSATI — l'area C, il parcheggio,
   /// l'acquisto fatto per conto nostro. Sono soldi che TORNANO al valet, non
   /// il prezzo del viaggio: prima finivano nel plus/minus, che entra nella paga
   /// e nel costo della consegna e quindi sporcava il margine. Da qui in poi
   /// stanno in un campo loro: si pagano al valet, non fanno costo di consegna,
   /// e si sommano nel Conto Economico della Finanza.
-  refundedCosts      Float?
+  refundedCosts        Float?
   /// ⭐ 05/09/2026 (regola utente): RITIRO VERIFICATO. Se la consegna o il
   /// partner chiedono il codice del valet, al ritiro il PARTNER inserisce il
   /// codice (l'id del valet) e, se combacia con chi ritira, qui restano quando
   /// e chi. Senza questa verifica il valet non puo' mettere «in consegna».
-  pickupVerifiedAt   DateTime?
-  pickupVerifiedBy   String?
-  ddtNumber          String?
+  pickupVerifiedAt     DateTime?
+  pickupVerifiedBy     String?
+  ddtNumber            String?
   /// Il BRAND a cui appartiene il numero DDT/riferimento della vendita:
   /// con piu' negozi lo stesso numero esiste su brand diversi (il DDT «3749»
   /// sta su 16 consegne di 8 partner), e il numero da solo non identifica.
-  ddtBrand           String?
-  ddtFile            String? // file/URL del DDT
+  ddtBrand             String?
+  ddtFile              String? // file/URL del DDT
   // Distanza e extra (calcolo automatico ritiro -> consegna)
-  distanceKm         Float?
-  extraKm            Float             @default(0)
-  extraOutOfCity     Boolean           @default(false)
+  distanceKm           Float?
+  extraKm              Float               @default(0)
+  extraOutOfCity       Boolean             @default(false)
   // Vendita Deluxy + valet servizio
-  deluxyDelivery     Boolean           @default(false) // "Vendita Deluxy"
-  valetServiceId     String? // "Valet Servizio" (id ValetService/ServiceType)
+  deluxyDelivery       Boolean             @default(false) // "Vendita Deluxy"
+  valetServiceId       String? // "Valet Servizio" (id ValetService/ServiceType)
   // Economia (LISTINO: da fatturare / da pagare)
-  billable           Boolean           @default(true) // da fatturare
-  payable            Boolean           @default(true) // da pagare
-  price              Float? // prezzo per il partner
-  additionalPrice    Float? // plus/minus prezzo partner — ⭐ 04/09/2026: SOLO variazioni MANUALI
+  billable             Boolean             @default(true) // da fatturare
+  payable              Boolean             @default(true) // da pagare
+  price                Float? // prezzo per il partner
+  additionalPrice      Float? // plus/minus prezzo partner — ⭐ 04/09/2026: SOLO variazioni MANUALI
   /// ⭐ 04/09/2026 (regola utente): il valore della REGOLA CARNET applicata a
   /// questa consegna (sconto/maggiorazione in fattura), fotografato
   /// all'aggancio. Prima finiva nel plus/minus e si sommava alla regola.
-  ruleAdjustment     Float?
-  deliveryPrice      Float? // "Consegna prezzo": tariffa consegna al cliente (Finanza)
-  valetSalary        Float? // paga del valet
+  ruleAdjustment       Float?
+  deliveryPrice        Float? // "Consegna prezzo": tariffa consegna al cliente (Finanza)
+  valetSalary          Float? // paga del valet
   valetAdditionalPrice Float? // plus/minus paga valet
-  isFlexiblePrice    Boolean           @default(false)
-  flexiblePrice      String? // prezzo flessibile (JSON/testo)
-  hours              Float? // per servizi a ora
+  isFlexiblePrice      Boolean             @default(false)
+  flexiblePrice        String? // prezzo flessibile (JSON/testo)
+  hours                Float? // per servizi a ora
   personalizeSaleNotes String? // personalizzazione
   // SMS: numero telefonico + trigger
-  smsPhoneNo         String?
-  smsOnCreated       Boolean           @default(false)
-  smsOnDeparted      Boolean           @default(false)
-  smsOnArrived       Boolean           @default(false)
+  smsPhoneNo           String?
+  smsOnCreated         Boolean             @default(false)
+  smsOnDeparted        Boolean             @default(false)
+  smsOnArrived         Boolean             @default(false)
   // ==========================================================================
   // Campi recuperati dal database originario (23/08/2026).
   // Delle 114 colonne del `delivery` legacy, 54 avevano gia' una destinazione,
@@ -1488,23 +1497,23 @@ model Delivery {
 
   /// Codice pubblico alfanumerico del legacy (es. "ZhonMV"). Diverso da `code`,
   /// che e' il progressivo interno.
-  identifier         String?
+  identifier          String?
   /// Origine della consegna: "SALEAUTOMATION", "chaneldeluxy"…
-  createdFrom        String?
+  createdFrom         String?
   /// Sito da cui e' arrivata (integrazioni WooCommerce/Shopify esterne).
   externalOrderSource String?
-  createdByUserId    String?
-  createdByUser      User?             @relation("DeliveryCreataDa", fields: [createdByUserId], references: [id])
+  createdByUserId     String?
+  createdByUser       User?   @relation("DeliveryCreataDa", fields: [createdByUserId], references: [id])
 
   // --- ordine e vendita di provenienza --------------------------------------
   // ⚠️ Riferimenti alle tabelle di vendita del legacy, non ancora importate:
   // per ora sono numeri, non relazioni.
-  legacyOrderId      Int?
-  realOrderNumber    String?
-  shop               String? // ShopifySale | CakeSales | FlowersSales | BusinessSales
+  legacyOrderId       Int?
+  realOrderNumber     String?
+  shop                String? // ShopifySale | CakeSales | FlowersSales | BusinessSales
   /// ⚠️ Contiene sia id interni sia id di ordini Shopify (fino a 12 cifre):
   /// non entra in un intero a 32 bit, quindi e' testo.
-  legacySaleId       String?
+  legacySaleId        String?
   legacyPrimarySaleId Int?
   /// Come ha pagato il cliente, per sapere quanto costa incassare.
   ///
@@ -1512,82 +1521,82 @@ model Delivery {
   /// l'ordine Shopify. Qui e' una copia di comodo per il calcolo del margine,
   /// aggiornata dall'import — non una seconda fonte di verita'. Se i due
   /// divergono, ha ragione Orders.
-  paymentGateway     String?
+  paymentGateway      String?
   /// La categoria del pagamento secondo Orders: carta | bonifico | contrassegno | altro.
-  paymentCategory    String?
+  paymentCategory     String?
   /// Il negozio Shopify dell'ordine: decide il piano, e il piano la tariffa.
-  paymentBrand       String?
-  saleType           String? // unique | nonunique | shopifysale
-  acceptSale         Boolean           @default(false)
-  customSaleDelivery Boolean           @default(false)
+  paymentBrand        String?
+  saleType            String? // unique | nonunique | shopifysale
+  acceptSale          Boolean @default(false)
+  customSaleDelivery  Boolean @default(false)
 
   // --- presa visione ---------------------------------------------------------
   // ⚠️ Misurato: nel legacy questi NON sono partner/valet ma UTENTI (non
   // coincidono quasi mai con partnerId/expertId), quindi puntano a User.
-  readDelivery       Boolean           @default(false)
-  readAt             DateTime?
+  readDelivery        Boolean   @default(false)
+  readAt              DateTime?
   readByPartnerUserId String?
-  readByPartnerUser  User?             @relation("DeliveryLettaDaPartner", fields: [readByPartnerUserId], references: [id])
-  readAtByPartner    DateTime?
-  readByValetUserId  String?
-  readByValetUser    User?             @relation("DeliveryLettaDaValet", fields: [readByValetUserId], references: [id])
-  readAtByValet      DateTime?
+  readByPartnerUser   User?     @relation("DeliveryLettaDaPartner", fields: [readByPartnerUserId], references: [id])
+  readAtByPartner     DateTime?
+  readByValetUserId   String?
+  readByValetUser     User?     @relation("DeliveryLettaDaValet", fields: [readByValetUserId], references: [id])
+  readAtByValet       DateTime?
 
   // --- tempi reali -----------------------------------------------------------
-  startedAt          DateTime? // quando il valet e' partito
-  deliveredAt        DateTime? // quando ha consegnato davvero
-  serviceStartTime   String? // servizi a ora: inizio previsto "HH:mm"
-  serviceEndTime     String? // servizi a ora: fine prevista
-  valetStartTime     String? // orario dichiarato dal valet
-  valetEndTime       String?
+  startedAt            DateTime? // quando il valet e' partito
+  deliveredAt          DateTime? // quando ha consegnato davvero
+  serviceStartTime     String? // servizi a ora: inizio previsto "HH:mm"
+  serviceEndTime       String? // servizi a ora: fine prevista
+  valetStartTime       String? // orario dichiarato dal valet
+  valetEndTime         String?
   approvedTimingStatus String? // stato approvazione delle ore: 0 | 1 | 3
 
   // --- svolgimento -----------------------------------------------------------
-  requestExpert      Boolean           @default(false) // "richiedi valet"
-  sendToExpert       Boolean           @default(false)
-  pickupCompleted    Boolean           @default(false)
-  receiverType       String? // recipient | concierge | other | null
-  receiverSign       String? // firma del ricevente
-  receipt            String? // foto/ricevuta della consegna
+  requestExpert           Boolean @default(false) // "richiedi valet"
+  sendToExpert            Boolean @default(false)
+  pickupCompleted         Boolean @default(false)
+  receiverType            String? // recipient | concierge | other | null
+  receiverSign            String? // firma del ricevente
+  receipt                 String? // foto/ricevuta della consegna
   /// Perché NON è stata consegnata (flusso valet 31/08/2026): il motivo va
   /// scritto, non solo lo stato — «non consegnata» senza perché non si gestisce.
-  notDeliveredReason String?
-  notDeliveredActionTaken Boolean      @default(false)
-  deliveryCode       String?
-  deliveryCodeVerified Boolean         @default(false)
-  valetIdentityCheck Boolean           @default(false)
-  valetVerified      Boolean           @default(false)
+  notDeliveredReason      String?
+  notDeliveredActionTaken Boolean @default(false)
+  deliveryCode            String?
+  deliveryCodeVerified    Boolean @default(false)
+  valetIdentityCheck      Boolean @default(false)
+  valetVerified           Boolean @default(false)
 
   // --- economia --------------------------------------------------------------
-  invoiced           Boolean           @default(false)
-  invoicePaymentStatus String? // default | paid
-  productValue       Float? // valore della merce
-  paidViaCard        Boolean           @default(false)
+  invoiced                 Boolean @default(false)
+  invoicePaymentStatus     String? // default | paid
+  productValue             Float? // valore della merce
+  paidViaCard              Boolean @default(false)
   additionalValetPlusMinus Float?
 
   // --- magazzino -------------------------------------------------------------
-  productManagement  String? // none | deluxyWareHouse | keptInCar | returnToBoutique
-  stockConsumed      Boolean           @default(false)
-  stockReturned      Boolean           @default(false)
+  productManagement String? // none | deluxyWareHouse | keptInCar | returnToBoutique
+  stockConsumed     Boolean @default(false)
+  stockReturned     Boolean @default(false)
 
   // --- regole carnet applicate -----------------------------------------------
-  withDailyDeliveryRule Boolean        @default(false)
-  withTotalDeliveryRule Boolean        @default(false)
-  deliveryRuleId     String?
-  deliveryRule       DeliveryRule?     @relation(fields: [deliveryRuleId], references: [id])
-  valetDeliveryRuleId String?
-  valetDeliveryRule  ValetDeliveryRule? @relation(fields: [valetDeliveryRuleId], references: [id])
+  withDailyDeliveryRule Boolean            @default(false)
+  withTotalDeliveryRule Boolean            @default(false)
+  deliveryRuleId        String?
+  deliveryRule          DeliveryRule?      @relation(fields: [deliveryRuleId], references: [id])
+  valetDeliveryRuleId   String?
+  valetDeliveryRule     ValetDeliveryRule? @relation(fields: [valetDeliveryRuleId], references: [id])
 
   // --- altro -----------------------------------------------------------------
-  provinceId         String?
-  province           Province?         @relation(fields: [provinceId], references: [id])
-  existingCustomer   Boolean           @default(false)
+  provinceId                 String?
+  province                   Province?  @relation(fields: [provinceId], references: [id])
+  existingCustomer           Boolean    @default(false)
   /// Consegna corrispondente nel legacy (110 righe): riferimento non risolto.
   legacyCorrespondDeliveryId Int?
   /// Consegna padre nei multi-ritiro con DDT.
-  parentDeliveryId   String?
-  parentDelivery     Delivery?         @relation("DeliveryPadre", fields: [parentDeliveryId], references: [id])
-  childDeliveries    Delivery[]        @relation("DeliveryPadre")
+  parentDeliveryId           String?
+  parentDelivery             Delivery?  @relation("DeliveryPadre", fields: [parentDeliveryId], references: [id])
+  childDeliveries            Delivery[] @relation("DeliveryPadre")
 
   /// ⭐ 07/09/2026 (regola utente): una NON CONSEGNATA si toglie dall'elenco Consegne anche
   /// SENZA riconsegna — «nascondi da consegne, la lascia in storico». Serve per i casi chiusi
@@ -1608,18 +1617,21 @@ model Delivery {
   /// davvero (`prisma.delivery.delete`). Quindi l'insieme e' congelato a 431 e
   /// non cresce. Resta pero' una contraddizione da decidere: un modello con il
   /// soft delete in schema e una `remove()` che fa hard delete.
-  deletedAt          DateTime?
+  deletedAt DateTime?
 
-  products           DeliveryProduct[]
-  pickups            DeliveryPickup[]
-  activities         Activity[]
-  logs               DeliveryLog[]
+  products     DeliveryProduct[]
+  pickups      DeliveryPickup[]
+  activities   Activity[]
+  logs         DeliveryLog[]
   /// Le righe di fattura che riguardano questa consegna: se ce n'è una, la
   /// consegna è già fatturata e non deve rientrare in una fattura nuova.
-  invoiceLines       InvoiceLine[]
+  invoiceLines InvoiceLine[]
   /// Le righe di stipendio che riguardano questa consegna: se ce n'e' una, la
   /// consegna e' gia' stata pagata al valet.
-  salaryLines        SalaryLine[]
+  salaryLines  SalaryLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // ⚠️ Questa tabella non aveva NESSUN indice, e sono 61.405 righe. Il solo
   // conto per la paginazione costava 1,9 secondi a ogni apertura della pagina
@@ -1642,16 +1654,13 @@ model Delivery {
   /// e 89 MB — misurata 21.163 ms contro i 407 ms della lista stessa. Con l'aggiornamento
   /// automatico ogni 30 s le richieste si accumulavano e affogavano il cluster condiviso.
   @@index([parentDeliveryId])
-
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
 }
 
 model DeliveryProduct {
-  id             String   @id @default(cuid())
+  id                String          @id @default(cuid())
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
-  legacyId             Int?      @unique
-  deliveryId     String
+  legacyId          Int?            @unique
+  deliveryId        String
   /// ⚠️ La riga di consegna NON è un record agganciato al prodotto: è la
   /// STAMPA di uno stato di fatto, come tutto il resto della consegna
   /// (destinatario, indirizzo, prezzo). Il prodotto può essere cancellato dal
@@ -1661,30 +1670,30 @@ model DeliveryProduct {
   /// Per questo `productId` è opzionale e la cancellazione lo azzera
   /// (`SetNull`): il collegamento serve finché il prodotto esiste, il FATTO
   /// resta comunque.
-  productId      String?
+  productId         String?
   /// La fotografia: com'era il prodotto quando è stato messo in questa consegna.
   /// Non si legge più dal catalogo, perché il catalogo intanto cambia — un
   /// prodotto rinominato riscriverebbe la storia di consegne già fatte.
-  productName    String?
-  productSku     String?
-  variantName    String?
-  quantity       Int      @default(1)
+  productName       String?
+  productSku        String?
+  variantName       String?
+  quantity          Int             @default(1)
   /// Variante scelta in questa riga di consegna (nel legacy 985 varianti diverse).
-  productVariantId String?
-  productVariant ProductVariant? @relation(fields: [productVariantId], references: [id])
+  productVariantId  String?
+  productVariant    ProductVariant? @relation(fields: [productVariantId], references: [id])
   /// Riga esclusa dal calcolo commissioni.
-  withoutCommission Boolean @default(false)
+  withoutCommission Boolean         @default(false)
   /// Misure dichiarate nel legacy (valorizzate sul 6% delle righe, valori 0/1).
-  length         Float?
-  width          Float?
-  height         Float?
-  weight         Float?
-  deletedAt      DateTime?
-  price          Float? // prezzo del prodotto in questa consegna (override se flessibile)
-  flexiblePrice  Boolean  @default(false) // consente la modifica del prezzo prodotto
-  fieldValues    String? // JSON {nomeCampo: valore} per i ProductField
-  delivery       Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
-  product        Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  length            Float?
+  width             Float?
+  height            Float?
+  weight            Float?
+  deletedAt         DateTime?
+  price             Float? // prezzo del prodotto in questa consegna (override se flessibile)
+  flexiblePrice     Boolean         @default(false) // consente la modifica del prezzo prodotto
+  fieldValues       String? // JSON {nomeCampo: valore} per i ProductField
+  delivery          Delivery        @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  product           Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
 
   /// ⭐ 07/09/2026 — INDICE SULLA CHIAVE ESTERNA. Mancava dall'inizio: leggere le
   /// righe di UNA consegna faceva scorrere tutta la tabella (Seq Scan). Misura del
@@ -1760,22 +1769,22 @@ model ChatMessage {
 }
 
 model Activity {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
-  legacyId             Int?      @unique
+  legacyId    Int?      @unique
   deliveryId  String
-  delivery    Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  delivery    Delivery  @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
   valetId     String?
-  valet       Valet?   @relation(fields: [valetId], references: [id])
+  valet       Valet?    @relation(fields: [valetId], references: [id])
   type        String // PICKUP | DELIVERY
-  status      String   @default("pending") // pending | done | skipped
+  status      String    @default("pending") // pending | done | skipped
   scheduledAt DateTime?
   timeFrom    String?
   timeTo      String?
   address     String?
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   /// ⭐ 07/09/2026 — INDICE SULLA CHIAVE ESTERNA. Mancava dall'inizio: leggere le
   /// righe di UNA consegna faceva scorrere tutta la tabella (Seq Scan). Misura del
@@ -1801,27 +1810,27 @@ model Activity {
 /// il prezzo pagato dal cliente (prodotti + consegna), mentre le consegne
 /// mostrano solo il prezzo concordato col partner (deciso dall'utente 26/08).
 model OrdineCliente {
-  id           String   @id @default(cuid())
+  id                 String   @id @default(cuid())
   /// Numero Shopify nudo (la coda del gid): lo stesso di Delivery.realOrderNumber.
-  orderId      String   @unique
+  orderId            String   @unique
   /// L'id dell'ordine DENTRO Deluxy Orders: serve a linkare la sua pagina
   /// (che ha anche il bottone verso l'admin Shopify — il dominio lo sa lei).
-  ordersId     String?
+  ordersId           String?
   /// Il brand dell'ordine ("deluxy.it", …): e' il filtro Brand della Finanza.
-  brand        String?
+  brand              String?
   /// Il numero umano ("#12731"), per leggersi negli elenchi.
-  numero       String?
+  numero             String?
   /// Somma delle righe pagate dal cliente (prezzo x quantita).
-  prodotti     Float
+  prodotti           Float
   /// Consegna pagata dal cliente: totale - prodotti, mai sotto zero.
-  consegna     Float
-  totale       Float
+  consegna           Float
+  totale             Float
   /// La COMMISSIONE D'INCASSO come la sa ORDERS (il proprietario, 26/08/2026):
   /// 'shopify' = fee reale dalle transazioni, 'tariffa' = suo listino. La
   /// Finanza la usa al posto della propria stima quando c'e' la firma.
   commissioneIncassi Float?
-  commissioneDa      String  @default("")
-  aggiornatoIl DateTime @updatedAt
+  commissioneDa      String   @default("")
+  aggiornatoIl       DateTime @updatedAt
 }
 
 model SmsTemplate {
@@ -1846,10 +1855,10 @@ model SmsTemplate {
 // Estendibili a piu' partner tramite DeliveryRulePartner
 // ------------------------------------------------------------
 model DeliveryRule {
-  id   String @id @default(cuid())
+  id       String @id @default(cuid())
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
-  legacyId             Int?      @unique
-  name String
+  legacyId Int?   @unique
+  name     String
 
   // Sull'app reale "Daily Number Rule" e "Total Number Rule" sono due Si/No
   // indipendenti: una regola puo' garantire un numero giornaliero, un numero
@@ -1893,11 +1902,11 @@ model DeliveryRule {
   toBill Boolean @default(true)
   toPay  Boolean @default(true)
 
-  active    Boolean               @default(true)
-  partners  DeliveryRulePartner[]
+  active     Boolean               @default(true)
+  partners   DeliveryRulePartner[]
   deliveries Delivery[]
-  createdAt DateTime              @default(now())
-  updatedAt DateTime              @updatedAt
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
 }
 
 /// Regole carnet LATO VALET: scaglioni che aumentano la paga in base al numero
@@ -1906,16 +1915,16 @@ model DeliveryRule {
 /// consegne, queste modificano una paga. Tenerle separate evita di forzare due
 /// cose diverse nello stesso modello.
 model ValetDeliveryRule {
-  id       String  @id @default(cuid())
+  id         String                   @id @default(cuid())
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
-  legacyId Int?    @unique
-  name     String
+  legacyId   Int?                     @unique
+  name       String
   /// Scaglioni, come nel legacy: [{operator, pickUps, plusSalary}].
   /// `operator` vale `equal` o `moreThan`; `pickUps` e' il numero di ritiri e
   /// `plusSalary` il plus sulla paga.
-  tiers    String
-  active   Boolean @default(true)
-  valets   ValetDeliveryRuleValet[]
+  tiers      String
+  active     Boolean                  @default(true)
+  valets     ValetDeliveryRuleValet[]
   deliveries Delivery[]
 
   createdAt DateTime @default(now())
@@ -1950,20 +1959,20 @@ model DeliveryRulePartner {
 // cashDeductions: contanti incassati alla consegna, detratti
 // ------------------------------------------------------------
 model Salary {
-  id             String    @id @default(cuid())
+  id             String       @id @default(cuid())
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
-  legacyId             Int?      @unique
+  legacyId       Int?         @unique
   valetId        String
-  valet          Valet     @relation(fields: [valetId], references: [id])
+  valet          Valet        @relation(fields: [valetId], references: [id])
   periodStart    DateTime
   periodEnd      DateTime
   grossAmount    Float
-  cashDeductions Float     @default(0)
+  cashDeductions Float        @default(0)
   netAmount      Float
   documentType   String // PROFORMA_INVOICE | WITHHOLDING_RECEIPT
-  status         String    @default("DRAFT")
+  status         String       @default("DRAFT")
   // Archiviato: lo stipendio inviato esce dalla lista attivi ed entra in Archivio.
-  archived       Boolean   @default(false)
+  archived       Boolean      @default(false)
   sentAt         DateTime?
   approvedAt     DateTime?
   paidAt         DateTime?
@@ -1983,17 +1992,17 @@ model Salary {
   lines          SalaryLine[]
   receipts       Receipt[]
   claims         Payment[] // reclami aperti dal valet su questo stipendio
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 }
 
 // Ricevute (da firmare -> firmate)
 /// Una consegna dentro uno stipendio: la fotografia di quanto le e' stato
 /// riconosciuto, non un riflesso della consegna.
 model SalaryLine {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   salaryId    String
-  salary      Salary   @relation(fields: [salaryId], references: [id], onDelete: Cascade)
+  salary      Salary    @relation(fields: [salaryId], references: [id], onDelete: Cascade)
   /// ⚠️ `SetNull` e non `Cascade`: se la consegna sparisce, lo stipendio
   /// pagato resta con i suoi importi. Riscriverlo cambierebbe un documento
   /// gia' consegnato al valet.
@@ -2002,33 +2011,33 @@ model SalaryLine {
   date        DateTime
   description String?
   /// Da dove viene l'importo: `consegna` (deciso allora) o `listino`.
-  origin      String   @default("consegna")
-  amount      Float    @default(0)
-  createdAt   DateTime @default(now())
+  origin      String    @default("consegna")
+  amount      Float     @default(0)
+  createdAt   DateTime  @default(now())
 }
 
 model Receipt {
-  id       String    @id @default(cuid())
+  id          String    @id @default(cuid())
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
-  legacyId             Int?      @unique
+  legacyId    Int?      @unique
   /// ⚠️ Facoltativo: nel database originario le ricevute del valet esistono da
   /// sole (documento + importo + stato), senza uno stipendio a cui agganciarsi.
-  salaryId String?
-  salary   Salary?   @relation(fields: [salaryId], references: [id], onDelete: Cascade)
+  salaryId    String?
+  salary      Salary?   @relation(fields: [salaryId], references: [id], onDelete: Cascade)
   /// Valet a cui appartiene la ricevuta (per quelle importate, che non hanno stipendio).
-  valetId  String?
-  valet    Valet?    @relation(fields: [valetId], references: [id])
+  valetId     String?
+  valet       Valet?    @relation(fields: [valetId], references: [id])
   /// Importo della ricevuta.
-  amount   Float?
+  amount      Float?
   /// Secondo documento presente nel legacy (`fromReceipt`).
   fileUrlFrom String?
   /// Stato del legacy: pending | paid | …
-  status   String?
-  number   String?
-  fileUrl  String?
-  signed   Boolean   @default(false)
-  signedAt DateTime?
-  createdAt DateTime @default(now())
+  status      String?
+  number      String?
+  fileUrl     String?
+  signed      Boolean   @default(false)
+  signedAt    DateTime?
+  createdAt   DateTime  @default(now())
 }
 
 // ------------------------------------------------------------
@@ -2037,18 +2046,18 @@ model Receipt {
 // status: REQUESTED | APPROVED | REJECTED | PAID
 // ------------------------------------------------------------
 model Payment {
-  id          String   @id @default(cuid())
+  id                   String    @id @default(cuid())
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
   legacyId             Int?      @unique
-  valetId     String
-  valet       Valet    @relation(fields: [valetId], references: [id])
+  valetId              String
+  valet                Valet     @relation(fields: [valetId], references: [id])
   // Reclamo aperto su una riga di stipendio (es. rimborso Area C). Facoltativo.
-  salaryId    String?
-  salary      Salary?  @relation(fields: [salaryId], references: [id], onDelete: SetNull)
-  type        String
-  amount      Float
-  description String?
-  status      String   @default("REQUESTED")
+  salaryId             String?
+  salary               Salary?   @relation(fields: [salaryId], references: [id], onDelete: SetNull)
+  type                 String
+  amount               Float
+  description          String?
+  status               String    @default("REQUESTED")
   /// ⭐ 09/09/2026 — IL RECUPERO DI UN ANTICIPO (type = ADVANCE) sugli stipendi.
   /// `recuperatoImporto` dice quanto ne è già stato trattenuto: l'anticipo è
   /// chiuso quando arriva a `amount`. Serve il PARZIALE, non un semplice
@@ -2056,16 +2065,16 @@ model Payment {
   /// non si scalerebbe mai. `recuperatoSuSalaryId` è l'ULTIMO stipendio che ha
   /// trattenuto qualcosa — la storia riga per riga sta nelle `SalaryLine` con
   /// `origin = 'anticipo'`.
-  recuperatoImporto    Float   @default(0)
+  recuperatoImporto    Float     @default(0)
   recuperatoSuSalaryId String?
   /// Richiesta a Deluxy Transactions per rimborsi/reclami approvati (specchio
   /// dell'esito notificato, come su Salary).
-  richiestaRif   String?
-  richiestaStato String?
-  richiestaIl    DateTime?
-  richiestaEsito String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  richiestaRif         String?
+  richiestaStato       String?
+  richiestaIl          DateTime?
+  richiestaEsito       String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 }
 
 // ------------------------------------------------------------
@@ -2074,20 +2083,20 @@ model Payment {
 // status: DRAFT (bozza) | ISSUED (emessa, va in storico) | PAID (pagata)
 // ------------------------------------------------------------
 model Invoice {
-  id              String    @id @default(cuid())
+  id                String        @id @default(cuid())
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
-  legacyId             Int?      @unique
-  partnerId       String
-  partner         Partner   @relation(fields: [partnerId], references: [id])
-  number          String? // FAT-<anno>-<n>
-  periodStart     DateTime
-  periodEnd       DateTime
+  legacyId          Int?          @unique
+  partnerId         String
+  partner           Partner       @relation(fields: [partnerId], references: [id])
+  number            String? // FAT-<anno>-<n>
+  periodStart       DateTime
+  periodEnd         DateTime
   /// Imponibile: la somma delle righe, IVA esclusa. È il numero che si
   /// ricostruisce sempre dalle consegne, ed è quello che il generatore
   /// calcolava (sbagliando) come totale.
-  netAmount       Float     @default(0)
+  netAmount         Float         @default(0)
   /// Aliquota IVA applicata, in percento.
-  vatRate         Float     @default(22)
+  vatRate           Float         @default(22)
   /// Totale del documento, IVA compresa.
   ///
   /// ⚠️ Nel legacy `invoiceAmount` è l'importo CON IVA: su 267
@@ -2095,41 +2104,41 @@ model Invoice {
   /// altre 291 non erano compilate affatto (uscivano a 0 €), e per quelle il
   /// totale è ricostruito dall'imponibile — non inventato: applicato con la
   /// stessa regola misurata sulle altre.
-  totalAmount     Float     @default(0)
+  totalAmount       Float         @default(0)
   /// Quello che diceva il documento originario, zeri compresi: serve a non
   /// perdere il dichiarato quando il totale è stato ricostruito.
   legacyTotalAmount Float?
-  deliveriesCount Int       @default(0)
-  status          String    @default("DRAFT")
+  deliveriesCount   Int           @default(0)
+  status            String        @default("DRAFT")
   // Emettendo la fattura esce dalle bozze ed entra nello Storico.
-  archived        Boolean   @default(false)
-  issuedAt        DateTime?
-  paidAt          DateTime?
+  archived          Boolean       @default(false)
+  issuedAt          DateTime?
+  paidAt            DateTime?
   /// Il PDF della fattura, come lo teneva il sistema originario
   /// (`delivery-invoices.invoiceUrl`). Tutte e 559 le fatture storiche ne
   /// hanno uno: senza, l'archivio conserva un totale ma non il documento.
-  documentUrl     String?
+  documentUrl       String?
   /// Il pagamento Stripe, dove c'e' (`paymentIntentId`): nel legacy solo 2
   /// fatture su 559 — le altre sono state incassate fuori.
-  paymentIntentId String?
+  paymentIntentId   String?
   /// Riferimento alla BOZZA (pro-forma) creata in FINANCE (deluxy-partner) da
   /// questa fattura: id o numero del documento restituito da POST /api/proforma.
   /// La piattaforma consegna le righe a FINANCE, che possiede l'emissione su
   /// FattureInCloud (Standard §7); qui si tiene solo il rimando, non una copia.
-  financeRef      String?
+  financeRef        String?
   /// Quando la bozza è stata mandata a FINANCE (per non rimandarla due volte e
   /// per mostrare l'esito nella lista fatture).
-  financeSentAt   DateTime?
-  lines           InvoiceLine[]
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  financeSentAt     DateTime?
+  lines             InvoiceLine[]
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 }
 
 // Riga di fattura: una consegna fatturata (snapshot al momento della generazione).
 model InvoiceLine {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   invoiceId   String
-  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoice     Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   /// La consegna fatturata. Serve a sapere che cosa è già stato fatturato:
   /// senza, rigenerare un periodo lo fatturava una seconda volta.
   ///
@@ -2142,8 +2151,8 @@ model InvoiceLine {
   date        DateTime
   recipient   String
   description String?
-  amount      Float    @default(0)
-  createdAt   DateTime @default(now())
+  amount      Float     @default(0)
+  createdAt   DateTime  @default(now())
 }
 
 // ------------------------------------------------------------
@@ -2153,33 +2162,33 @@ model InvoiceLine {
 // Sconto arrotondato a 0/5.
 // ------------------------------------------------------------
 model Sale {
-  id              String    @id @default(cuid())
+  id                  String          @id @default(cuid())
   /// Come per DeliveryProduct: la vendita è un fatto avvenuto, non un
   /// puntatore al catalogo di oggi.
-  productId       String?
-  productName     String?
-  productSku      String?
-  product         Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productId           String?
+  productName         String?
+  productSku          String?
+  product             Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
   /// Variante scelta nell'ordine (es. la taglia M): senza, un ordine per la
   /// Cappelliera M entrava come «Cappelliera» e basta e i prezzi non tornavano.
   /// Fotografia come productName: il nome resta anche se la variante sparisce.
-  productVariantId String?
-  productVariant   ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
-  variantName      String?
-  partnerId       String? // partner assegnato dallo smistamento
-  partner         Partner?  @relation(fields: [partnerId], references: [id])
-  customerId      String?
-  customer        Customer? @relation(fields: [customerId], references: [id])
-  provinceId      String
-  province        Province  @relation(fields: [provinceId], references: [id])
-  brand           String    @default("DELUXY")
+  productVariantId    String?
+  productVariant      ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+  variantName         String?
+  partnerId           String? // partner assegnato dallo smistamento
+  partner             Partner?        @relation(fields: [partnerId], references: [id])
+  customerId          String?
+  customer            Customer?       @relation(fields: [customerId], references: [id])
+  provinceId          String
+  province            Province        @relation(fields: [provinceId], references: [id])
+  brand               String          @default("DELUXY")
   /// ⭐ 07/09/2026 — QUANTI PEZZI: «50 rose rosse» è una vendita di 50 rose, non una di rose.
   /// Serve ai prodotti GENERICI a quantità, dove il prezzo è flessibile e si moltiplica.
-  quantity        Int      @default(1)
-  amount          Float
-  discountPercent Float     @default(0)
+  quantity            Int             @default(1)
+  amount              Float
+  discountPercent     Float           @default(0)
   /// da_gestire | proposta | accettata | non_accettata | annullata
-  status          String    @default("da_gestire")
+  status              String          @default("da_gestire")
   /// PERCHE' e' stato scelto quel partner: «lista priorita' 2a di 5»,
   /// «proprietario del prodotto unico», «nessuna lista per questa provincia».
   ///
@@ -2187,9 +2196,9 @@ model Sale {
   /// BUTTATO VIA. Chi guardava una vendita vedeva un partner e basta, senza
   /// modo di sapere se era stato scelto da una lista o da un ripiego — e le
   /// due cose meritano fiducia diversa.
-  assignmentReason String?
-  source          String    @default("app") // app | woocommerce
-  externalOrderId String? // id ordine WooCommerce
+  assignmentReason    String?
+  source              String          @default("app") // app | woocommerce
+  externalOrderId     String? // id ordine WooCommerce
   /// Il NUMERO d'ordine Shopify (es. 2824): quello che un umano riconosce.
   externalOrderNumber String?
 
@@ -2211,15 +2220,15 @@ model Sale {
   /// lo stesso partner fanno UNA consegna con due righe, e tutt'e due le vendite
   /// puntano a quella. Il vincolo uno-a-uno le avrebbe fatte litigare (P2002 in fase
   /// di accettazione, cioè l'unica cosa che non deve fallire).
-  deliveryId         String?   // consegna generata dall'accettazione (più vendite possono condividerla)
+  deliveryId         String? // consegna generata dall'accettazione (più vendite possono condividerla)
   /// ⭐ 04/09/2026 (regola utente): QUANDO la vendita è passata in storico
   /// (accettata, non accettata, annullata). Null finché è aperta.
   historyAt          DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
   /// ⭐ 04/09/2026 (regola utente): il REGISTRO della vendita — cambi di stato,
   /// modifiche, assegnazioni, con chi li ha fatti.
-  logs            SaleLog[]
+  logs               SaleLog[]
 
   /// ⭐ 07/09/2026 — INDICE SULLA CHIAVE ESTERNA. Mancava dall'inizio: leggere le
   /// righe di UNA consegna faceva scorrere tutta la tabella (Seq Scan). Misura del
@@ -2228,7 +2237,6 @@ model Sale {
   /// solo ogni 30 s le richieste si accumulavano e l'app non caricava più.
   @@index([partnerId])
   @@index([productId])
-
   @@index([deliveryId])
 }
 
@@ -2271,27 +2279,27 @@ model AppSetting {
 // Staff d'ufficio. Il flag isProjectManager lo qualifica come Project Manager
 // (come Operation ma senza Consegne e Attività).
 model Operation {
-  id               String   @id @default(cuid())
+  id             String   @id @default(cuid())
   /// id nel database originario MySQL: rende l'import ripetibile e tracciabile
-  legacyId             Int?      @unique
-  firstName        String
-  lastName         String
-  email            String   @unique
-  phone            String?
-  address          String?
-  notifyWhatsapp   Boolean  @default(false)
-  notifyMail       Boolean  @default(true)
+  legacyId       Int?     @unique
+  firstName      String
+  lastName       String
+  email          String   @unique
+  phone          String?
+  address        String?
+  notifyWhatsapp Boolean  @default(false)
+  notifyMail     Boolean  @default(true)
   // Ruolo operatore (controlla la visibilità delle sezioni):
   //  operation        -> base (vede Operatività, non Amministrazione)
   //  finance          -> vede anche la sezione Amministrazione
   //  project_manager  -> NON vede la sezione Operatività
   //  customer_service -> NON vede la sezione Amministrazione
-  operationRole    String   @default("operation")
-  notes            String?
-  active           Boolean  @default(true)
-  user             User?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  operationRole  String   @default("operation")
+  notes          String?
+  active         Boolean  @default(true)
+  user           User?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 /// TENTATIVI DI ACCESSO FALLITI (27/08/2026).
@@ -2304,13 +2312,13 @@ model Operation {
 /// elenco di indirizzi che qualcuno ha provato, e non deve diventare un
 /// elenco leggibile di indirizzi validi.
 model TentativoAccesso {
-  id        String   @id @default(cuid())
+  id     String   @id @default(cuid())
   /// sha256 dell'email in minuscolo.
-  chiave    String
+  chiave String
   /// L'indirizzo di rete di chi prova, per distinguere un utente distratto da
   /// una macchina che tenta.
-  ip        String?
-  quando    DateTime @default(now())
+  ip     String?
+  quando DateTime @default(now())
 
   @@index([chiave, quando])
 }
@@ -2328,29 +2336,29 @@ model TentativoAccesso {
 /// sola vorrebbe dire far entrare nel giro dei valet un testo che nessuno ha
 /// letto.
 model RichiestaConsegna {
-  id        String   @id @default(cuid())
+  id          String    @id @default(cuid())
   /// Il testo come è arrivato. Non si riscrive mai: è la fonte.
-  testo     String
+  testo       String
   /// Chi l'ha mandata: il nome della chiave app, oppure «manuale».
-  origine   String
+  origine     String
   /// Il riferimento che usa CHI LA MANDA (numero ordine, id conversazione…),
   /// per poter richiedere l'esito senza tenersi il nostro id.
   riferimento String?
   /// A chi rispondere, se serve chiedere un chiarimento.
-  contatto  String?
+  contatto    String?
   /// nuova | in_lavorazione | accettata | rifiutata
-  stato     String   @default("nuova")
+  stato       String    @default("nuova")
   /// La consegna nata da questa richiesta, quando è stata accettata.
-  deliveryId String?
-  delivery   Delivery? @relation(fields: [deliveryId], references: [id], onDelete: SetNull)
+  deliveryId  String?
+  delivery    Delivery? @relation(fields: [deliveryId], references: [id], onDelete: SetNull)
   /// Perché è stata rifiutata, o che cosa si è deciso. Lo legge anche chi
   /// l'ha mandata: un rifiuto senza motivo si trasforma in una seconda
   /// richiesta identica.
-  note      String?
-  decisaDa  String?
-  decisaIl  DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  note        String?
+  decisaDa    String?
+  decisaIl    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([stato, createdAt])
   @@index([origine, riferimento])
@@ -2391,44 +2399,44 @@ model LegacyArchive {
 // modelli Partner/Valet: tiene solo i loro id (i nomi si leggono a parte).
 // ============================================================
 model Segnalazione {
-  id             String    @id @default(cuid())
+  id                 String    @id @default(cuid())
   /// reclamo (partner/valet) | rimborso (richiesta di rimborso del valet su una
   /// consegna) | segnalazione (aperta dall'ufficio)
-  tipo           String    @default("segnalazione")
+  tipo               String    @default("segnalazione")
   /// Importo richiesto, solo per i rimborsi. Null per reclami e segnalazioni.
-  importo        Float?
+  importo            Float?
   /// Riferimento univoco alla riga legacy da cui è nata (es. "complaint:1",
   /// "refund:1"): rende l'import dallo storico idempotente. Null per quelle
   /// aperte nell'app.
-  legacyRef      String?   @unique
+  legacyRef          String?   @unique
   /// Ricevuta allegata (URL), tipicamente sui rimborsi: si mostra come link
   /// cliccabile. Sui rimborsi storici è il link originale del vecchio sistema.
-  ricevutaUrl    String?
+  ricevutaUrl        String?
   /// Allegato caricato aprendo la segnalazione (foto/documento, data URL o URL):
   /// si vede e si scarica dal dettaglio.
-  allegatoUrl    String?
+  allegatoUrl        String?
   /// Su CHI: uno dei due, o nessuno (segnalazione generica).
-  partnerId      String?
-  valetId        String?
+  partnerId          String?
+  valetId            String?
   /// Eventuale consegna collegata.
-  deliveryId     String?
+  deliveryId         String?
   /// Chi l'ha aperta.
-  apertaDaUserId String?
-  apertaDaRuolo  String?
-  apertaDaNome   String?
-  oggetto        String?
-  testo          String
+  apertaDaUserId     String?
+  apertaDaRuolo      String?
+  apertaDaNome       String?
+  oggetto            String?
+  testo              String
   /// aperta | in_lavorazione | chiusa — e per i tipi con importo (rimborsi,
   /// reclami valet) il verdetto: approvata | respinta | pagata (03/09).
-  stato          String    @default("aperta")
-  risposta       String?
-  chiusaIl       DateTime?
+  stato              String    @default("aperta")
+  risposta           String?
+  chiusaIl           DateTime?
   /// ⭐ 03/09: quando l'importo APPROVATO è stato applicato alla paga della
   /// consegna collegata (valetAdditionalPrice += importo). Vale da guardia:
   /// non si applica due volte, e il riaprire lo storna.
   importoApplicatoIl DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@index([stato])
   @@index([partnerId])
@@ -2459,6 +2467,40 @@ model SaleLog {
 // rialza, ogni correzione a mano lascia una riga. Tabella creata a mano con
 // scripts/applica-migrazione-stock.mjs (CREATE TABLE IF NOT EXISTS).
 // ------------------------------------------------------------
+/// ⭐⭐ 11/09/2026 (regola utente) — LA MERCE DI SERVIZIO CHE UN PARTNER HA IN CASA.
+///
+/// «Prodotti con flag servizio, che saranno ad esempio i biglietti che si possono assegnare per
+/// singoli stock ai vari partner: l'assegnazione fa comparire questo prodotto in merce.»
+///
+/// È la prima giacenza VERA della piattaforma. Tutto il resto in «Merce in sede» si ricava dalle
+/// consegne aperte — un bouquet «da ritirare» è un impegno, non un oggetto che esiste. Cento biglietti
+/// consegnati a una boutique invece esistono davvero, stanno in un cassetto, e nessuna consegna li
+/// racconta: senza una riga come questa la piattaforma non ha modo di saperlo.
+///
+/// ⚠️ `productVariantId` è una STRINGA con default vuoto, non una chiave esterna facoltativa: in
+/// Postgres due NULL sono diversi fra loro, quindi con una colonna nullabile il vincolo di unicità non
+/// impedirebbe la stessa assegnazione scritta due volte — ed è esattamente l'errore che raddoppia una
+/// giacenza senza che nessuno se ne accorga.
+model PartnerProductStock {
+  id               String   @id @default(cuid())
+  partnerId        String
+  productId        String
+  /// id della variante, oppure "" quando l'assegnazione è del prodotto intero.
+  productVariantId String   @default("")
+  /// Quanti ne ha adesso. Può essere 0: «ne aveva, sono finiti» è un'informazione, non una riga da buttare.
+  quantity         Int      @default(0)
+  note             String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  /// Chi ha scritto l'ultima volta: una giacenza senza un nome accanto non si può chiedere a nessuno.
+  userId           String?
+  partner          Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerId, productId, productVariantId])
+  @@index([productId])
+}
+
 model StockMovement {
   id               String   @id @default(cuid())
   productId        String

@@ -55,6 +55,13 @@ export class ProductListQueryDto extends ListQueryDto {
   @IsBoolean()
   superProduct?: boolean;
 
+  /** ⭐ 11/09/2026: i prodotti di SERVIZIO (biglietti e simili), quelli che si assegnano in dotazione. */
+  @ApiPropertyOptional({ description: 'Prodotto di servizio: true / false / assente' })
+  @IsOptional()
+  @Transform(({ value }) => treStati(value))
+  @IsBoolean()
+  servizio?: boolean;
+
   @ApiPropertyOptional({ description: 'Super provincia (sconto per provincia): true / false / assente' })
   @IsOptional()
   @Transform(({ value }) => treStati(value))

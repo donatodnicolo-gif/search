@@ -1,4 +1,4 @@
-import { Controller, ForbiddenException, Get, Injectable, Module, Query } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, Injectable, Module, Param, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Prisma } from '@prisma/client';
 import { CurrentUser, JwtUser, Roles } from '../common/decorators';
@@ -302,23 +302,137 @@ export class MerceInSedeService {
     `);
 
     const contatori = await this.contatori(user, f);
+    /**
+     * ⭐⭐ 11/09/2026 (regola utente): «l'assegnazione fa comparire questo prodotto in merce».
+     * La dotazione è una giacenza VERA e non ha data: i biglietti che una boutique ha nel cassetto ci
+     * sono oggi come domani. Per questo non passa dal periodo — filtrarla per data la farebbe sparire
+     * a ogni cambio di filtro, e una giacenza che lampeggia non è una giacenza.
+     */
+    const dotazioni = await this.dotazionePerPartner(user, f);
 
     const num = (v: unknown) => Number(v ?? 0);
     return {
       periodo: p.etichetta,
       righe: [
         ...partner.map((r) => ({ tipo: 'partner' as const, id: r.id, nome: r.nome ?? '—',
-          daRitirare: num(r.daritirare), inConsegna: num(r.inconsegna), inSospeso: num(r.insospeso), consegnati: num(r.consegnati) })),
+          daRitirare: num(r.daritirare), inConsegna: num(r.inconsegna), inSospeso: num(r.insospeso), consegnati: num(r.consegnati),
+          inDotazione: num(dotazioni.get(r.id)) })),
         ...valet.map((r) => ({ tipo: 'valet' as const, id: r.id, nome: r.nome || '—',
-          daRitirare: 0, inConsegna: num(r.inconsegna), inSospeso: num(r.insospeso), consegnati: num(r.consegnati) })),
+          daRitirare: 0, inConsegna: num(r.inconsegna), inSospeso: num(r.insospeso), consegnati: num(r.consegnati),
+          inDotazione: 0 })),
+        // I partner che hanno SOLO merce di servizio non hanno consegne aperte: senza questa riga
+        // l'assegnazione non comparirebbe da nessuna parte, che è il contrario di quello che serve.
+        ...(daFare
+          ? [...dotazioni.entries()]
+              .filter(([id]) => !partner.some((r) => r.id === id))
+              .map(([id, pezzi]) => ({ tipo: 'partner' as const, id, nome: dotazioni.nomi.get(id) ?? '—',
+                daRitirare: 0, inConsegna: 0, inSospeso: 0, consegnati: 0, inDotazione: Number(pezzi) }))
+          : []),
       ]
-        .filter((r) => (daFare ? r.daRitirare + r.inConsegna > 0 : r.consegnati + r.inSospeso > 0))
+        .filter((r) => (daFare ? r.daRitirare + r.inConsegna + r.inDotazione > 0 : r.consegnati + r.inSospeso > 0))
         .sort((a, b) => (daFare
-          ? (b.daRitirare + b.inConsegna) - (a.daRitirare + a.inConsegna)
+          ? (b.daRitirare + b.inConsegna + b.inDotazione) - (a.daRitirare + a.inConsegna + a.inDotazione)
           : (b.inSospeso + b.consegnati) - (a.inSospeso + a.consegnati))),
       magazzino: num(magazzino[0]?.pezzi),
       ...contatori,
     };
+  }
+
+  /**
+   * ⭐⭐ 11/09/2026 (regola utente) — LA MERCE DI SERVIZIO ASSEGNATA, per partner.
+   *
+   * «Prodotti con flag servizio, che saranno ad esempio i biglietti che si possono assegnare per
+   * singoli stock ai vari partner: l'assegnazione fa comparire questo prodotto in merce.»
+   *
+   * ⚠️ Rispetta lo stesso perimetro delle consegne: un partner vede solo la propria. Un valet non ne
+   * ha — la merce di servizio si assegna a un luogo, e il valet non è un luogo.
+   */
+  private async dotazionePerPartner(user: JwtUser, f: Filtri) {
+    const mappa = new Map<string, number>() as Map<string, number> & { nomi: Map<string, string> };
+    mappa.nomi = new Map<string, string>();
+    if (user.role === Role.VALET || f.valetId) return mappa;
+    const dove: Record<string, unknown> = { quantity: { gt: 0 } };
+    if (user.role === Role.PARTNER) {
+      if (!user.partnerId) throw new ForbiddenException('Nessun partner collegato a questo utente');
+      dove['partnerId'] = user.partnerId;
+    } else if (f.partnerId) dove['partnerId'] = f.partnerId;
+    if (f.q) dove['product'] = { name: { contains: f.q, mode: 'insensitive' } };
+    const righe = await this.prisma.partnerProductStock.findMany({
+      where: dove,
+      select: { partnerId: true, quantity: true, partner: { select: { insegna: true } } },
+    });
+    for (const r of righe) {
+      mappa.set(r.partnerId, (mappa.get(r.partnerId) ?? 0) + r.quantity);
+      if (r.partner?.insegna) mappa.nomi.set(r.partnerId, r.partner.insegna);
+    }
+    return mappa;
+  }
+
+  /** Le righe della dotazione, prodotto per prodotto: è l'elenco dietro alla colonna «in dotazione». */
+  async dotazione(user: JwtUser, f: Filtri) {
+    const dove: Record<string, unknown> = {};
+    if (user.role === Role.PARTNER) {
+      if (!user.partnerId) throw new ForbiddenException('Nessun partner collegato a questo utente');
+      dove['partnerId'] = user.partnerId;
+    } else if (user.role === Role.VALET) {
+      return { righe: [], totale: 0 };
+    } else if (f.partnerId) dove['partnerId'] = f.partnerId;
+    if (f.q) dove['product'] = { name: { contains: f.q, mode: 'insensitive' } };
+    const righe = await this.prisma.partnerProductStock.findMany({
+      where: dove,
+      orderBy: [{ partner: { insegna: 'asc' } }, { product: { name: 'asc' } }],
+      select: {
+        id: true, quantity: true, note: true, updatedAt: true, productVariantId: true,
+        partnerId: true, partner: { select: { insegna: true } },
+        productId: true, product: { select: { name: true, sku: true, servizio: true } },
+      },
+      take: 500,
+    });
+    return {
+      righe: righe.map((r) => ({
+        id: r.id, partnerId: r.partnerId, partner: r.partner?.insegna ?? '—',
+        productId: r.productId, prodotto: r.product?.name ?? '—', sku: r.product?.sku ?? '',
+        variante: r.productVariantId || null, quantita: r.quantity, note: r.note ?? '',
+        aggiornata: r.updatedAt,
+        // ⚠️ Si dichiara se il prodotto NON è più di servizio: la riga resta, ma chi guarda deve saperlo.
+        nonPiuDiServizio: r.product ? !r.product.servizio : false,
+      })),
+      totale: righe.reduce((s, r) => s + r.quantity, 0),
+    };
+  }
+
+  /**
+   * Assegna (o corregge) una quantità di merce di servizio a un partner.
+   *
+   * ⚠️ Solo l'UFFICIO: la dotazione dice quanto materiale l'azienda ha dato a un negozio, e un negozio
+   * che si scrive da solo quanti biglietti ha non è un inventario, è una dichiarazione.
+   * ⚠️ Il prodotto dev'essere col flag servizio: assegnare una torta come dotazione vorrebbe dire
+   * inventare una giacenza che nessuno ha contato.
+   */
+  async assegna(user: JwtUser, dati: { partnerId: string; productId: string; variante?: string | null; quantita: number; note?: string | null }) {
+    if (user.role !== Role.ADMIN && user.role !== Role.OPERATION) throw new ForbiddenException('Solo ufficio');
+    const prodotto = await this.prisma.product.findFirst({
+      where: { id: dati.productId, deletedAt: null },
+      select: { id: true, servizio: true, name: true },
+    });
+    if (!prodotto) throw new ForbiddenException('Prodotto inesistente');
+    if (!prodotto.servizio) throw new ForbiddenException(`«${prodotto.name}» non ha il flag servizio: non si assegna come dotazione.`);
+    const partner = await this.prisma.partner.findFirst({ where: { id: dati.partnerId, deleted: false }, select: { id: true } });
+    if (!partner) throw new ForbiddenException('Partner inesistente');
+    const quantita = Math.max(0, Math.trunc(Number(dati.quantita) || 0));
+    const variante = (dati.variante ?? '').trim();
+    return this.prisma.partnerProductStock.upsert({
+      where: { partnerId_productId_productVariantId: { partnerId: dati.partnerId, productId: dati.productId, productVariantId: variante } },
+      create: { partnerId: dati.partnerId, productId: dati.productId, productVariantId: variante, quantity: quantita, note: dati.note ?? null, userId: user.sub ?? null },
+      update: { quantity: quantita, note: dati.note ?? null, userId: user.sub ?? null },
+    });
+  }
+
+  /** Toglie una riga di dotazione. Chi non ne ha più zero pezzi ma proprio niente, non deve vedere una riga. */
+  async togliDotazione(user: JwtUser, id: string) {
+    if (user.role !== Role.ADMIN && user.role !== Role.OPERATION) throw new ForbiddenException('Solo ufficio');
+    await this.prisma.partnerProductStock.delete({ where: { id } });
+    return { ok: true };
   }
 
   /**
@@ -440,6 +554,34 @@ export class MerceInSedeController {
     @Query('partnerId') partnerId?: string, @Query('valetId') valetId?: string,
   ) {
     return this.service.perProdotto(user, { da, a, q, partnerId, valetId });
+  }
+
+  /**
+   * ⭐⭐ 11/09/2026 (regola utente) — LA DOTAZIONE: la merce di servizio assegnata ai partner.
+   * In lettura la vede anche il partner (la sua); a scriverla è solo l'ufficio.
+   */
+  @Get('dotazione')
+  @ApiOperation({ summary: 'La merce di servizio assegnata (biglietti e simili): una riga per partner e prodotto' })
+  @ApiQuery({ name: 'partnerId', required: false, description: 'Solo ufficio' })
+  dotazione(@CurrentUser() user: JwtUser, @Query('partnerId') partnerId?: string, @Query('q') q?: string) {
+    return this.service.dotazione(user, { partnerId, q });
+  }
+
+  @Post('dotazione')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Assegna a un partner una quantità di un prodotto col flag servizio' })
+  assegna(
+    @CurrentUser() user: JwtUser,
+    @Body() corpo: { partnerId: string; productId: string; variante?: string | null; quantita: number; note?: string | null },
+  ) {
+    return this.service.assegna(user, corpo);
+  }
+
+  @Delete('dotazione/:id')
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Toglie una riga di dotazione' })
+  togliDotazione(@CurrentUser() user: JwtUser, @Param('id') id: string) {
+    return this.service.togliDotazione(user, id);
   }
 
   @Get('consegne')
