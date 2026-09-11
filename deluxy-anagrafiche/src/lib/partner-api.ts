@@ -57,6 +57,12 @@ const CAMPI_TESTO = [
 // concordato». Zero giorni e «no» sono risposte, non assenze.
 const CAMPI_NUMERO = ["pagamentoVendorGiorni", "incassoServiziGiorni"] as const;
 const CAMPI_BOOLEANI = ["compensazioneIncassi", "incassoServiziFineMese"] as const;
+// ⭐ 11/09/2026 — la FEE sulle vendite è una percentuale, non giorni: ha i suoi
+// limiti (0–100) e ammette i decimali, quindi non può passare da CAMPI_NUMERO,
+// che pretende un intero fino a 365. Un numero fuori scala si rifiuta: su
+// questo campo si calcola quanto trattiene Deluxy, e un 2000 preso per buono
+// diventerebbe un dovuto negativo.
+const CAMPI_PERCENTUALE = ["feeVenditePercent"] as const;
 
 export type ContattoInput = {
   ruolo?: string | null;
@@ -114,6 +120,16 @@ export function validaPartner(
       return { errore: `Il campo '${campo}' vuole un numero intero di giorni fra 0 e 365 (oppure null)` };
     }
     dati[campo] = n;
+  }
+  for (const campo of CAMPI_PERCENTUALE) {
+    if (!(campo in body)) continue;
+    const v = body[campo];
+    if (v === null || v === "") { dati[campo] = null; continue; }
+    const n = typeof v === "number" ? v : Number(String(v).trim());
+    if (!Number.isFinite(n) || n < 0 || n > 100) {
+      return { errore: `Il campo '${campo}' vuole una percentuale fra 0 e 100 (oppure null)` };
+    }
+    dati[campo] = Math.round(n * 10000) / 10000;
   }
   for (const campo of CAMPI_BOOLEANI) {
     if (!(campo in body)) continue;
@@ -303,6 +319,7 @@ export function serializzaPartner(
       pagamentoVendorGiorni: p.pagamentoVendorGiorni,
       incassoServiziGiorni: p.incassoServiziGiorni,
       incassoServiziFineMese: p.incassoServiziFineMese,
+      feeVenditePercent: p.feeVenditePercent,
     },
     account: p.account,
     ultimaVisita: p.ultimaVisita,

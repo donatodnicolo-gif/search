@@ -105,6 +105,14 @@ model Partner {
   incassoServiziGiorni    Int?
   /// Decorrenza dei giorni di incasso: true = fine mese della fattura.
   incassoServiziFineMese  Boolean?
+  /// ⭐ 11/09/2026 — LA FEE SULLE VENDITE (%), quinta condizione vendor.
+  /// La possiede la piattaforma consegne (`Partner.commissionPercent`), che la
+  /// usa per «Fee value = Fee% × prezzo partner»; il registro la trasporta e
+  /// Finance la legge per calcolare commissione e dovuto al partner.
+  /// Nasce perché su Edenia Fiori la fee in Finance era vuota e l'utente si è
+  /// chiesto perché non arrivasse da app delivery: non arrivava perché nel
+  /// contratto non c'era. Vuoto = ancora da valorizzare, non «zero».
+  feeVenditePercent       Float?
   noteAmministrative      String?
   amministrazioneNome     String?
   amministrazioneTelefono String?
