@@ -1041,6 +1041,8 @@
     "elimina": "Delete",
     "eliminaConferma": "Delete «{{nome}}»? It disappears from lists and invoicing. It can be restored.",
     "deactivate": "Deactivate",
+    "reactivate": "Reactivate",
+    "deactivateConferma": "Deactivate «{{nome}}»? It will no longer receive proposals and disappears from the working lists. It can be reactivated.",
     "activate": "Reactivate",
     "suspended": "Suspended"
   },

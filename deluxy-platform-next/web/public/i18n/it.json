@@ -1042,6 +1042,8 @@
     "elimina": "Elimina",
     "eliminaConferma": "Eliminare «{{nome}}»? Sparisce dagli elenchi e dalla fatturazione. Si può ripristinare.",
     "deactivate": "Disattiva",
+    "reactivate": "Riattiva",
+    "deactivateConferma": "Disattivare «{{nome}}»? Non riceverà più proposte e sparisce dalle liste di lavoro. Si può riattivare.",
     "activate": "Riattiva",
     "suspended": "Sospeso"
   },

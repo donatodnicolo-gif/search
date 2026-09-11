@@ -179,6 +179,12 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
                 <td class="actions-cell" (click)="$event.stopPropagation()">
                   @if (canEdit()) {
                     <a class="act" [routerLink]="['/partners', p.id, 'edit']">{{ 'common.edit' | translate }}</a>
+                    <!-- ⭐ 11/09/2026 (regola utente): «Disattiva» anche in tabella — le stesse rotte della
+                         scheda (PATCH :id/disattiva e :id/attiva). Disattivato = niente proposte né liste;
+                         è reversibile, e il bottone lo dice cambiando in «Riattiva». -->
+                    <button class="act" type="button" [disabled]="attivazioneInCorso() === p.id" (click)="cambiaAttivazione(p)">
+                      {{ (p.active === false ? 'partners.reactivate' : 'partners.deactivate') | translate }}
+                    </button>
                     <!-- ⭐ 08/09/2026 (richiesta dell'utente: «ho bisogno di poterla
                          eliminare questa riga»). La rotta esisteva già —
                          PATCH :id/elimina, che toglie il partner da fatturazione ed
@@ -460,6 +466,23 @@ export class PartnersListComponent {
    * credere per un istante che sia andata, ed è proprio su un'azione
    * distruttiva che quell'istante non va regalato.
    */
+  /** ⭐ 11/09: Disattiva / Riattiva dalla tabella (stesse rotte della scheda). */
+  readonly attivazioneInCorso = signal<string | null>(null);
+  cambiaAttivazione(p: Partner): void {
+    const nome = p.insegna || p.email || p.id;
+    const spegni = p.active !== false;
+    if (spegni && !confirm(this.translate.instant('partners.deactivateConferma', { nome }))) return;
+    this.attivazioneInCorso.set(p.id);
+    this.http.patch(`${environment.apiUrl}/partners/${p.id}/${spegni ? 'disattiva' : 'attiva'}`, {}).subscribe({
+      next: () => {
+        this.attivazioneInCorso.set(null);
+        p.active = !spegni;
+        this.partners.set([...this.partners()]);
+      },
+      error: (e) => { this.attivazioneInCorso.set(null); this.error.set(e?.error?.message ?? this.translate.instant('common.saveError')); },
+    });
+  }
+
   elimina(p: Partner): void {
     const nome = p.insegna || p.email || p.id;
     if (!confirm(this.translate.instant('partners.eliminaConferma', { nome }))) return;
