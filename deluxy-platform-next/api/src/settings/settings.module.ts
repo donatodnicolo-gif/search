@@ -420,7 +420,7 @@ export class SettingsService {
       id: ((await this.get('driveClientId')) || '').trim(),
       segreto: ((await this.get('driveClientSecret')) || '').trim(),
       refresh: ((await this.get('driveRefreshToken')) || '').trim(),
-      cartella: ((await this.get('driveFolderId')) || '').trim(),
+      cartella: SettingsService.idCartellaDrive(await this.get('driveFolderId')),
     };
   }
 
@@ -453,8 +453,24 @@ export class SettingsService {
    * salva, così il giro si fa una volta sola. Parlante, non lancia: senza
    * cartella il file va nella radice del Drive (meglio di un upload fallito).
    */
+  /**
+   * ⭐ 11/09/2026 (segnalazione utente: «Drive rifiuta il caricamento: File not found:
+   * https://drive.google.com/drive/folders/1gZ5…»): in Impostazioni si incolla il LINK della cartella,
+   * non l'id — ed è la cosa naturale da fare, perché il link è quello che Drive offre col tasto
+   * «Condividi». Qui si accetta l'uno e l'altro: dal link si prende l'id.
+   */
+  static idCartellaDrive(valore: string | null | undefined): string {
+    const v = (valore ?? '').trim();
+    if (!v) return '';
+    const daPercorso = v.match(/\/folders\/([A-Za-z0-9_-]{10,})/);
+    if (daPercorso) return daPercorso[1];
+    const daQuery = v.match(/[?&]id=([A-Za-z0-9_-]{10,})/);
+    if (daQuery) return daQuery[1];
+    return /^[A-Za-z0-9_-]{10,}$/.test(v) ? v : '';
+  }
+
   private async cartellaFileApp(token: string): Promise<string | null> {
-    const salvata = ((await this.get('driveFolderId')) || '').trim();
+    const salvata = SettingsService.idCartellaDrive(await this.get('driveFolderId'));
     if (salvata) return salvata;
     const NOME = 'File App';
     try {

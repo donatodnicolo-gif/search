@@ -109,13 +109,16 @@ interface ImageRow { url: string; }
             <label class="toggle"><input type="checkbox" name="notEditable" [(ngModel)]="model.notEditable" /><span>{{ 'productForm.toggle.notEditable' | translate }}</span></label>
           }
           <label class="toggle"><input type="checkbox" name="controlStock" [(ngModel)]="model.controlStock" /><span>{{ 'productForm.toggle.controlStock' | translate }}</span></label>
-          <label class="toggle"><input type="checkbox" name="useAlternateName" [(ngModel)]="model.useAlternateName" /><span>{{ 'productForm.toggle.useAlternateName' | translate }}</span></label>
+          <!-- ⭐ 11/09/2026 (regola utente): al PARTNER non si mostra — il nome che scrive È già il suo nome. -->
+          @if (!isPartner()) {
+            <label class="toggle"><input type="checkbox" name="useAlternateName" [(ngModel)]="model.useAlternateName" /><span>{{ 'productForm.toggle.useAlternateName' | translate }}</span></label>
+          }
         </div>
         @if (model.controlStock) {
           <label class="fld mt" style="max-width:200px"><span>{{ 'productForm.field.stock' | translate }}</span>
             <input class="field num" type="number" min="0" name="stock" [(ngModel)]="model.stock" /></label>
         }
-        @if (model.useAlternateName) {
+        @if (model.useAlternateName && !isPartner()) {
           <label class="fld mt"><span>{{ 'productForm.field.alternateName' | translate }} <em>{{ 'productForm.field.alternateNameHint' | translate }}</em></span>
             <input class="field" name="alternateName" [(ngModel)]="model.alternateName" /></label>
         }
