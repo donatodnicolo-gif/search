@@ -1,5 +1,13 @@
 # Handoff — Deluxy Customer Service
 
+> ✅ **11/09/2026 22:36 — IN PRODUZIONE `deluxy-messaging-b4ly4k8k6`** (col «fai deploy» dell'utente). Va live tutto il lavoro della sera: i **metodi di pagamento impostabili** (coi 10 metodi letti dai checkout veri), il **rimborso che distingue «registrato» da «uscito»** e la pulizia dello schema. Verificato dopo il deploy: build Ready in 1m, alias `deluxy-messaging.vercel.app` sul deploy nuovo, `/metodi-pagamento`, `/nuovo-ordine`, `/impostazioni` e `/api/metodi-pagamento` rispondono 307 al login (come da middleware), l'API pubblica risponde.
+>
+> ⚠️⚠️ **IL PRIMO DEPLOY ERA FALLITO**, e vale la pena saperlo: `npm run build` moriva su Vercel con
+> `./node_modules/.prisma/client/index.d.ts:15837 — Type error: Property or signature expected`.
+> Causa: in un commento `///` dello schema avevo scritto la sequenza che **chiude** un commento Javascript. Prisma ricopia i commenti `///` dentro i tipi che genera: quella sequenza chiudeva il JSDoc a metà e il client non compilava.
+> ⚠️ **In locale non si vedeva**, ed è la parte che conta: qui `prisma generate` fallisce con EPERM (il dev server tiene aperta la DLL del query engine), quindi i tipi sul disco restano quelli vecchi e `next build` passa lo stesso. **Un `next build` locale non dimostra che i tipi generati compilino.** Per verificarlo davvero: generare il client in una cartella a parte (`output` diverso nello schema) e passarci `tsc`. Fatto così prima di ripubblicare.
+> **Regola, scritta anche nello schema**: in un commento `///` non si scrive mai la chiusura di un commento Javascript, e i commenti dei modelli si scrivono con `///` — mai con un blocco, che la formattazione di Prisma non capisce (vedi la riga di stamattina, era arrivata a infilare sette righe di spazzatura).
+
 > ⭐ **11/09/2026 sera (4) — I METODI DI PAGAMENTO SI IMPOSTANO.** In locale, **non deployato**.
 >
 > Utente: «in nuovo ordine la terza opzione è altri metodi di pagamento: consentimi su impostazioni di stabilire per ogni metodo che viene elencato le specifiche».
