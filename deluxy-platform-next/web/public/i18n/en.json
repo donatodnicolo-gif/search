@@ -3723,7 +3723,7 @@
   },
   "merce": {
     "titolo": "Goods on site",
-    "caption": "What each partner and each valet is holding right now. “To collect” is a commitment, not goods already on the counter.",
+    "caption": "What each partner and each valet is holding right now. “To collect” counts only today’s and future deliveries: it is a commitment, not goods already on the counter.",
     "cerca": "Search a product…",
     "merceDi": "Goods of",
     "tuttiIDetentori": "← All",
@@ -3759,6 +3759,8 @@
       "deluxyWareHouse": "in the Deluxy warehouse",
       "daStabilire": "to be decided"
     },
-    "nessunoConRicerca": "No result for “{{q}}”."
+    "nessunoConRicerca": "No result for “{{q}}”.",
+    "arretrate": "Open deliveries with a past date",
+    "suConsegneSemplice": "across {{n}} deliveries"
   }
 }

@@ -64,6 +64,15 @@ import { AltezzaViewportDirective } from '../core/altezza-viewport.directive';
       @if (riepilogo(); as r) {
         <div class="pillole">
           <span class="pillola">{{ 'merce.aMagazzino' | translate }} <strong>{{ r.magazzino }}</strong></span>
+          @if (r.arretrate.pezzi) {
+            <!-- Le consegne mai chiuse con una data già passata: non sono merce da ritirare, sono
+                 lavoro rimasto indietro. Contarle nella colonna avrebbe raccontato una boutique piena
+                 di roba che non ha. -->
+            <span class="pillola attenzione">
+              {{ 'merce.arretrate' | translate }} <strong>{{ r.arretrate.pezzi }}</strong>
+              <small>{{ 'merce.suConsegneSemplice' | translate: { n: r.arretrate.consegne } }}</small>
+            </span>
+          }
           @if (r.daStabilire.pezzi) {
             <!-- ⚠️ NON è un link: l'elenco consegne non sa filtrare per destinazione, e portare là
                  significherebbe promettere 872 consegne e mostrarne 1.750, archivio compreso. E il
@@ -242,7 +251,7 @@ export class MerceInSedeComponent {
   readonly caricandoConsegne = signal(false);
   readonly errore = signal<string | null>(null);
   readonly detentori = signal<Detentore[]>([]);
-  readonly riepilogo = signal<{ magazzino: number; daStabilire: { pezzi: number; consegne: number }; giorni: number } | null>(null);
+  readonly riepilogo = signal<{ magazzino: number; daStabilire: { pezzi: number; consegne: number }; giorni: number; arretrate: { pezzi: number; consegne: number } } | null>(null);
   readonly prodotti = signal<RigaProdotto[]>([]);
   readonly detentore = signal<Detentore | null>(null);
   readonly rigaAperta = signal<string | null>(null);
@@ -306,13 +315,13 @@ export class MerceInSedeComponent {
     const finito = () => this.caricando.set(false);
     const errore = () => { finito(); this.errore.set(this.translate.instant('merce.errore')); };
     if (this.eUfficio() && !this.detentore()) {
-      this.http.get<{ righe: Detentore[]; magazzino: number; daStabilire: { pezzi: number; consegne: number }; daStabilireGiorni?: number }>(
+      this.http.get<{ righe: Detentore[]; magazzino: number; daStabilire: { pezzi: number; consegne: number }; daStabilireGiorni?: number; arretrate?: { pezzi: number; consegne: number } }>(
         `${environment.apiUrl}/merce-in-sede/detentori`, { params: this.parametri() },
       ).subscribe({
         next: (d) => {
           if (mio !== this.giro) return;
           this.detentori.set(d.righe ?? []);
-          this.riepilogo.set({ magazzino: d.magazzino, daStabilire: d.daStabilire, giorni: d.daStabilireGiorni ?? 90 });
+          this.riepilogo.set({ magazzino: d.magazzino, daStabilire: d.daStabilire, giorni: d.daStabilireGiorni ?? 90, arretrate: d.arretrate ?? { pezzi: 0, consegne: 0 } });
           finito();
         },
         error: errore,

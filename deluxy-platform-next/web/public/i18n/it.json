@@ -3725,7 +3725,7 @@
   },
   "merce": {
     "titolo": "Merce in sede",
-    "caption": "Che cosa ha in mano ogni partner e ogni valet, adesso. «Da ritirare» è un impegno preso, non merce già sul bancone.",
+    "caption": "Che cosa ha in mano ogni partner e ogni valet, adesso. «Da ritirare» conta solo le consegne di oggi e dei giorni a venire: è un impegno preso, non merce già sul bancone.",
     "cerca": "Cerca un prodotto…",
     "merceDi": "Merce di",
     "tuttiIDetentori": "← Tutti",
@@ -3761,6 +3761,8 @@
       "deluxyWareHouse": "a magazzino Deluxy",
       "daStabilire": "da stabilire"
     },
-    "nessunoConRicerca": "Nessun risultato per «{{q}}»."
+    "nessunoConRicerca": "Nessun risultato per «{{q}}».",
+    "arretrate": "Consegne aperte con data passata",
+    "suConsegneSemplice": "su {{n}} consegne"
   }
 }
