@@ -304,3 +304,26 @@ export function mancanzePerApprovare(p: {
   }
   return mancano;
 }
+
+/**
+ * **I campi del negozio che per un prodotto del partner sono gia' decisi.**
+ *
+ * Regola dell'utente (11/09/2026): «prodotto unico dovrebbe uscire in
+ * automatico si' e non modificabile visto e' di un partner da app delivery» ·
+ * «prodotto e' sempre non fisico».
+ *
+ * Non sono valori predefiniti che qualcuno puo' correggere: sono la
+ * definizione stessa di questi prodotti. Il prodotto di un partner esiste in
+ * un esemplare (`is_unique`) e non passa dalla spedizione di Shopify perche'
+ * lo consegna la piattaforma (`not_physical`). Lasciarli modificabili vorrebbe
+ * dire permettere di descrivere il prodotto come una cosa che non e'.
+ *
+ * ⚠️ I valori sono le **stringhe** «true»/«false», non booleani: e' cosi' che
+ * stanno nei metafield di Shopify e nei nostri `metafieldShopify` (misurato
+ * sui prodotti veri: 1.152 schede attive con `custom.is_unique`, tutte con
+ * «true» o «false» come testo).
+ */
+export const CAMPI_FISSI_DEL_PARTNER: Readonly<Record<string, string>> = {
+  "custom.is_unique": "true",
+  "custom.not_physical": "true",
+};

@@ -23,12 +23,15 @@ import { EditorScheda } from "./EditorScheda";
 import { Multiprodotto, type ComponenteForm } from "./Multiprodotto";
 import { componiDescrizioneHtml, famigliaSezione, sezioniDaScrivere, spezzaDescrizioneHtml } from "@/lib/descrizione-shopify";
 import { MAX_DESCRIZIONE, MAX_TITOLO, seoDaRegole } from "@/lib/seo-regole";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ETICHETTA_FASE, ETICHETTA_TIPOLOGIA_VENDITA, SPIEGAZIONE_TIPOLOGIA_VENDITA, TIPOLOGIE_VENDITA } from "@/lib/dominio";
 import { CAMPI_OPERATIVI, chiaveDef, etichettaDef, listaDa, type DefinizioneMetafield } from "@/lib/metafield-puro";
 
 
-export type NegozioPerForm = { id: string; nome: string; dominio: string; puoScrivere: boolean; lingueAttive?: string[] };
+// `canaleVendite` = come si chiama il sito nel venduto ('deluxy.it' per il
+// negozio che qui si chiama 'Gifts'): serve a riconoscere il sito predefinito
+// senza dipendere dal nome interno, che puo' cambiare.
+export type NegozioPerForm = { id: string; nome: string; dominio: string; puoScrivere: boolean; lingueAttive?: string[]; canaleVendite?: string | null };
 export type CategoriaPerForm = { chiave: string; nome: string; negozio: string | null; conPrompt: boolean };
 export type CollezionePerForm = { id: string; titolo: string; negozio: string };
 /** ⭐ 08/09/2026: una sezione della scheda, per categoria e negozio. */
@@ -52,6 +55,12 @@ export type ProdottoIniziale = {
   id: string;
   nome: string;
   negozioId: string;
+  /**
+   * ⭐ 11/09/2026: **viene dall'app delivery** (un prodotto caricato da un
+   * partner). Non è un'etichetta decorativa: decide quali campi del negozio
+   * sono già stabiliti e non si toccano (pezzo unico, non fisico).
+   */
+  dallaPiattaforma?: boolean;
   fase: string;
   categoria: string;
   /** ⭐ 09/09/2026: il «Tipo di prodotto» di Shopify, più fine della categoria. */
@@ -194,10 +203,25 @@ export function FormProdottoNuovo({
   // comando. L'ordine è quello in cui si clicca: si tiene una lista, non un
   // insieme, altrimenti «il primo» non vorrebbe dire niente.
   const [sitiScelti, setSitiScelti] = useState<string[]>(() => {
-    const primo = iniziale?.negozioId ? [iniziale.negozioId] : [];
-    return [...primo, ...(iniziale?.altriNegoziId ?? []).filter((x) => x !== iniziale?.negozioId)];
+    // ⭐ 11/09/2026 (regola utente): «di default il sito in cui pubblicare il
+    // prodotto è deluxy.it». Su un prodotto nuovo non era scelto niente e
+    // bisognava ricordarselo ogni volta; qui parte già spuntato, e resta il
+    // primo — cioè il principale. Si riconosce dal canale di vendita, non dal
+    // nome interno («Gifts»), che può cambiare.
+    const predefinito = negozi.find((n) => (n.canaleVendite ?? "").trim().toLowerCase() === "deluxy.it" && n.puoScrivere);
+    const primo = iniziale?.negozioId ? [iniziale.negozioId] : predefinito ? [predefinito.id] : [];
+    return [...primo, ...(iniziale?.altriNegoziId ?? []).filter((x) => x !== primo[0])];
   });
   const negozioId = sitiScelti[0] ?? "";
+  // ⭐⭐ 11/09/2026 (regola utente): «prodotto unico dovrebbe uscire in
+  // automatico sì e non modificabile visto è di un partner da app delivery» ·
+  // «prodotto è sempre non fisico». Il valore lo mette già
+  // `prodotto-per-il-modulo` (CAMPI_FISSI_DEL_PARTNER); qui si toglie la
+  // possibilità di cambiarlo, perché non è una preferenza: è cosa il prodotto è.
+  const bloccatiDalPartner = useMemo(
+    () => new Set(iniziale?.dallaPiattaforma ? ["custom.is_unique", "custom.not_physical"] : []),
+    [iniziale?.dallaPiattaforma],
+  );
   const negozio = negozi.find((n) => n.id === negozioId) ?? null;
   // ⭐⭐ 09/09/2026 (utente): «la foto è un elemento comune, quindi falle già
   // inserire prima». Prima il caricamento era spento finché non si sceglieva il
@@ -1616,6 +1640,7 @@ export function FormProdottoNuovo({
                           onChange={(v) => setMetafield((m) => ({ ...m, [chiaveDef(d)]: v }))}
                           atteso={quotaDi(d) >= 0.5 ? Math.round(quotaDi(d) * 100) : null}
                           tipico={attesi[chiaveDef(d)]?.tipico ?? null}
+                          bloccato={bloccatiDalPartner.has(chiaveDef(d)) ? MOTIVO_BLOCCO : null}
                         />
                       ))}
                     </div>
@@ -1893,9 +1918,33 @@ export function FormProdottoNuovo({
 }
 
 /** Un metafield reso secondo il suo tipo e i valori ammessi. */
-function CampoMetafield({ def, valore, onChange, atteso = null, tipico = null }: { def: DefinizioneMetafield; valore: string; onChange: (v: string) => void; atteso?: number | null; tipico?: string | null }) {
+const MOTIVO_BLOCCO = "Deciso in partenza: è un prodotto di un partner dell'app delivery.";
+
+function CampoMetafield({ def, valore, onChange, atteso = null, tipico = null, bloccato = null }: { def: DefinizioneMetafield; valore: string; onChange: (v: string) => void; atteso?: number | null; tipico?: string | null; bloccato?: string | null }) {
   const id = `mf-${def.namespace}-${def.key}`;
   const compilato = valore !== "";
+
+  // ⭐⭐ 11/09/2026 — un campo **deciso in partenza** si legge e basta.
+  //
+  // Non si disabilita il controllo lasciandolo lì grigio: un menù a tendina
+  // spento invita comunque a provarci e non dice perché non va. Si mostra il
+  // valore e il motivo, e il valore viaggia lo stesso — la scheda si compila
+  // dallo stato del modulo (`metafieldJson`), non da questo controllo.
+  if (bloccato) {
+    return (
+      <div className="campo-modulo">
+        <label htmlFor={id}>
+          {etichettaDef(def)}
+          <span className="mf-chiave">{chiaveDef(def)}</span>
+        </label>
+        <div id={id} className="valore-fisso">
+          {valore === "true" ? "Sì" : valore === "false" ? "No" : valore || "—"}
+          <span className="pill-opt attuale" style={{ marginLeft: 8, fontSize: "0.75rem", padding: "1px 7px" }}>bloccato</span>
+        </div>
+        <span className="cella-sub">{bloccato}</span>
+      </div>
+    );
+  }
   // L'etichetta: il nome dato nell'admin, con la chiave tecnica accanto in
   // piccolo — con nomi come «Data» o «Test1» è la chiave a dire cos'è.
   const etichetta = (

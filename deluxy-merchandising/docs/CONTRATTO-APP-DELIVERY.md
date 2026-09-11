@@ -93,6 +93,43 @@ davvero il §3.1.
 (`PIATTAFORMA_URL`, `PIATTAFORMA_API_KEY`): all'11/09 non c'è, e sia il
 recupero sia la comunicazione dell'approvazione rispondono «non configurata».
 
+## 2-ter. I CAMPI DEL NEGOZIO di un prodotto del partner (11/09/2026)
+
+Regola dell'utente, dettata guardando i «Campi del negozio» del modulo:
+
+> «prodotto unico dovrebbe uscire in automatico sì e non modificabile visto è
+> di un partner da app delivery, minimo orario te lo dovrebbe dare sempre app
+> delivery in base a orari partner, idem il partner id, prodotto è sempre non
+> fisico, anche tutto il resto dei campi in foto dovrebbe darli l'app di
+> delivery»
+
+Sono sei campi, e **non hanno tutti la stessa casa**. Due li decidiamo qui
+perché discendono da cosa il prodotto è; quattro li sa solo la piattaforma,
+perché discendono dal partner.
+
+| Campo del negozio | Chi lo sa | Stato all'11/09 |
+|---|---|---|
+| `custom.is_unique` | **noi** | ✅ fatto: «true» automatico e **non modificabile** sui prodotti che vengono dalla piattaforma |
+| `custom.not_physical` | **noi** | ✅ fatto: «true» automatico e non modificabile (lo consegna la piattaforma, non passa dalla spedizione di Shopify) |
+| `custom.partner_id` | **piattaforma** | ⏳ serve `partner.legacyId` (numerico): la spinta non lo manda e `GET /app/prodotti` torna il cuid, non il legacy |
+| `custom.partner_address` | **piattaforma** | ⏳ da dove parte la consegna: è `Partner.city` (o l'indirizzo intero). `GET /app/partner` torna `citta`, ma non è legato al prodotto nella spinta |
+| `custom.minimo_orario` | **piattaforma** | ✅ già arriva, ma per un'altra strada: `POST /api/v1/prodotti/disponibilita`, il cron dei prodotti unici ogni mezz'ora, che lo calcola dagli orari del partner e lo scrive sul negozio. ⚠️ Scrive **su Shopify**: un prodotto ancora in attesa non è sul negozio, quindi resta vuoto finché non si pubblica |
+| `prodotto.consegna` (gg disp min) | **piattaforma** | idem: stessa rotta, stesso limite. Nella spinta c'è già `prepDays`, che accettiamo (§2) ma che `inviaOra` non manda |
+| `custom.nations_availability` | **piattaforma** | ⏳ le province in cui si può comprare: di là sono `Partner.provinces` (sigle). Qui il formato è `ITALY-MILAN(MI) ITALY-ROMA(RM) …` — servirebbero le sigle, il nome lo mappiamo noi dai prodotti esistenti |
+
+**Quello che serve dalla piattaforma, in una riga:** nel corpo di `inviaOra`
+aggiungere `partner: { insegna, legacyId, city, provinces }` accanto ai campi
+del §3.1. Con quello i quattro campi «piattaforma» si riempiono da soli alla
+creazione, senza aspettare il cron e senza che il prodotto sia già pubblicato.
+
+⚠️ **Perché non li indoviniamo noi.** L'indirizzo e le province si potrebbero
+copiare dal partner più simile fra i prodotti già attivi: sono dati misurabili
+(1.183 schede attive con `custom.partner_id`, i tre più frequenti sono 223,
+128 e 242, ciascuno con il suo indirizzo sempre uguale). Ma indovinare da dove
+parte una consegna e in quali province si vende è esattamente il genere di
+errore che nessuno rilegge: se sbagliamo, il prodotto si vende dove non si può
+consegnare. Meglio vuoto e visibile.
+
 ## 3. Che cosa manca DALLA PARTE DELLA PIATTAFORMA
 
 Due cose, e nessuna delle due si può fare da questa cartella (regola 4 del

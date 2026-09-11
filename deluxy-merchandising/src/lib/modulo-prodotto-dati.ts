@@ -77,7 +77,7 @@ export async function datiModuloProdotto(): Promise<{
   const definizioniPerNegozio: Record<string, DefinizioneMetafield[]> = {};
   for (const n of attivi) definizioniPerNegozio[n.nome] = conCampiStorici(await definizioniDelNegozio(n));
   return {
-    negozi: negozi.filter((n) => n.attivo).map((n) => ({ id: n.id, nome: n.nome, dominio: n.dominio, puoScrivere: n.permessi.includes("write_products"), lingueAttive: n.lingueAttive })),
+    negozi: negozi.filter((n) => n.attivo).map((n) => ({ id: n.id, nome: n.nome, dominio: n.dominio, puoScrivere: n.permessi.includes("write_products"), lingueAttive: n.lingueAttive, canaleVendite: n.canaleVendite })),
     categorie: categorie.filter((c) => c.attiva && c.chiave !== "DA_CLASSIFICARE").map((c) => ({ chiave: c.chiave, nome: c.nome, negozio: c.negozio, conPrompt: conPrompt.has(c.chiave) })),
     collezioni,
     definizioniPerNegozio,

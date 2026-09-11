@@ -3,7 +3,24 @@ import { Prisma } from "@prisma/client";
 import type { ProdottoIniziale } from "@/components/FormProdottoNuovo";
 import { isoRoma } from "@/lib/fuso";
 import type { datiModuloProdotto } from "@/lib/modulo-prodotto-dati";
+import { CAMPI_FISSI_DEL_PARTNER, daPiattaforma } from "@/lib/prodotti-dal-partner";
 import { metafieldDaColonne } from "@/lib/shopify-collezioni";
+
+/**
+ * **Il sito su cui si pubblica se nessuno ha detto altro: deluxy.it.**
+ *
+ * Regola dell'utente (11/09/2026). Si riconosce dal **canale di vendita**,
+ * non dal nome: qui dentro il negozio si chiama «Gifts», e il nome puo'
+ * cambiare senza che cambi il sito. Se per qualche motivo non c'e', si torna
+ * al primo negozio, che e' il comportamento di prima.
+ */
+function negozioPredefinito<T extends { nome: string; canaleVendite?: string | null }>(negozi: T[]): T | undefined {
+  return (
+    negozi.find((n) => (n.canaleVendite ?? "").trim().toLowerCase() === "deluxy.it") ??
+    negozi.find((n) => n.nome.trim().toLowerCase() === "deluxy.it") ??
+    negozi[0]
+  );
+}
 
 /**
  * Quello che il modulo prodotto vuole leggere insieme al prodotto. Sta qui
@@ -37,9 +54,17 @@ export function prodottoPerIlModulo(
   p: ProdottoConTutto,
   dati: Awaited<ReturnType<typeof datiModuloProdotto>>,
 ): { iniziale: ProdottoIniziale; nomeNegozio: string | null; negozio: (typeof dati.negozi)[number] | undefined } {
-  // Il negozio: quello dichiarato, altrimenti quello delle sue collezioni, altrimenti il primo.
+  // Il negozio: quello dichiarato, altrimenti quello delle sue collezioni,
+  // altrimenti **deluxy.it**.
+  //
+  // ⭐ 11/09/2026 (regola utente): «di default il sito in cui pubblicare il
+  // prodotto è deluxy.it». Prima era `dati.negozi[0]`, cioè il primo in ordine
+  // alfabetico — Business Deluxy — che è il sito B2B: un prodotto senza negozio
+  // dichiarato (tutti quelli dei partner) partiva dal sito sbagliato.
+  // deluxy.it si riconosce dal canale di vendita, non dal nome: il nome qui
+  // dentro è «Gifts», e un giorno potrebbe cambiare.
   const nomeNegozio = p.negozioNome ?? p.collezioniShopify[0]?.collezione.negozio ?? null;
-  const negozio = dati.negozi.find((n) => n.nome === nomeNegozio) ?? dati.negozi[0];
+  const negozio = dati.negozi.find((n) => n.nome === nomeNegozio) ?? negozioPredefinito(dati.negozi);
   // I campi del negozio: i valori grezzi letti dall'import dinamico e, sotto,
   // quelli ricostruiti dalle colonne tipizzate — così un prodotto importato
   // prima del 04/09 mostra subito quello che l'app sa (gg_disp_min, occasioni,
@@ -48,11 +73,23 @@ export function prodottoPerIlModulo(
     ? (p.metafieldShopify as Record<string, string>)
     : {}) as Record<string, string>;
   const metafield: Record<string, string> = { ...metafieldDaColonne(p), ...grezzi };
+
+  // ⭐⭐ 11/09/2026 — **il prodotto di un partner arriva con alcune cose già
+  // decise** (regola utente): è un pezzo unico e non è fisico, perché lo
+  // consegna la piattaforma. Questi due vincono su quello che c'è scritto: non
+  // sono un suggerimento, sono cosa il prodotto è. L'id del partner invece si
+  // riempie solo se manca — se qualcuno l'ha corretto qui, resta il suo.
+  if (daPiattaforma(p.origine)) {
+    Object.assign(metafield, CAMPI_FISSI_DEL_PARTNER);
+    if (p.partnerIdShopify && !metafield["custom.partner_id"]) metafield["custom.partner_id"] = p.partnerIdShopify;
+  }
   const collezioniPreviste = Array.isArray(p.collezioniPreviste) ? (p.collezioniPreviste as string[]) : [];
 
   const iniziale: ProdottoIniziale = {
     id: p.id,
     nome: p.nome,
+    // ⭐ 11/09/2026: lo sa il modulo, per bloccare i campi già decisi.
+    dallaPiattaforma: daPiattaforma(p.origine),
     negozioId: negozio?.id ?? "",
     fase: p.fase === "archiviato" ? "approvato" : p.fase,
     categoria: p.categoria,
