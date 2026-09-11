@@ -1,4 +1,4 @@
-import { catalogoListe, elencoClienti } from "@/lib/orders";
+import { catalogoListe, elencoClienti, schedaCliente } from "@/lib/orders";
 import { dentroOppureFuori } from "@/lib/sessione-server";
 import { dataIt, euro, segmento } from "@/lib/etichette";
 import { RigaLink } from "@/components/RigaLink";
@@ -42,6 +42,33 @@ export default async function Clienti({ searchParams }: { searchParams: Promise<
       })
     : [];
   const profilo = new Map(profili.map((p) => [p.chiaveCliente, p]));
+  // Le unioni che toccano questa pagina: una riga alias resta in elenco (Orders
+  // la conosce così, e la ricerca deve trovarla) ma si legge come «unita a…» e
+  // rimanda alla scheda principale; la principale dice quante schede ha dentro.
+  const unioni = chiaviPagina.length
+    ? await prisma.unioneClienti.findMany({
+        where: { OR: [{ chiaveAlias: { in: chiaviPagina } }, { chiavePrincipale: { in: chiaviPagina } }] },
+      })
+    : [];
+  const aliasDi = new Map(unioni.map((u) => [u.chiaveAlias, u.chiavePrincipale]));
+  const quanteUnite = new Map<string, number>();
+  for (const u of unioni) quanteUnite.set(u.chiavePrincipale, (quanteUnite.get(u.chiavePrincipale) ?? 0) + 1);
+  // Il nome della principale: dalla pagina se c'è, altrimenti da Orders (cache 60 s).
+  const principaliFuori = [...new Set(aliasDi.values())].filter((k) => !chiaviPagina.includes(k));
+  const nomiFuori = new Map(
+    await Promise.all(
+      principaliFuori.map(async (k): Promise<[string, string | null]> => {
+        const s = await schedaCliente(k);
+        return [k, s.ok ? (s.dati.nome ?? s.dati.email ?? null) : null];
+      }),
+    ),
+  );
+  const nomeDi = (chiave: string): string | null => {
+    const nostro = profilo.get(chiave)?.nome;
+    if (nostro) return nostro;
+    const inPagina = elenco.ok ? elenco.dati.clienti.find((x) => x.cliente === chiave) : undefined;
+    return inPagina?.nome ?? inPagina?.email ?? nomiFuori.get(chiave) ?? null;
+  };
   const conSoglie = Boolean(imp.soglie.spesaTotaleMin || imp.soglie.spesaAnnuaMin || imp.soglie.ordiniAnnoMin);
 
   const linkCon = (mod: Partial<Params>) => {
@@ -159,25 +186,40 @@ export default async function Clienti({ searchParams }: { searchParams: Promise<
                     const pr = profilo.get(c.cliente);
                     const k = clusterDi(c, imp, pr?.punteggio ?? null);
                     const fuori = conSoglie && !inSoglia(c, imp);
+                    const principaleDi = aliasDi.get(c.cliente);
+                    const unite = quanteUnite.get(c.cliente) ?? 0;
+                    const destinazione = principaleDi ?? c.cliente;
                     return (
                       // La riga è il cliente: tutta la riga apre la sua scheda (Libro §8).
-                      <RigaLink key={c.cliente} href={`/clienti/${c.cliente}`}>
-                        <td>
-                          {/* Spunta per «Unisci»: il form sta sotto la tabella (attributo form=). */}
-                          <input
-                            type="checkbox"
-                            name="scelti"
-                            value={c.cliente}
-                            form="unisci-form"
-                            aria-label={`Seleziona ${c.nome ?? c.email ?? "cliente"} per unirlo`}
-                            style={{ width: "auto", marginRight: 8, verticalAlign: "middle" }}
-                          />
-                          <a href={`/clienti/${c.cliente}`} style={{ display: "inline-block", verticalAlign: "middle" }}>
+                      <RigaLink key={c.cliente} href={`/clienti/${destinazione}`}>
+                        <td style={principaleDi ? { opacity: 0.6 } : undefined}>
+                          {/* Spunta per «Unisci»: il form sta sotto la tabella (attributo form=).
+                              Una riga già unita non si rispunta: si separa dalla scheda. */}
+                          {principaleDi ? null : (
+                            <input
+                              type="checkbox"
+                              name="scelti"
+                              value={c.cliente}
+                              form="unisci-form"
+                              aria-label={`Seleziona ${c.nome ?? c.email ?? "cliente"} per unirlo`}
+                              style={{ width: "auto", marginRight: 8, verticalAlign: "middle" }}
+                            />
+                          )}
+                          <a href={`/clienti/${destinazione}`} style={{ display: "inline-block", verticalAlign: "middle" }}>
                             <div className="cella-principale">
                               {pr?.nome || c.nome || c.email || c.telefono || "—"}
                               {pr?.punteggio != null ? <span className="chip oro" style={{ marginLeft: 6 }} title="Punteggio">{pr.punteggio}</span> : null}
+                              {unite ? (
+                                <span className="chip" style={{ marginLeft: 6 }} title="Schede di Orders unite a questa">
+                                  +{unite} {unite === 1 ? "unita" : "unite"}
+                                </span>
+                              ) : null}
                             </div>
-                            <div className="cella-sotto">{c.email ?? c.telefono ?? ""}</div>
+                            <div className="cella-sotto">
+                              {principaleDi
+                                ? `unita a ${nomeDi(principaleDi) ?? "un'altra scheda"} → apre quella`
+                                : (c.email ?? c.telefono ?? "")}
+                            </div>
                           </a>
                         </td>
                         <td>
