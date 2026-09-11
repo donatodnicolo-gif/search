@@ -10,7 +10,12 @@ Regola dell'utente: «quando un partner crea il proprio prodotto il nome che met
 - Pubblicati anche (10/09): `nomePartner` nell'API prodotti; `POST /api/v1/prodotti/disponibilita` (giorni minimi e ora minima dal calendario dei partner dei prodotti unici, chiamata dal cron della piattaforma ogni mezz'ora); 5.080 nomi partner riempiti.
 - ⚠️ Il deploy in cloud prende SOLO ciò che è pushato su `scout-ui`: il lavoro locale «NON pubblicato» qui sotto non è entrato.
 
-## 11/09/2026 — LA SCHEDA CHE SI SCRIVE E QUELLA CHE ARRIVA SU SHOPIFY SONO LA STESSA (in locale, NON pubblicato)
+## 11/09/2026 — LA SCHEDA CHE SI SCRIVE E QUELLA CHE ARRIVA SU SHOPIFY SONO LA STESSA — PUBBLICATA
+
+✅ **PUSHATO E DEPLOYATO** (utente: «fai deploy»): `origin/scout-ui` a `7f082d60`, deploy **`deluxy-merchandising-h6r9m4gfs`** (cloud), Ready, alias di produzione. Verificato in produzione: `/api/health` ok con 4 negozi; la modifica del Centrotavola Rosa Nera risponde 200 col nuovo aiuto sotto la descrizione, due link «Apri la scheda online» e nessun `schedaHtml` nascosto. Manuale ripubblicato con la riga (versione che porta anche le 5 righe dell'11/09 delle altre sessioni).
+
+⚠️ **Da provare con l'utente**: salvare dal browser un prodotto su due siti con «Dettagli» diversi e verificare su Shopify che ogni sito abbia il suo e che «Dettagli» sia la prima tab.
+
 
 Sei segnalazioni dell'utente, arrivate insieme, con una causa comune:
 1. «Dettagli» su Shopify sparisce o finisce ultima;
@@ -83,7 +88,7 @@ per» (prima era in coda). Browser, modifica del Centrotavola (Business + Gifts)
 casella di Gifts → editor di Gifts sì, editor di Business no; «Dettagli» di
 Business → descrizione aggiornata; scritto nell'editor di Gifts → casella di
 Gifts aggiornata; nessun `schedaHtml` nascosto. ⚠️ Non provato il salvataggio
-dal browser. Non pubblicato.
+dal browser.
 
 ## 10/09/2026 sera (2) — LA SEZIONE «MULTIPRODOTTO» NEL MODULO — PUBBLICATA
 
