@@ -15,7 +15,7 @@
 > 6. Tre correzioni proposte l'11/09 e **non fatte**, in attesa di risposta: rinominare «Prezzo partner» nel modulo consegna (sui prodotti non unici mostra il prezzo del cliente); mandare a Merchandising varianti, tipologia, proprietario e giorni di preparazione dei prodotti nati dal partner; in «Manda in app» del Customer Service non moltiplicare la quantità della riga quando il prezzo viene sostituito col costo fornitore (consegne già nate così: #101230 35×80, #101207 15×65, #101229 10×60).
 > 7. «Allinea note» in Impostazioni resta la strada per i prossimi allineamenti di note e nomi partner da Merchandising (valutare un cron).
 >
-> 🧰 **11/09/2026 (pomeriggio, 30) — QUATTRO RICHIESTE** (manuale 133-135).
+> 🧰 **11/09/2026 (pomeriggio, 30) — QUATTRO RICHIESTE** (manuale 133-135). 🚀 **LIVE piattaforma `delivery-9xjpner3b`, Customer Service `deluxy-messaging-c11rqei6o`**.
 > - **Customer Service** (`deluxy-messaging`, `src/components/MandaInApp.tsx`): la riga di prefill è quella col valore più alto (prezzo × quantità), non `righe[0]` — niente più quantità degli «Extra».
 > - **Luogo della consegna**: colonna `Delivery.recipientPlace` (script `api/scripts/applica-migrazione-luogo-consegna.mjs`, **applicata in produzione**), schema Prisma, DTO, `DELIVERY_LIST_SELECT`, colonna «Luogo» nell'estrazione; web: campo sotto l'indirizzo che si riempie da `place.name` (senza sovrascrivere il testo scritto a mano, `ultimoLuogoAuto`) e riga nel dettaglio.
 > - **Chat**: `POST /chat/allegato` (Drive, immagini e PDF, 10 MB; `ChatModule` importa `SettingsModule`); web: graffetta nel composer, anteprima degli allegati (`immaginiDi`), e `apri()` entra nel filo quando ce n'è uno solo da leggere.
