@@ -45,6 +45,12 @@ export interface Delivery {
   recipientLastName: string;
   recipientAddress: string;
   recipientIntercom?: string | null;
+  /**
+   * ⭐ 11/09/2026 — IL LUOGO CERCATO SU GOOGLE («Hotel Rossi», «Ospedale Niguarda»): si riempie da solo
+   * scegliendo l'indirizzo, e in elenco sta SOTTO l'indirizzo. Un civico non dice se si suona un citofono
+   * o si passa da una reception: al valet serve saperlo prima di partire, non arrivando.
+   */
+  recipientPlace?: string | null;
   /** Consegne da Fornitore: la consegna la fa il partner, non un valet. */
   deliveredByPartner?: boolean;
   /** VENDITA (02/09): il partner ha premuto «Accetta» — i bottoni si spengono. */

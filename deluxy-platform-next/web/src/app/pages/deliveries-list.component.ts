@@ -577,7 +577,11 @@ interface PropostaVendita {
                 } @else {
                   <td>{{ d.recipientFirstName }} {{ d.recipientLastName }}@if (d.recipientIntercom) { <span class="muted"> · {{ d.recipientIntercom }}</span> }</td>
                 }
-                <td class="muted">{{ d.recipientAddress }}</td>
+                <!-- ⭐ 11/09/2026 (regola utente): «sotto indirizzo uscirà Hotel Rossi». Il luogo sta sotto
+                     la via, più piccolo: è un dettaglio della stessa informazione, non una colonna in più. -->
+                <td class="muted">{{ d.recipientAddress }}@if (d.recipientPlace) {
+                  <span class="luogo-riga">📍 {{ d.recipientPlace }}</span>
+                }</td>
                 <td class="muted">{{ d.pickupAddress || '—' }}</td>
                 <td>
                   <!-- ⭐ 06/09/2026 (regola utente): con le ore DA APPROVARE la
@@ -1619,6 +1623,8 @@ interface PropostaVendita {
       /* Il nome del servizio accanto all'icona: discreto sul desktop, dove le colonne
          sono strette; su telefono e' l'unica cosa che si legge, quindi cresce. */
       td.servizio { white-space: nowrap; }
+      /* ⭐ 11/09/2026: il luogo sotto l'indirizzo — stessa cella, seconda riga, più piccolo. */
+      .luogo-riga { display: block; margin-top: 2px; font-size: 12.5px; color: var(--text-secondary); }
       .svc-nome { display: none; margin-left: 6px; font-size: 12.5px; color: var(--text-secondary); vertical-align: middle; }
       @media (max-width: 800px) {
         .svc-nome { display: inline; font-size: 14px; color: var(--text); }
