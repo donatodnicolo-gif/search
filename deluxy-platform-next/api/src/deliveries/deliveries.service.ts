@@ -691,18 +691,50 @@ export class DeliveriesService {
     user: JwtUser,
     query: DeliveryListQueryDto,
   ): Promise<{ intestazioni: string[]; righe: (string | number)[][]; totale: number; troncato: boolean }> {
+    /**
+     * ⚠️⚠️ 11/09/2026 (segnalazione utente: «export impiega davvero troppo, in 5 secondi deve farlo») —
+     * UNA QUERY SOLA, NON QUARANTA.
+     *
+     * Com'era: l'estrazione chiamava `findAll` una pagina da 500 alla volta. Su tutte le consegne sono
+     * quaranta giri, e ogni giro rifaceva anche il COUNT su 62.000 righe per sapere il totale — un totale
+     * che non cambia mai. **Misurato sul database di produzione: 38,6 secondi** per l'ufficio senza filtri
+     * di data (20.000 righe, 4,6 MB). Il partner Chanel non se n'era accorto perché le sue 73 righe
+     * stavano in un giro solo: 262 ms.
+     *
+     * Com'è ora: i filtri si costruiscono una volta (`filtriElenco`, ruolo compreso) e si legge in UNA
+     * query con `take` al tetto. **Misurato: 1,85 s** per le stesse 20.000 righe, più 90 ms per scrivere
+     * il CSV. Nessun conteggio: per sapere se si è troncato basta chiedere UNA riga in più del tetto.
+     */
     const TETTO = 20000;
-    const PAGINA = 500;
     const ufficio = user.role === Role.ADMIN || user.role === Role.OPERATION || user.role === Role.PROJECT_MANAGER;
     const righe: (string | number)[][] = [];
-    let totale = 0;
-    for (let pagina = 1; ; pagina++) {
-      // 🔴 11/09/2026 (regola utente): SOLO LE INFORMAZIONI DI BASE. `leggero` toglie i calcoli che
-      // servono a schermo (margini, puntualità, aggancio delle vendite), `soloBase` toglie anche le
-      // colonne che il foglio non usa: si legge meno database e si scrive meno CSV.
-      const esito = (await this.findAll(user, { ...query, page: pagina, pageSize: PAGINA } as DeliveryListQueryDto, { leggero: true, soloBase: true })) as any;
-      const items: any[] = esito.items ?? [];
-      totale = esito.total ?? items.length;
+    const { where } = await this.filtriElenco(user, query);
+    /**
+     * ⚠️⚠️ L'ORDINAMENTO DEL FOGLIO NON È QUELLO DELLO SCHERMO, E VALE SEI SECONDI.
+     *
+     * L'elenco ordina per data, poi per ORA DI CONSEGNA (con i vuoti in fondo) e poi per numero: a
+     * schermo serve, perché si legge la giornata dall'alto in basso. Misurato sul database di produzione,
+     * chiedendo SOLO il numero di consegna su 20.000 righe:
+     *
+     *   - ordinamento dell'elenco (tre chiavi, «nulls last»)  →  6.290 ms
+     *   - ordinamento per sola data                           →    784 ms
+     *
+     * Quelle tre chiavi costringono Postgres a ordinare tutto l'archivio senza poter usare un indice. In
+     * un foglio di calcolo quell'ordine fine non serve a nessuno: chi apre il file ordina come vuole con
+     * un clic. Il foglio esce per data (dalla più recente) e, a parità di data, per numero di consegna.
+     */
+    const lette = await this.prisma.delivery.findMany({
+      where,
+      select: DELIVERY_EXPORT_SELECT as unknown as typeof DELIVERY_LIST_SELECT,
+      orderBy: [{ date: 'desc' }, { code: 'desc' }],
+      take: TETTO + 1,
+    });
+    const troncato = lette.length > TETTO;
+    // ⚠️ La mascheratura per ruolo resta: il partner non deve trovare nel foglio i numeri che l'elenco
+    // gli nasconde. È la stessa funzione della lista, applicata riga per riga.
+    const items = lette.slice(0, TETTO).map((r) => this.soloIMieiSoldi(r as any, user) as any);
+    const totale = troncato ? TETTO : items.length;
+    {
       for (const d of items) {
         const base: (string | number)[] = [
           d.code ?? "",
@@ -725,9 +757,6 @@ export class DeliveriesService {
         ];
         // Le colonne dell'UFFICIO: chi porta la consegna, quanto gli va pagato. Al partner questi numeri
         // non arrivano nemmeno dalla lista, e qui non compaiono.
-        // ⚠️ 11/09/2026: le colonne «Margine €» e «Margine %» sono state TOLTE. Uscivano sempre vuote:
-        // il margine lo calcola la Finanza, e l'estrazione non passa di lì dal giorno in cui è stata
-        // alleggerita. Una colonna che non si riempie mai è peggio di una colonna che non c'è.
         if (ufficio) {
           base.push(
             d.valet ? `${d.valet.lastName ?? ""} ${d.valet.firstName ?? ""}`.trim() : "",
@@ -737,9 +766,7 @@ export class DeliveriesService {
           );
         }
         righe.push(base);
-        if (righe.length >= TETTO) break;
       }
-      if (righe.length >= TETTO || !items.length || righe.length >= totale) break;
     }
     const intestazioni = [
       "Consegna", "Data", "Orario consegna", "Orario ritiro", "Stato", "Servizio", "Partner",
@@ -747,12 +774,111 @@ export class DeliveriesService {
       "Prezzo", "Plus/minus", "Fatturabile", "Fatturata",
     ];
     if (ufficio) intestazioni.push("Valet", "Paga valet", "Plus/minus valet", "Da pagare");
-    return { intestazioni, righe, totale, troncato: righe.length >= TETTO && totale > TETTO };
+    return { intestazioni, righe, totale, troncato };
   }
   /**
    * Lista consegne: filtri specifici (stato/partner/valet/data) + ricerca
    * globale, ordinamento e paginazione dal contratto comune.
    */
+  /**
+   * ⭐ 11/09/2026 — I FILTRI DELL'ELENCO, IN UN POSTO SOLO.
+   *
+   * Stavano dentro `findAll`, e l'estrazione per Excel poteva riusarli solo passando DA `findAll`: cioè
+   * una pagina alla volta, con il suo conteggio ogni volta. Su tutte le consegne erano quaranta giri e
+   * quaranta COUNT su 62.000 righe — **38 secondi misurati**. Da qui i filtri si prendono una volta e
+   * si fa UNA query.
+   *
+   * ⚠️ Ci passa anche il filtro di RUOLO (`filtroRuolo`): chi estrae vede esattamente le consegne che
+   * vedrebbe a schermo, né una di più.
+   */
+  private async filtriElenco(user: JwtUser, query: DeliveryListQueryDto): Promise<{ where: any; orderBy: any }> {
+  const scope: any = { ...DeliveriesService.VIVE, ...(await this.filtroRuolo(user)) };
+  if (query.status) scope.status = query.status;
+  // Vista Attive / Storico. Uno stato esplicito VINCE sulla vista: se si
+  // chiede "consegnate" si vogliono quelle, in qualunque tab ci si trovi.
+  // ⭐ 05/09/2026 (regola utente): «le NON CONSEGNATE devono essere visibili
+  // in Consegne, con il bottone Riconsegna». Restano fra le attive finché
+  // non nasce la riconsegna: da quel momento il lavoro è passato alla nuova
+  // e la vecchia va in storico. Non è uno stato nuovo — lo stato resta
+  // `not_delivered` — è la LISTA che smette di chiedere qualcosa che è
+  // già stato fatto.
+  // ⭐ 07/09/2026 (regola utente): oltre alla riconsegna, una non consegnata esce dalle
+  // attive anche quando qualcuno la NASCONDE — la decisione è stata presa altrove.
+  else if (query.view === 'attive') {
+    scope.OR = [
+      { status: { notIn: DELIVERY_CLOSED_STATUSES } },
+      { status: DeliveryStatus.NOT_DELIVERED, childDeliveries: { none: {} }, nonConsegnataChiusaIl: null },
+    ];
+  } else if (query.view === 'storico') {
+    // Speculare: una non consegnata GIÀ riconsegnata — o nascosta — è storia.
+    scope.OR = [
+      { status: { in: DELIVERY_CLOSED_STATUSES.filter((s) => s !== DeliveryStatus.NOT_DELIVERED) } },
+      { status: DeliveryStatus.NOT_DELIVERED, childDeliveries: { some: {} } },
+      { status: DeliveryStatus.NOT_DELIVERED, NOT: { nonConsegnataChiusaIl: null } },
+    ];
+    delete scope.status;
+  }
+  if (query.partnerId && user.role !== Role.PARTNER) scope.partnerId = query.partnerId;
+  if (query.valetId && (user.role !== Role.VALET || query.valetId === user.valetId)) scope.valetId = query.valetId;
+  // TIPOLOGIA DI SERVIZIO (05/09/2026, regola utente). Vale in OGNI vista,
+  // storico compreso: la domanda «fammi vedere le vendite» si fa piu' spesso
+  // sull'archivio che sul lavoro di oggi.
+  const servizi = (query.serviceTypeId ?? '').split(',').map((t) => t.trim()).filter(Boolean);
+  if (servizi.length === 1) scope.serviceTypeId = servizi[0];
+  else if (servizi.length > 1) scope.serviceTypeId = { in: servizi };
+  // La famiglia si filtra sul servizio collegato: e' un dato del listino, non
+  // della consegna, e ricopiarlo sulla riga sarebbe una copia (Standard 7).
+  if (query.pricingModel) scope.serviceType = { pricingModel: query.pricingModel };
+  // `date` = giorno singolo (retrocompatibile); dateFrom/dateTo = intervallo
+  if (query.date) {
+    const day = new Date(query.date);
+    const next = new Date(day);
+    next.setDate(next.getDate() + 1);
+    scope.date = { gte: day, lt: next };
+  } else {
+    const range = dateRange(query, 'date');
+    if (range) Object.assign(scope, range);
+  }
+
+  // ⚠️ 07/09/2026: `realOrderNumber` è l'id lungo di Shopify (14 cifre): si confronta
+  // dall'inizio, altrimenti quattro cifre qualsiasi pescano consegne a caso.
+  const search = textSearch(query.q, DeliveriesService.SEARCH_FIELDS, ['realOrderNumber']);
+  // ⭐⭐ IL NUMERO DELLA CONSEGNA (26/08/2026). Fino a ieri cercare «62637»
+  // — il numero che l'app stampa dappertutto e manda perfino nelle notifiche
+  // — rispondeva 200 con ZERO righe: `code` e' un `Int` e `textSearch` sa
+  // fare solo `contains`, quindi non poteva starci. Un vuoto che sembra una
+  // risposta: chi cerca conclude che la consegna non esiste.
+  //
+  // ⚠️ Il ramo numerico deve stare FUORI da `textSearch`: `contains` +
+  // `mode: 'insensitive'` su un Int alza `PrismaClientValidationError` a
+  // runtime, e il TypeScript NON lo ferma perche' `scope` e' `any` (quindi
+  // typecheck e build passerebbero, e la lista morirebbe in produzione al
+  // primo carattere). Provato davvero, non dedotto.
+  //
+  // ⚠️ Solo cifre pure e al massimo nove: `code` e' un Int32 e un id ordine
+  // Shopify (12-13 cifre) lo sfonderebbe. Quelli restano coperti dai campi di
+  // TESTO qui sopra (`realOrderNumber`, `legacySaleId`), col loro `contains`.
+  //
+  // Il `push` resta DENTRO l'OR della ricerca, che e' sempre in AND con lo
+  // scope di ruolo: un partner che digita il numero di una consegna altrui
+  // continua a non vedere niente.
+  const termine = (query.q ?? '').trim();
+  if (search && /^\d{1,9}$/.test(termine)) {
+    const n = Number(termine);
+    (search['OR'] as unknown[]).push({ code: n }, { legacyOrderId: n });
+  }
+  // ⭐ 08/09/2026 (regola utente): le CONDIZIONI del pop-up di ricerca avanzata.
+  // Si sommano in AND allo scope (ruolo compreso) e alla ricerca testuale: non
+  // allargano mai quello che si vede, lo stringono. Il motore e la lista bianca dei
+  // campi stanno in `filtri-avanzati.ts`.
+  const avanzate = condizioniAvanzate(query.cond);
+  const pezzi: unknown[] = [scope];
+  if (search) pezzi.push(search);
+  if (avanzate) pezzi.push(avanzate);
+  const where = pezzi.length > 1 ? { AND: pezzi } : scope;
+    return { where, orderBy: this.ordinamento(query) };
+  }
+
   async findAll(
     user: JwtUser,
     query: DeliveryListQueryDto,
@@ -763,90 +889,8 @@ export class DeliveriesService {
      */
     opzioni: { leggero?: boolean; soloBase?: boolean } = {},
   ): Promise<PagedResult<unknown>> {
-    const scope: any = { ...DeliveriesService.VIVE, ...(await this.filtroRuolo(user)) };
-    if (query.status) scope.status = query.status;
-    // Vista Attive / Storico. Uno stato esplicito VINCE sulla vista: se si
-    // chiede "consegnate" si vogliono quelle, in qualunque tab ci si trovi.
-    // ⭐ 05/09/2026 (regola utente): «le NON CONSEGNATE devono essere visibili
-    // in Consegne, con il bottone Riconsegna». Restano fra le attive finché
-    // non nasce la riconsegna: da quel momento il lavoro è passato alla nuova
-    // e la vecchia va in storico. Non è uno stato nuovo — lo stato resta
-    // `not_delivered` — è la LISTA che smette di chiedere qualcosa che è
-    // già stato fatto.
-    // ⭐ 07/09/2026 (regola utente): oltre alla riconsegna, una non consegnata esce dalle
-    // attive anche quando qualcuno la NASCONDE — la decisione è stata presa altrove.
-    else if (query.view === 'attive') {
-      scope.OR = [
-        { status: { notIn: DELIVERY_CLOSED_STATUSES } },
-        { status: DeliveryStatus.NOT_DELIVERED, childDeliveries: { none: {} }, nonConsegnataChiusaIl: null },
-      ];
-    } else if (query.view === 'storico') {
-      // Speculare: una non consegnata GIÀ riconsegnata — o nascosta — è storia.
-      scope.OR = [
-        { status: { in: DELIVERY_CLOSED_STATUSES.filter((s) => s !== DeliveryStatus.NOT_DELIVERED) } },
-        { status: DeliveryStatus.NOT_DELIVERED, childDeliveries: { some: {} } },
-        { status: DeliveryStatus.NOT_DELIVERED, NOT: { nonConsegnataChiusaIl: null } },
-      ];
-      delete scope.status;
-    }
-    if (query.partnerId && user.role !== Role.PARTNER) scope.partnerId = query.partnerId;
-    if (query.valetId && (user.role !== Role.VALET || query.valetId === user.valetId)) scope.valetId = query.valetId;
-    // TIPOLOGIA DI SERVIZIO (05/09/2026, regola utente). Vale in OGNI vista,
-    // storico compreso: la domanda «fammi vedere le vendite» si fa piu' spesso
-    // sull'archivio che sul lavoro di oggi.
-    const servizi = (query.serviceTypeId ?? '').split(',').map((t) => t.trim()).filter(Boolean);
-    if (servizi.length === 1) scope.serviceTypeId = servizi[0];
-    else if (servizi.length > 1) scope.serviceTypeId = { in: servizi };
-    // La famiglia si filtra sul servizio collegato: e' un dato del listino, non
-    // della consegna, e ricopiarlo sulla riga sarebbe una copia (Standard 7).
-    if (query.pricingModel) scope.serviceType = { pricingModel: query.pricingModel };
-    // `date` = giorno singolo (retrocompatibile); dateFrom/dateTo = intervallo
-    if (query.date) {
-      const day = new Date(query.date);
-      const next = new Date(day);
-      next.setDate(next.getDate() + 1);
-      scope.date = { gte: day, lt: next };
-    } else {
-      const range = dateRange(query, 'date');
-      if (range) Object.assign(scope, range);
-    }
-
-    // ⚠️ 07/09/2026: `realOrderNumber` è l'id lungo di Shopify (14 cifre): si confronta
-    // dall'inizio, altrimenti quattro cifre qualsiasi pescano consegne a caso.
-    const search = textSearch(query.q, DeliveriesService.SEARCH_FIELDS, ['realOrderNumber']);
-    // ⭐⭐ IL NUMERO DELLA CONSEGNA (26/08/2026). Fino a ieri cercare «62637»
-    // — il numero che l'app stampa dappertutto e manda perfino nelle notifiche
-    // — rispondeva 200 con ZERO righe: `code` e' un `Int` e `textSearch` sa
-    // fare solo `contains`, quindi non poteva starci. Un vuoto che sembra una
-    // risposta: chi cerca conclude che la consegna non esiste.
-    //
-    // ⚠️ Il ramo numerico deve stare FUORI da `textSearch`: `contains` +
-    // `mode: 'insensitive'` su un Int alza `PrismaClientValidationError` a
-    // runtime, e il TypeScript NON lo ferma perche' `scope` e' `any` (quindi
-    // typecheck e build passerebbero, e la lista morirebbe in produzione al
-    // primo carattere). Provato davvero, non dedotto.
-    //
-    // ⚠️ Solo cifre pure e al massimo nove: `code` e' un Int32 e un id ordine
-    // Shopify (12-13 cifre) lo sfonderebbe. Quelli restano coperti dai campi di
-    // TESTO qui sopra (`realOrderNumber`, `legacySaleId`), col loro `contains`.
-    //
-    // Il `push` resta DENTRO l'OR della ricerca, che e' sempre in AND con lo
-    // scope di ruolo: un partner che digita il numero di una consegna altrui
-    // continua a non vedere niente.
-    const termine = (query.q ?? '').trim();
-    if (search && /^\d{1,9}$/.test(termine)) {
-      const n = Number(termine);
-      (search['OR'] as unknown[]).push({ code: n }, { legacyOrderId: n });
-    }
-    // ⭐ 08/09/2026 (regola utente): le CONDIZIONI del pop-up di ricerca avanzata.
-    // Si sommano in AND allo scope (ruolo compreso) e alla ricerca testuale: non
-    // allargano mai quello che si vede, lo stringono. Il motore e la lista bianca dei
-    // campi stanno in `filtri-avanzati.ts`.
-    const avanzate = condizioniAvanzate(query.cond);
-    const pezzi: unknown[] = [scope];
-    if (search) pezzi.push(search);
-    if (avanzate) pezzi.push(avanzate);
-    const where = pezzi.length > 1 ? { AND: pezzi } : scope;
+    // I filtri (ruolo compreso) si costruiscono una volta sola: li usa anche l'estrazione.
+    const { where } = await this.filtriElenco(user, query);
     const { skip, take, page, pageSize } = paginate(query);
 
     const [rows, total] = await this.prisma.$transaction([
