@@ -21,7 +21,7 @@
 
 import { EditorScheda } from "./EditorScheda";
 import { Multiprodotto, type ComponenteForm } from "./Multiprodotto";
-import { componiDescrizioneHtml } from "@/lib/descrizione-shopify";
+import { componiDescrizioneHtml, famigliaSezione, sezioniDaScrivere, spezzaDescrizioneHtml } from "@/lib/descrizione-shopify";
 import { MAX_DESCRIZIONE, MAX_TITOLO, seoDaRegole } from "@/lib/seo-regole";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ETICHETTA_FASE, ETICHETTA_TIPOLOGIA_VENDITA, SPIEGAZIONE_TIPOLOGIA_VENDITA, TIPOLOGIE_VENDITA } from "@/lib/dominio";
@@ -297,14 +297,76 @@ export function FormProdottoNuovo({
   // diversamente al B2B e al cliente finale.
   const [sezioniValori, setSezioniValori] = useState<Record<string, Record<string, string>>>(iniziale?.sezioniScheda ?? {});
   const valoreSezione = (negozioNome: string, nome: string) => sezioniValori[negozioNome]?.[nome] ?? "";
-  const cambiaSezione = (negozioNome: string, nome: string, v: string) =>
+  const cambiaSezione = (negozioNome: string, nome: string, v: string) => {
     setSezioniValori((tutte) => ({ ...tutte, [negozioNome]: { ...(tutte[negozioNome] ?? {}), [nome]: v } }));
+    // ⭐ 11/09/2026: la «Dettagli» del sito principale È la descrizione del
+    // prodotto. Correggendola qui (un refuso, una frase) si corregge anche la
+    // descrizione, altrimenti al giro dopo il testo vecchio tornerebbe stampato
+    // in cima alla scheda sopra quello nuovo. Sugli altri siti la «Dettagli» è
+    // la versione di quel sito e non tocca la descrizione.
+    if (negozioNome === negozio?.nome && famigliaSezione(nome) === "dettagli") setDescrizione(v);
+  };
   /** Le sezioni previste per la categoria scelta su un certo negozio: quelle
    *  del negozio se ce ne sono, altrimenti quelle valide per tutti. */
   const sezioniDi = (negozioNome: string) => {
     if (!categoria) return [];
     const perNegozio = sezioni.filter((x) => x.categoria === categoria && x.negozio === negozioNome);
     return (perNegozio.length ? perNegozio : sezioni.filter((x) => x.categoria === categoria && !x.negozio)).slice().sort((a: SezionePerForm, b: SezionePerForm) => a.ordine - b.ordine);
+  };
+  /**
+   * ⭐⭐ 11/09/2026 (utente): «il testo che scrivo su Descrizione vada in
+   * automatico nella prima sezione». La descrizione e la prima sezione prevista
+   * di ogni sito scelto sono la stessa cosa finché nessuno le separa: scrivendo
+   * qui si riempie (o si aggiorna) la prima sezione dei siti in cui è vuota o
+   * uguale alla descrizione di prima; una prima sezione con un testo SUO non si
+   * tocca.
+   */
+  const primaSezioneDi = (negozioNome: string) => sezioniDi(negozioNome)[0]?.nome ?? null;
+  const cambiaDescrizione = (v: string) => {
+    const prima = descrizione.trim();
+    setSezioniValori((tutte) => {
+      const dopo = { ...tutte };
+      for (const nomeSito of nomiNegoziScelti) {
+        const nomePrima = primaSezioneDi(nomeSito);
+        if (!nomePrima) continue;
+        const attuale = (dopo[nomeSito]?.[nomePrima] ?? "").trim();
+        if (!attuale || attuale === prima) dopo[nomeSito] = { ...(dopo[nomeSito] ?? {}), [nomePrima]: v };
+      }
+      return dopo;
+    });
+    setDescrizione(v);
+  };
+  /**
+   * ⭐⭐ 11/09/2026 — **l'editor per sito scrive nei campi, non in un HTML
+   * nascosto.** Quello che si batte nell'editor si rispezza (stesso parser
+   * dell'import) e aggiorna le sezioni di QUEL sito; il primo punto e il testo
+   * in cima aggiornano plus e descrizione solo dal sito principale, perché sono
+   * del prodotto. Con un piccolo ritardo: si rispezza quando si smette di
+   * battere, non a ogni tasto.
+   */
+  const attesaScheda = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const applicaSchedaScritta = (nomeSito: string, htmlScritto: string) => {
+    if (attesaScheda.current) clearTimeout(attesaScheda.current);
+    attesaScheda.current = setTimeout(() => {
+      const pezzi = spezzaDescrizioneHtml(htmlScritto);
+      const sezioniLette = Object.fromEntries(pezzi.sezioni.map((s) => [s.nome, s.testo]));
+      setSezioniValori((tutte) => ({ ...tutte, [nomeSito]: sezioniLette }));
+      if (nomeSito !== negozio?.nome) return;
+      // La prima sezione è la descrizione: se l'utente la cambia nell'editor,
+      // cambia la descrizione — altrimenti al giro dopo la vecchia tornerebbe
+      // stampata in cima, sopra la nuova.
+      const nomePrima = primaSezioneDi(nomeSito);
+      const testoPrima = nomePrima ? (sezioniLette[nomePrima] ?? sezioniLette[Object.keys(sezioniLette).find((k) => famigliaSezione(k) === famigliaSezione(nomePrima)) ?? ""] ?? "") : "";
+      if (pezzi.descrizione.trim()) setDescrizione(pezzi.descrizione.trim());
+      else if (testoPrima.trim()) setDescrizione(testoPrima.trim());
+      const primo = pezzi.punti[0]?.trim();
+      if (primo) {
+        // L'etichetta della categoria la aggiunge il compositore: non si salva nel plus.
+        const etichetta = (categorie.find((c) => c.chiave === categoria)?.nome ?? "").trim();
+        const senza = etichetta && primo.toLowerCase().startsWith(`${etichetta.toLowerCase()}:`) ? primo.slice(etichetta.length + 1).trim() : primo;
+        setPlusProdotto(senza.slice(0, 140));
+      }
+    }, 300);
   };
   /** Cosa finisce nel database: le sezioni **con del testo dentro**. Le vuote
    *  non si salvano, altrimenti la scheda porterebbe per sempre le chiavi di
@@ -1007,7 +1069,8 @@ export function FormProdottoNuovo({
                 </button>
               )}
             </div>
-            <textarea id="descrizione" name="descrizione" rows={descrizione ? 8 : 3} value={descrizione} onChange={(e) => setDescrizione(e.target.value)} placeholder="Il testo che il cliente legge. Puoi scriverlo tu o farlo proporre all'AI (usa nome, categoria, materiali e prezzo)." />
+            <textarea id="descrizione" name="descrizione" rows={descrizione ? 8 : 3} value={descrizione} onChange={(e) => cambiaDescrizione(e.target.value)} placeholder="Il testo che il cliente legge. Puoi scriverlo tu o farlo proporre all'AI (usa nome, categoria, materiali e prezzo)." />
+            <span className="cella-sub">Sul sito questo testo è la <b>prima sezione</b> della scheda (ad esempio «Dettagli»): non compare due volte. Se la prima sezione di un sito ha già un testo suo, diverso, restano tutti e due.</span>
             {erroreAi && <div className="avviso-errore" style={{ marginTop: 8 }}>{erroreAi}</div>}
             {!aiPronta && <span className="cella-sub">Per la scrittura AI serve la chiave OpenAI, in Negozi &amp; permessi.</span>}
           {/* ⭐ 09/09/2026 (utente): «fai vedere la SEO anche nel form di
@@ -1282,7 +1345,19 @@ export function FormProdottoNuovo({
           const defSito = definizioniPerNegozio[nomeSito] ?? [];
           return (
             <div className="pannello-sito" role="tabpanel" aria-label={nomeSito}>
-              <div className="cella-sub" style={{ marginBottom: 4 }}>In cima alla scheda su <b>{nomeSito}</b></div>
+              <div className="cella-sub" style={{ marginBottom: 4 }}>
+                In cima alla scheda su <b>{nomeSito}</b>
+                {(() => {
+                  const sito = negozi.find((x) => x.nome === nomeSito);
+                  return st?.handle && sito ? (
+                    <a className="anteprima-link" href={`https://${sito.dominio}/products/${st.handle}`} target="_blank" rel="noreferrer" style={{ marginLeft: 10 }}>
+                      Apri la scheda online ↗
+                    </a>
+                  ) : (
+                    <span style={{ marginLeft: 10 }}>· non ancora online</span>
+                  );
+                })()}
+              </div>
               <ul className="tre-punti">
                 <li className={plusProdotto.trim() ? undefined : "vuoto"}>
                   {plusProdotto.trim() || "Il plus di questo prodotto — si scrive qui sopra, fra le informazioni comuni"}
@@ -1314,8 +1389,11 @@ export function FormProdottoNuovo({
                   plusUno: plus?.uno,
                   plusDue: plus?.due,
                   descrizione,
-                  sezioni: suoi.map((x, i) => ({ nome: x.nome, tipo: x.tipo, ordine: i, valore: valoreSezione(nomeSito, x.nome) })),
+                  // ⭐ 11/09/2026: la STESSA regola del server (previste + quelle
+                  // che il prodotto ha), così l'anteprima è la scheda che parte.
+                  sezioni: sezioniDaScrivere({ plusProdotto, descrizione, categoria, sezioniScheda: sezioniValori }, nomeSito, sezioni),
                 })}
+                onChange={(htmlScritto) => applicaSchedaScritta(nomeSito, htmlScritto)}
               />
 
               {/* ⭐ 08/09/2026: le traduzioni di QUESTO negozio, nelle sue lingue.
@@ -1414,13 +1492,32 @@ export function FormProdottoNuovo({
 
               )}
 
-              {!categoria ? (
+              {(() => {
+                // ⭐ 11/09/2026: le sezioni che il prodotto ha per questo sito ma che
+                // la categoria qui non prevede. Prima non si vedevano da nessuna
+                // parte e al salvataggio dall'editor sparivano («Dettagli» compreso).
+                const fuoriPrevisione = Object.entries(sezioniValori[nomeSito] ?? {})
+                  .filter(([nome, v]) => (v ?? "").trim() && !suoi.some((s) => famigliaSezione(s.nome) === famigliaSezione(nome)))
+                  .map(([nome]) => nome);
+                return !categoria ? (
                 <div className="vuoto-mini">Scegli la categoria qui sopra: le sezioni da compilare cambiano con quella.</div>
-              ) : suoi.length === 0 ? (
+              ) : suoi.length === 0 && fuoriPrevisione.length === 0 ? (
                 <div className="vuoto-mini">Per «{categorie.find((c) => c.chiave === categoria)?.nome ?? categoria}» su {nomeSito} non sono previste sezioni.</div>
               ) : (
                 <>
                 <div className="modulo">
+                  {fuoriPrevisione.map((nome) => {
+                    const campoId = `sez-${nomeSito}-${nome}`.replace(/[^A-Za-z0-9_-]/g, "-");
+                    return (
+                      <div key={`extra-${nome}`} className="campo-modulo largo">
+                        <label htmlFor={campoId}>
+                          {nome}
+                          <span className="mf-chiave" title="Questa categoria non la prevede su questo sito: resta sulla scheda finché ha un testo, svuotala per toglierla">già sulla scheda</span>
+                        </label>
+                        <textarea id={campoId} rows={3} value={valoreSezione(nomeSito, nome)} onChange={(e) => cambiaSezione(nomeSito, nome, e.target.value)} />
+                      </div>
+                    );
+                  })}
                   {suoi.map((s) => {
                     const aiuto = SEZIONE_AIUTO[s.tipo] ?? SEZIONE_AIUTO.testo;
                     const campoId = `sez-${nomeSito}-${s.nome}`.replace(/[^A-Za-z0-9_-]/g, "-");
@@ -1436,7 +1533,8 @@ export function FormProdottoNuovo({
                   })}
                 </div>
                 </>
-              )}
+              );
+              })()}
 
               {/* ⭐ 10/09/2026 — RIACCESO (era nascosto dall'08/09: «per ora nascondi»).
                   L'utente ha chiesto che ogni prodotto nuovo carichi TUTTI i

@@ -10,55 +10,60 @@
 // ⚠️⚠️ **Il modello strutturato NON si butta.** La descrizione di un prodotto
 // non è HTML libero: è fatta di pezzi (i tre punti, il testo, le sezioni della
 // categoria) che servono all'ordine delle tab, all'AI che le compila e
-// all'import che le rilegge. Qui si modifica l'HTML **composto** da quei pezzi,
-// e al salvataggio si rispezza nei pezzi con `spezzaDescrizioneHtml`. Il giro
-// è misurato: su 120 schede vere, **111 tornano identiche parola per parola e
-// nessuna sotto il 97%**.
+// all'import che le rilegge. Qui si modifica l'HTML **composto** da quei pezzi.
 //
-// ⚠️ **Se non lo tocchi, non si salva niente da qui.** Le 9 schede su 120 che
-// non tornano identiche al 100% perderebbero una parola a ogni salvataggio,
-// anche solo aprendo e chiudendo il modulo. Quindi l'HTML viaggia **solo se
-// qualcuno ha davvero scritto**: `toccata` parte falso e nessuno lo alza al
-// posto della persona.
+// ⭐⭐ 11/09/2026 — **l'editor non ha più uno stato suo.** Prima teneva un HTML
+// nascosto che viaggiava col modulo e al salvataggio vinceva sulle caselle.
+// Tre guasti segnalati dall'utente nascevano da lì: (1) l'istanza era una sola
+// per tutte le tab, quindi il testo scritto sul primo sito finiva sugli altri
+// («Dettagli prodotto» e «Perfetto per» tornavano uguali a quelli del primo
+// sito); (2) una sezione corretta nelle caselle tornava com'era, perché
+// l'HTML nascosto, più vecchio, la sovrascriveva; (3) le sezioni che il sito
+// non prevedeva non stavano nell'HTML e sparivano al salvataggio.
+// Ora l'editor **legge dai campi e scrive nei campi**: quello che si batte qui
+// viene rispezzato subito (stesso parser dell'import) e aggiorna caselle,
+// punti e descrizione; quello che si scrive nelle caselle ricompone l'editor
+// appena non ci si sta scrivendo dentro. Una verità sola, e il salvataggio
+// manda quella.
 //
 // ⚠️ Niente libreria di editor: servono tre comandi (grassetto, elenco, titolo)
 // e li fa il browser. `document.execCommand` è deprecato ma è supportato
 // ovunque, e aggiungere un pacchetto di editor a un modulo già grande
 // significherebbe secondi di build su ogni deploy (regola 7 del CLAUDE.md).
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 export function EditorScheda({
   sito,
   htmlIniziale,
   nome,
   urlOnline,
+  onChange,
 }: {
   sito: string;
-  /** L'HTML composto dai pezzi: è il punto di partenza, non la verità salvata. */
+  /** L'HTML composto dai pezzi: è quello che si vede, ricomposto a ogni cambiamento dei campi. */
   htmlIniziale: string;
   nome: string;
   urlOnline?: string | null;
+  /** Chiamato mentre si scrive: il genitore rispezza l'HTML nei campi. */
+  onChange?: (html: string) => void;
 }) {
   const corpo = useRef<HTMLDivElement>(null);
-  const [toccata, setToccata] = useState(false);
-  const [html, setHtml] = useState(htmlIniziale);
 
-  // ⚠️ Il contenuto si scrive nel DOM **una volta sola**, non a ogni render:
+  // ⚠️ Il contenuto si riscrive nel DOM solo quando NON si sta scrivendo qui:
   // riscrivendo `innerHTML` mentre si digita, il cursore salta all'inizio a
-  // ogni carattere. Per questo il campo è "non controllato" e lo stato serve
-  // solo al campo nascosto che viaggia col modulo.
+  // ogni carattere. Quando si scrive nelle caselle, invece, l'editor non ha il
+  // fuoco e si aggiorna — è così che le due viste restano la stessa cosa.
+  // Cambiando tab (`sito`) si riparte dall'HTML di quel sito.
   useEffect(() => {
-    if (corpo.current && !toccata) corpo.current.innerHTML = htmlIniziale;
-    // `toccata` di proposito fuori: una volta che si scrive, il seme non torna
-    // più a sovrascrivere quello che la persona sta battendo.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [htmlIniziale]);
+    const el = corpo.current;
+    if (!el) return;
+    if (document.activeElement === el) return;
+    if (el.innerHTML !== htmlIniziale) el.innerHTML = htmlIniziale;
+  }, [sito, htmlIniziale]);
 
   function leggi() {
-    if (!corpo.current) return;
-    setHtml(corpo.current.innerHTML);
-    setToccata(true);
+    if (corpo.current) onChange?.(corpo.current.innerHTML);
   }
 
   function comando(nomeComando: string, valore?: string) {
@@ -72,10 +77,12 @@ export function EditorScheda({
       <div className="editor-testa">
         <span className="editor-titolo">{nome || "Senza nome"}</span>
         <span className="editor-sito">{sito}</span>
-        {urlOnline && (
+        {urlOnline ? (
           <a className="anteprima-link" href={urlOnline} target="_blank" rel="noreferrer">
             Apri la scheda online ↗
           </a>
+        ) : (
+          <span className="cella-sub" title="Il link compare quando il prodotto è sul negozio">non ancora online su {sito}</span>
         )}
       </div>
 
@@ -104,13 +111,8 @@ export function EditorScheda({
         onBlur={leggi}
       />
 
-      {/* Viaggia solo se qualcuno ha scritto davvero. */}
-      {toccata && <input type="hidden" name={`schedaHtml:${sito}`} value={html} />}
-
       <span className="cella-sub">
-        {toccata
-          ? "Al salvataggio questa scheda torna nei suoi campi: i punti in cima, il testo e le sezioni."
-          : "Ogni «Titolo di sezione» diventa una tab sul sito. Finché non scrivi qui, valgono i campi qui sotto."}
+        Ogni «Titolo di sezione» diventa una tab sul sito. Quello che scrivi qui aggiorna subito i campi qui sotto (i punti in cima, il testo, le sezioni) e viceversa: è la stessa scheda vista in due modi. Il grassetto dentro un paragrafo non si conserva.
       </span>
     </div>
   );

@@ -1,6 +1,81 @@
 # Handoff — Deluxy Merchandising
 
-Stato al 10/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
+Stato all'11/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
+
+## 11/09/2026 — LA SCHEDA CHE SI SCRIVE E QUELLA CHE ARRIVA SU SHOPIFY SONO LA STESSA (in locale, NON pubblicato)
+
+Sei segnalazioni dell'utente, arrivate insieme, con una causa comune:
+1. «Dettagli» su Shopify sparisce o finisce ultima;
+2. i testi sotto le sezioni escono a elenco puntato;
+3. una sezione corretta nella scheda di un sito torna com'era;
+4. la descrizione dovrebbe finire nella prima sezione, non due volte;
+5. sparita la freccia «visualizza online»;
+6. su più siti, «Dettagli prodotto» e «Perfetto per» diversi tornano uguali al primo sito.
+
+### Le cause, misurate
+- **Editor per sito con stato proprio** (`EditorScheda`): un'istanza sola per
+  tutte le tab, con un HTML nascosto `schedaHtml:<sito>` che al salvataggio
+  vinceva sulle caselle. Cambiando tab il DOM restava quello del primo sito, e
+  l'HTML nascosto prendeva il nome del secondo → (6). Correggendo una casella
+  con l'editor già toccato, l'HTML vecchio la sovrascriveva → (3). L'HTML
+  conteneva solo le sezioni previste: le altre sparivano al salvataggio → (1,
+  «scompare»).
+- **Sezioni fuori previsione in coda**: `sezioniDaScrivere` metteva in fondo
+  tutto ciò che il sito non prevede. Gifts per FIORI prevede solo «Come
+  Funziona», Business e Gifts per TORTE_DOLCI solo «Ingredienti»/«Regala»: la
+  «Dettagli» del prodotto finiva ultima → (1, «ultima»). Le grafie «Dettagli» /
+  «Dettagli Prodotto» / «Dettagli prodotti» non combaciavano fra loro.
+- **Tipi delle sezioni**: 16 sezioni di prosa (Dettagli*, Ingredienti*, Regala
+  con Deluxy, Significato, Conservazione) erano `elenco` o `coppie`, dedotte
+  dalle vetrine l'08/09: ogni a capo diventava un pallino → (2).
+- **Descrizione + Dettagli**: su 887 schede attive × sito con una «Dettagli»
+  piena, **7** hanno lo stesso testo della descrizione e **880** un testo
+  diverso; nei prodotti scritti dal modulo la differenza era un refuso corretto
+  in uno solo dei due («macaros»/«macarons») o una rifinitura per sito, e la
+  scheda stampava tutti e due → (4).
+- (5) **Il link c'è** in produzione (verificato sulla modifica del Cofanetto
+  Colazione); 0 pubblicazioni su 5.760 senza handle. Manca solo dove il
+  prodotto non è ancora sul negozio: ora lo dice.
+
+### Fatto (`tsc` 0)
+- `descrizione-shopify.ts` (puro, usato da server E browser):
+  `sezioniDaScrivere` spostata qui — previste nel loro ordine (la prima anche
+  se vuota), le altre **ereditano il posto** dalla definizione con lo stesso
+  nome nella categoria (`ordine − 0,5`: «Dettagli» torna prima), solo chi non
+  ha definizione resta in coda; `famigliaSezione` unisce le grafie di
+  «Dettagli». `componiDescrizioneHtml`: **la descrizione va nella prima
+  sezione** se è vuota; se la prima sezione ha lo stesso testo (uguale, o
+  stessi primi 50 caratteri) non si stampa due volte; se ha un testo suo
+  diverso restano entrambi (i prodotti importati hanno la vecchia tab
+  «DESCRIZIONE» ≠ «Dettagli»: buttarla sarebbe cancellare testo dal sito).
+  **Un elenco di una riga è un paragrafo**: la lista vale solo con ≥ 2 righe.
+- `descrizione-prodotto.ts`: solo la lettura dal database, poi il compositore.
+- `EditorScheda.tsx`: **senza stato proprio**. Legge l'HTML composto dai campi
+  e, mentre si scrive, lo rispezza (`spezzaDescrizioneHtml`) nei campi di QUEL
+  sito; plus e descrizione solo dal sito principale. Si riscrive nel DOM solo
+  quando non ha il fuoco. Niente più `schedaHtml:` (il ramo server resta,
+  inerte). Il grassetto dentro un paragrafo non si conserva (non si conservava
+  nemmeno prima: si perdeva al salvataggio).
+- Modulo: **descrizione ↔ prima sezione** in lockstep — scrivendo la
+  descrizione si riempie la prima sezione dei siti dove è vuota o uguale a
+  prima; correggendo «Dettagli» del sito principale nelle caselle si corregge
+  la descrizione. Caselle anche per le **sezioni che il prodotto ha e il sito
+  non prevede** («già sulla scheda»). Link «Apri la scheda online ↗» anche in
+  testa alla tab, o «non ancora online».
+- Dati: 16 sezioni portate a `testo` (restano a elenco/coppie: Come Funziona,
+  Dimensioni, Perfetto per, Personalizzazione, Pesi e Misure, Menù, Menù
+  Opzionale, Occasioni, Cosa include, scegli deluxy set, Aggiunte a Pagamento).
+
+### Verificato in locale
+Composizione su prodotti veri: Macarons/Business «Dettagli prodotto · Regala»
+senza intro doppia; Centrotavola Rosa Nera su Business e Gifts «Dettagli
+Prodotto · Perfetto per», intro no; Magnum 244 (scheda tecnica ≠ descrizione)
+tiene entrambi; Rose Rosse su Gifts «Dettagli Prodotto · Significato · Perfetto
+per» (prima era in coda). Browser, modifica del Centrotavola (Business + Gifts):
+casella di Gifts → editor di Gifts sì, editor di Business no; «Dettagli» di
+Business → descrizione aggiornata; scritto nell'editor di Gifts → casella di
+Gifts aggiornata; nessun `schedaHtml` nascosto. ⚠️ Non provato il salvataggio
+dal browser. Non pubblicato.
 
 ## 10/09/2026 sera (2) — LA SEZIONE «MULTIPRODOTTO» NEL MODULO — PUBBLICATA
 

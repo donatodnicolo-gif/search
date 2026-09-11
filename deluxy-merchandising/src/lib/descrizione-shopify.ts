@@ -108,7 +108,26 @@ export function componiDescrizioneHtml(d: DescrizionePerShopify): string {
     );
   }
 
-  const testo = (d.descrizione ?? "").trim();
+  // ⭐⭐ 11/09/2026 (utente): «il testo che scrivo su Descrizione vada in
+  // automatico nella prima sezione (Dettagli…) invece che apparire due volte
+  // uguale». La descrizione È la prima sezione della scheda: se la prima
+  // sezione prevista è vuota, ci va lei; se ha già lo stesso testo, non si
+  // stampa una seconda volta in cima. Solo quando la prima sezione porta un
+  // testo SUO, diverso, la descrizione resta come introduzione — buttarla via
+  // sarebbe cancellare dal sito un testo che qualcuno ha scritto.
+  const sezioniOrdinate = [...(d.sezioni ?? [])].sort((a, b) => a.ordine - b.ordine).map((s) => ({ ...s }));
+  let testo = (d.descrizione ?? "").trim();
+  const prima = sezioniOrdinate[0];
+  if (testo && prima) {
+    const suo = (prima.valore ?? "").trim();
+    if (!suo) {
+      prima.valore = testo;
+      prima.tipo = "testo";
+      testo = "";
+    } else if (stessoTesto(suo, testo)) {
+      testo = "";
+    }
+  }
   if (testo) {
     // I paragrafi si separano sulla riga vuota; dentro un paragrafo l'a capo
     // resta un a capo. Buttare tutto in un `<p>` solo appiattirebbe testi
@@ -125,7 +144,7 @@ export function componiDescrizioneHtml(d: DescrizionePerShopify): string {
     for (const par of paragrafi) pezzi.push(`<p>${html(par).replace(/\n/g, "<br>")}</p>`);
   }
 
-  for (const s of [...(d.sezioni ?? [])].sort((a, b) => a.ordine - b.ordine)) {
+  for (const s of sezioniOrdinate) {
     const valore = (s.valore ?? "").trim();
     if (!valore) continue;
     pezzi.push(`<h6>${html(s.nome)}</h6>`);
@@ -138,8 +157,15 @@ export function componiDescrizioneHtml(d: DescrizionePerShopify): string {
     // Il tipo si cambia in «Sezioni della scheda», dove è anche scritto cosa
     // vuol dire: testo = un paragrafo, elenco = una voce per riga, coppie =
     // «Nome: valore» col nome in grassetto.
-    if (s.tipo === "elenco" || s.tipo === "coppie") {
+    // ⭐ 11/09/2026 (utente): «le descrizioni sotto le sezioni risultano a
+    // elenco puntato su deluxy ma non dovrebbero». Un elenco di UNA voce non è
+    // un elenco: è un paragrafo con un pallino davanti. Quindi la forma a lista
+    // vale solo se il tipo la chiede E le righe sono almeno due; una riga sola
+    // esce come paragrafo (con l'etichetta in grassetto se è una coppia).
+    if ((s.tipo === "elenco" || s.tipo === "coppie") && r.length > 1) {
       pezzi.push(`<ul>${r.map((x) => (s.tipo === "coppie" ? punto(x) : `<li>${html(x)}</li>`)).join("")}</ul>`);
+    } else if (s.tipo === "coppie" && r.length === 1) {
+      pezzi.push(`<p>${punto(r[0]).replace(/^<li>/, "").replace(/<\/li>$/, "")}</p>`);
     } else {
       for (const riga of r.length ? r : [valore]) pezzi.push(`<p>${html(riga)}</p>`);
     }
@@ -268,4 +294,103 @@ export function spezzaDescrizioneHtml(html: string | null | undefined): PezziDes
   });
 
   return { punti, descrizione, sezioni };
+}
+
+/**
+ * Due testi sono «lo stesso» se coincidono a meno di spazi, a capo e maiuscole
+ * — oppure se **cominciano allo stesso modo** (primi 50 caratteri) e sono
+ * entrambi lunghi almeno 50: è il caso misurato l'11/09/2026 sui prodotti
+ * scritti dal modulo, dove la descrizione e «Dettagli» differivano per un
+ * refuso corretto in uno solo dei due («macaros»/«macarons») o per una
+ * rifinitura fatta su un sito. Sono la stessa scheda, e stamparli tutti e due
+ * è il doppione che l'utente ha segnalato. I testi che cominciano diversi
+ * (la vecchia tab «DESCRIZIONE» dei prodotti importati contro i loro
+ * «Dettagli») restano due testi, e si stampano entrambi.
+ */
+function stessoTesto(a: string, b: string): boolean {
+  const n = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+  const na = n(a), nb = n(b);
+  if (na === nb) return true;
+  return na.length >= 50 && nb.length >= 50 && na.slice(0, 50) === nb.slice(0, 50);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// **Quali sezioni scrivere per un prodotto su un sito, e in che ordine.**
+// Vive qui, in un file puro, perché la usano sia il server (la scheda che va su
+// Shopify) sia il modulo nel browser (l'anteprima che si vede mentre si
+// scrive): due copie di questa regola sarebbero due schede diverse.
+
+export type SezioneDefinita = { categoria: string; negozio: string | null; nome: string; tipo: string; ordine: number };
+
+export type SchedaComponibile = {
+  plusProdotto?: string | null;
+  descrizione?: string | null;
+  categoria: string;
+  /** `{ "Gifts": { "Menù": "…" } }` */
+  sezioniScheda?: unknown;
+};
+
+/**
+ * La «famiglia» di un nome di sezione: le grafie di «Dettagli» — Dettagli,
+ * Dettagli Prodotto, Dettagli prodotti — sono la stessa sezione. Senza questa
+ * regola un prodotto con «Dettagli» su una categoria che prevede «Dettagli
+ * Prodotto» finiva con la sezione in coda, o con la casella vuota accanto a un
+ * testo che c'era.
+ */
+export function famigliaSezione(nome: string): string {
+  const n = senzaAccenti(nome);
+  return n.startsWith("dettagli") ? "dettagli" : n;
+}
+
+/** I valori delle sezioni di un sito, dal JSON `sezioniScheda`. */
+export function valoriSezioni(sezioniScheda: unknown, sito: string): Record<string, string> {
+  if (!sezioniScheda || typeof sezioniScheda !== "object" || Array.isArray(sezioniScheda)) return {};
+  const perSito = (sezioniScheda as Record<string, unknown>)[sito];
+  if (!perSito || typeof perSito !== "object" || Array.isArray(perSito)) return {};
+  const fuori: Record<string, string> = {};
+  for (const [k, v] of Object.entries(perSito as Record<string, unknown>)) if (typeof v === "string") fuori[k] = v;
+  return fuori;
+}
+
+/**
+ * Le sezioni da scrivere per questo prodotto su questo negozio: **quelle
+ * previste** per la categoria su quel sito, nel loro ordine (la prima anche se
+ * vuota: è lì che va la descrizione), **più quelle che il prodotto ha ma che il
+ * sito non prevede**.
+ *
+ * ⚠️ Il secondo gruppo non è un dettaglio: le sezioni previste cambiano nel
+ * tempo, e su alcuni siti la lista è corta (Gifts per i fiori prevede solo
+ * «Come Funziona»). Componendo solo le previste, un testo scritto sotto
+ * un'altra sezione **sparirebbe dalla scheda online** al primo salvataggio.
+ *
+ * ⭐ 11/09/2026 (utente: «"Dettagli" o scompare o risulta l'ultima»): prima la
+ * coda finiva sempre in fondo. Ora una sezione fuori previsione **eredita il
+ * posto** dalla definizione con lo stesso nome nella categoria (comune o di un
+ * altro sito): «Dettagli», ordine 0 ovunque, torna prima; solo chi non ha
+ * nessuna definizione resta in coda.
+ */
+export function sezioniDaScrivere(p: SchedaComponibile, sito: string, definite: SezioneDefinita[]): SezioneDaScrivere[] {
+  const valori = valoriSezioni(p.sezioniScheda, sito);
+  const previste = sezioniDelSito(definite, p.categoria, sito).slice().sort((a, b) => a.ordine - b.ordine);
+  const chiavi = Object.keys(valori);
+  const trova = (nome: string) => {
+    const esatta = chiavi.find((k) => senzaAccenti(k) === senzaAccenti(nome));
+    const diFamiglia = esatta ?? chiavi.find((k) => famigliaSezione(k) === famigliaSezione(nome));
+    return diFamiglia ? valori[diFamiglia] : "";
+  };
+  const fuori: SezioneDaScrivere[] = [];
+  const usate = new Set<string>();
+  previste.forEach((s, i) => {
+    const v = trova(s.nome);
+    for (const k of chiavi) if (famigliaSezione(k) === famigliaSezione(s.nome)) usate.add(k);
+    if (v.trim() || i === 0) fuori.push({ nome: s.nome, tipo: s.tipo, ordine: s.ordine, valore: v });
+  });
+  const dellaCategoria = definite.filter((d) => d.categoria === p.categoria);
+  let coda = 1000;
+  for (const [nome, valore] of Object.entries(valori)) {
+    if (usate.has(nome) || !valore.trim()) continue;
+    const def = dellaCategoria.find((d) => famigliaSezione(d.nome) === famigliaSezione(nome));
+    fuori.push({ nome, tipo: def?.tipo ?? "testo", ordine: def ? def.ordine - 0.5 : coda++, valore });
+  }
+  return fuori.sort((a, b) => a.ordine - b.ordine);
 }
