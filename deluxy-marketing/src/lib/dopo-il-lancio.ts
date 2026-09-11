@@ -188,6 +188,22 @@ export async function accodaCompletamentoLancio(campagneConfermate: string[]): P
     // Niente da completare: nessuna operazione inutile in coda.
     if (keywords.length === 0 && titoli.length === 0 && localitaId.length === 0 && localitaNomi.length === 0) continue;
 
+    // ⚠️⚠️ IL COMPLETAMENTO A META', DICHIARATO. Questa guardia qui sopra usa
+    // `&&`: basta UNA localita' perche' l'operazione parta anche con zero
+    // keyword e zero titoli. E' quello che e' successo a «[Deluxy] Gifts - eng»
+    // il 09/09/2026: l'esito diceva «1 localita aggiunte, gruppo "Gruppo 1"
+    // creato» — tutto vero, e la campagna e' rimasta **accesa e senza niente
+    // che possa erogare**, perche' otto ore dopo un `attiva_campagna` l'ha
+    // riaccesa. L'operazione non era sbagliata: era MUTA. Adesso lo dice a chi
+    // approva, che e' l'unico momento in cui qualcuno guarda.
+    const mezzoLavoro =
+      keywords.length === 0 && titoli.length === 0
+        ? "⚠️ Questo completamento NON porta keyword e NON porta annunci: aggiunge solo " +
+          `${localitaId.length + localitaNomi.length > 0 ? "le località e " : ""}il gruppo. ` +
+          "Una campagna Search senza keyword e senza annunci NON EROGA, e resta «accesa» in ogni " +
+          "elenco: dopo questa operazione va completata a mano (keyword + annuncio) o rimessa in pausa."
+        : null;
+
     const campagna = await prisma.campagna.findUnique({
       where: { id: l.campagnaId! },
       select: { idEsterno: true },
@@ -214,6 +230,7 @@ export async function accodaCompletamentoLancio(campagneConfermate: string[]): P
           "keyword, annuncio e località. Non erano partiti col caricamento perché le righe figlie non " +
           "si agganciano a una campagna nata nello stesso caricamento — è quello che il registro " +
           "caricamenti ha mostrato il 19/08.",
+        ...(mezzoLavoro ? { avvisi: mezzoLavoro } : {}),
         // L2 come il lancio: è la stessa decisione, nella sua seconda metà.
         livello: "L2",
         prima: "campagna senza gruppo",

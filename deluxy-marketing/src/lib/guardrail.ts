@@ -434,6 +434,53 @@ export function valoreONumero(
 
 // ---------- A4: annunci in revisione (doc 11 §4) ----------
 // ">50% degli annunci attivi in review/limited per >24h" — arancione.
+/**
+ * A6 — ACCESA E VUOTA: una campagna Search accesa senza keyword e senza annunci.
+ *
+ * ⚠️ PERCHE' ESISTE (misurato l'11/09/2026). «[Deluxy] Gifts - eng» era
+ * `ENABLED` su Google con 12 €/g di budget dichiarato, un gruppo, **0 keyword
+ * e 0 annunci**. Una campagna Search cosi' **non eroga** — quindi non brucia
+ * budget — ma e' «accesa» in ogni elenco, e nessuno lo vedeva. Ci e' arrivata
+ * cosi': il `completa_campagna` del 09/09 portava 0 keyword e 0 titoli (la
+ * guardia a monte lasciava passare l'operazione perche' c'era **una
+ * localita'**), e otto ore dopo un `attiva_campagna` l'ha riaccesa comunque.
+ *
+ * ⚠️ DUE ZERI, NON UNO. Serve che manchino **sia** le keyword **sia** gli
+ * annunci: una Performance Max non ha keyword per costruzione, e una Shopping
+ * nemmeno — segnalarle sarebbe un allarme che grida sempre, cioe' un allarme
+ * che si smette di guardare. Senza keyword ma con annunci non si dice niente.
+ *
+ * ⚠️ E NON SUBITO. Una campagna nata da poche ore puo' essere ancora vuota
+ * perche' lo script non e' ancora passato: `oreDallaCreazione` sotto le 24 non
+ * si giudica. Un allarme che scatta sul lavoro in corso insegna a ignorarlo.
+ */
+export function alertAccesaEVuota(args: {
+  canale: string;
+  statoPiattaforma: string | null;
+  keyword: number;
+  annunci: number;
+  oreDallaCreazione: number;
+  budgetGiornaliero: number | null;
+}): AlertRilevato | null {
+  if (args.canale !== "google_ads") return null;
+  if (args.statoPiattaforma !== "ENABLED") return null;
+  if (args.oreDallaCreazione < 24) return null;
+  if (args.keyword > 0 || args.annunci > 0) return null;
+  const budget = args.budgetGiornaliero
+    ? ` Il budget dichiarato è ${args.budgetGiornaliero.toFixed(2).replace(".", ",")} €/g.`
+    : "";
+  return {
+    tipo: "A6",
+    livello: "rosso",
+    messaggio:
+      "Accesa e vuota: su Google risulta ENABLED ma non ha nessuna keyword e nessun annuncio. " +
+      "Una Search così non eroga — quindi non sta bruciando budget — ma è «accesa» in ogni " +
+      "elenco e nessuno se ne accorge." +
+      budget +
+      " Da decidere: completarla (keyword + annuncio) o rimetterla in pausa finché non è pronta.",
+  };
+}
+
 export function alertA4(inReview: number | null, totali: number | null): AlertRilevato | null {
   if (!inReview || !totali || totali === 0) return null;
   if (inReview / totali > 0.5) {

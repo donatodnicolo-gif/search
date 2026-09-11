@@ -21,6 +21,7 @@ import {
   roasRealeStimato,
   valutaAlert,
   alertA4,
+  alertAccesaEVuota,
   valoreONumero,
   type MetricaGiorno,
 } from "@/lib/guardrail";
@@ -72,6 +73,24 @@ export async function GuardrailCampagna({
   const rilevati = valutaAlert(metriche, traino);
   const a4 = alertA4(campagna.annunciInReview, campagna.annunciTotali);
   if (a4) rilevati.push(a4);
+
+  // A6 — accesa e vuota. Keyword e annunci stanno entrambi in `CopyAnnuncio`,
+  // legati alla campagna per NOME (e' cosi' che li scrive lo script).
+  const [nKeyword, nAnnunci] = await Promise.all([
+    prisma.copyAnnuncio.count({ where: { campagna: campagna.nome, tipo: "keyword" } }),
+    prisma.copyAnnuncio.count({
+      where: { campagna: campagna.nome, tipo: { in: ["titolo", "destinazione"] } },
+    }),
+  ]);
+  const a6 = alertAccesaEVuota({
+    canale: campagna.canale,
+    statoPiattaforma: campagna.statoPiattaforma,
+    keyword: nKeyword,
+    annunci: nAnnunci,
+    oreDallaCreazione: (Date.now() - campagna.creataIl.getTime()) / 3_600_000,
+    budgetGiornaliero: campagna.budgetGiornaliero,
+  });
+  if (a6) rilevati.push(a6);
   const oggi = new Date();
   oggi.setUTCHours(0, 0, 0, 0);
   for (const a of rilevati) {

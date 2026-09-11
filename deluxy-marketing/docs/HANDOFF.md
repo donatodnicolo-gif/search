@@ -12,6 +12,34 @@
 > (11/09 07:47), Google stanotte su tutti i giri, **0 consegne non-ok dal
 > 04/09**. Cosa è cambiato:
 >
+> ✅ **11/09/2026 — «ACCESA E VUOTA» ADESSO SI VEDE, E SI SA COME CI SIAMO ARRIVATI.**
+> Il punto rosso di «[Deluxy] Gifts - eng» aveva una causa precisa, e non era
+> lo script. L'operazione `completa_campagna` del 09/09 portava nei suoi
+> parametri **0 keyword, 0 titoli, 0 descrizioni**: lo script ha fatto
+> esattamente quello che c'era scritto — «1 localita aggiunte, gruppo "Gruppo 1"
+> creato» — e non c'era altro da fare. Il confronto con la Natale B2B del 07/09
+> (8 keyword, 15 titoli, 4 descrizioni nei parametri, esito «8 keyword
+> aggiunte, annuncio RSA creato») lo dimostra.
+>
+> **Perché l'operazione è partita comunque**: la guardia in
+> `accodaCompletamentoLancio` usa `&&` — salta solo se mancano keyword **e**
+> titoli **e** località. Lì c'era **una località**, quindi è passata. Non era
+> sbagliata: era **muta**. Adesso, quando un completamento non porta né keyword
+> né annunci, l'operazione lo **dichiara fra gli avvisi**, che è l'unica cosa
+> che qualcuno legge prima di approvare.
+>
+> **E la rete di sicurezza, che è la parte che conta**: nuovo allarme **A6 —
+> accesa e vuota**, accanto ad A1-A5. Scatta su una campagna Google `ENABLED`
+> con **0 keyword e 0 annunci**, col budget dichiarato nel messaggio, e compare
+> dove compaiono gli altri allarmi.
+> ⚠️ **Due zeri, non uno**: una Performance Max non ha keyword per costruzione,
+> e una Shopping nemmeno — segnalarle sarebbe un allarme che grida sempre.
+> ⚠️ **E non nelle prime 24 ore**: una campagna nata da poco può essere vuota
+> perché lo script non è ancora passato.
+> ✅ **Falsi positivi misurati, non sperati**: su **23 campagne Google accese**
+> ne scatta **una sola** — «[Deluxy] Gifts - eng», 12 €/g, 0 keyword, 0
+> annunci, creata da 73 ore. Verificato a schermo sulla sua scheda.
+>
 > ✅ **11/09/2026 — LE ANALISI DOPPIE, E GLI AD SET CHIAMATI COL LORO NOME (in locale).**
 >
 > **1. Il doppione dell'import di Drive, chiuso alla radice.** Nella cartella
