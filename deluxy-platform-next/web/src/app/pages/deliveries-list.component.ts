@@ -1776,10 +1776,25 @@ export class DeliveriesListComponent {
   canEdit(d: Delivery): boolean {
     const r = this.roleOf();
     if (r === 'ADMIN' || r === 'OPERATION') return true;
+    // ⭐ 11/09/2026 (regola utente): anche «in gestione», finché mancano più di due ore. Stessa regola
+    // del dettaglio e del server (`DeliveriesService.mancanoDueOre`): tre conti uguali, una sola risposta.
     if (r === 'PARTNER') {
-      return d.status === 'created' && d.serviceType?.pricingModel !== 'VENDITA';
+      if (d.serviceType?.pricingModel === 'VENDITA') return false;
+      if (d.status === 'created') return true;
+      return d.status === 'assigned' && this.mancanoDueOre(d);
     }
     return false; // Valet: solo dettagli
+  }
+
+  /** Mancano più di due ore all'inizio della consegna? Senza fascia oraria vale l'inizio della giornata. */
+  private mancanoDueOre(d: { date?: string | null; deliveryTimeFrom?: string | null }): boolean {
+    if (!d?.date) return false;
+    const giorno = new Date(d.date);
+    if (Number.isNaN(giorno.getTime())) return false;
+    const ora = /^\d{1,2}:\d{2}$/.test(String(d.deliveryTimeFrom ?? '')) ? String(d.deliveryTimeFrom) : '00:00';
+    const [h, m] = ora.split(':').map(Number);
+    const momento = new Date(giorno.getUTCFullYear(), giorno.getUTCMonth(), giorno.getUTCDate(), h, m);
+    return momento.getTime() - Date.now() > 2 * 60 * 60 * 1000;
   }
 
   // ---- ASSEGNA: pop-up con i valet della provincia della consegna ----

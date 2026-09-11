@@ -137,6 +137,10 @@ export class ChatPanelComponent {
   bozza = '';
   private timer: ReturnType<typeof setInterval> | null = null;
 
+  /** Quanti messaggi da leggere c'erano al giro precedente: serve a capire se ne è ARRIVATO uno nuovo. */
+  private nonLettiPrima: number | null = null;
+  private audio: AudioContext | null = null;
+
   constructor() {
     this.novita.avvia();
     // Chiudendo il pannello si spegne il polling fitto.
@@ -149,6 +153,65 @@ export class ChatPanelComponent {
         this.timer = null;
       }
     });
+
+    /**
+     * ⭐ 11/09/2026 (regola utente): «in caso di messaggio la barra dei messaggi si deve aprire per
+     * l'ufficio automaticamente ed emettere un suono di notifica».
+     *
+     * Il segnale è il contatore dei non letti, che il servizio delle novità aggiorna ogni 30 secondi:
+     * quando SALE, qualcuno ha scritto. Si apre il pannello (e con lui, se la conversazione in attesa è
+     * una sola, direttamente quella) e si suona.
+     *
+     * ⚠️ Il primo giro NON suona: all'avvio il contatore passa da «non so» a «tre», e tre messaggi
+     * lasciati ieri non sono un messaggio arrivato adesso. Si prende la misura e basta.
+     * ⚠️ Solo l'UFFICIO: al partner la chat che si spalanca da sola mentre compila una consegna sarebbe
+     * un dispetto, e lui ha una conversazione sola.
+     */
+    effect(() => {
+      const ora = this.nonLetti();
+      const prima = this.nonLettiPrima;
+      this.nonLettiPrima = ora;
+      if (prima === null || ora <= prima || !this.eUfficio()) return;
+      this.suona();
+      if (!this.aperto()) this.apri();
+      else this.ricarica();
+    });
+  }
+
+  /**
+   * Il suono: due note brevi, costruite al momento con l'audio del browser.
+   *
+   * ⚠️ Niente file audio. Un .mp3 andrebbe servito, aggiunto alla regola di sicurezza dei contenuti
+   * (`media-src`, che oggi non c'è) e caricato: due note generate qui non hanno nessuna di queste
+   * dipendenze e pesano zero.
+   * ⚠️ I browser vietano l'audio finché la persona non ha toccato la pagina: se è vietato non succede
+   * niente e il pannello si apre lo stesso. Il suono è un di più, non il messaggio.
+   */
+  private suona(): void {
+    try {
+      const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctx) return;
+      this.audio ??= new Ctx();
+      const ctx = this.audio;
+      if (ctx.state === 'suspended') void ctx.resume();
+      const ora = ctx.currentTime;
+      [880, 1174.7].forEach((frequenza, i) => {
+        const osc = ctx.createOscillator();
+        const volume = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = frequenza;
+        // Attacco e coda morbidi: un'onda che parte e si spegne di netto fa «clic».
+        const inizio = ora + i * 0.16;
+        volume.gain.setValueAtTime(0.0001, inizio);
+        volume.gain.exponentialRampToValueAtTime(0.12, inizio + 0.02);
+        volume.gain.exponentialRampToValueAtTime(0.0001, inizio + 0.15);
+        osc.connect(volume).connect(ctx.destination);
+        osc.start(inizio);
+        osc.stop(inizio + 0.16);
+      });
+    } catch {
+      // Un suono che non parte non è un errore da mostrare a nessuno.
+    }
   }
 
   eUfficio(): boolean {

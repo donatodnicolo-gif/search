@@ -1989,11 +1989,35 @@ export class DeliveryDetailComponent {
     // 02/09 (regola utente): il partner modifica solo finché la consegna è
     // ROSSA (da gestire) e non è una vendita — come in lista, e come il
     // server già impone. Da gialla in poi il bottone sparisce.
+    /**
+     * ⭐ 11/09/2026 (regola utente): «per un partner consenti modifica di una consegna anche se è in
+     * gestione se mancano più di due ore alla consegna». Da gialla in poi il bottone c'era sempre
+     * sparito, anche su una consegna del giorno dopo: per cambiare un citofono si telefonava.
+     *
+     * ⚠️ La stessa regola vive sul server (`DeliveriesService.mancanoDueOre`), che è quello che decide.
+     * Qui si nasconde solo un bottone: se i due conti divergessero, chi clicca si prenderebbe un rifiuto
+     * senza capire perché. Per questo il conto è identico — fascia oraria, ora di Roma, due ore piene.
+     */
     if (r === 'PARTNER') {
       const d = this.delivery();
-      return d?.status === 'created' && d?.serviceType?.pricingModel !== 'VENDITA';
+      if (!d || d.serviceType?.pricingModel === 'VENDITA') return false;
+      if (d.status === 'created') return true;
+      return d.status === 'assigned' && this.mancanoDueOre(d);
     }
     return false;
+  }
+
+  /** Mancano più di due ore all'inizio della consegna? Senza fascia oraria vale l'inizio della giornata. */
+  private mancanoDueOre(d: { date?: string | null; deliveryTimeFrom?: string | null }): boolean {
+    if (!d?.date) return false;
+    const giorno = new Date(d.date);
+    if (Number.isNaN(giorno.getTime())) return false;
+    const ora = /^\d{1,2}:\d{2}$/.test(String(d.deliveryTimeFrom ?? '')) ? String(d.deliveryTimeFrom) : '00:00';
+    const [h, m] = ora.split(':').map(Number);
+    // La data arriva a mezzanotte UTC: si prende il giorno civile e ci si somma l'ora della fascia,
+    // interpretata nel fuso locale — che per chi usa l'app è quello di Roma.
+    const momento = new Date(giorno.getUTCFullYear(), giorno.getUTCMonth(), giorno.getUTCDate(), h, m);
+    return momento.getTime() - Date.now() > 2 * 60 * 60 * 1000;
   }
   /** Duplica (04/09, regola utente): l'ufficio sempre; il partner su ogni
    *  SUA consegna, storico compreso — ma non sulle vendite, che nascono dagli

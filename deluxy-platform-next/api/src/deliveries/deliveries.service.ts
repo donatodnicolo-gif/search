@@ -21,7 +21,7 @@ import {
 } from '../common/enums';
 import { NotificationsService } from '../notifications/notifications.module';
 import { StockService } from '../stock/stock.module';
-import { puntualitaConsegna } from '../common/puntualita';
+import { istanteRoma, puntualitaConsegna } from '../common/puntualita';
 import { dataBreveRoma, dataLungaRoma, fasciaOraria } from '../common/giorno-roma';
 import {
   PagedResult,
@@ -538,6 +538,27 @@ export class DeliveriesService {
   }
 
   private static readonly VIVE = { deletedAt: null } as const;
+
+  /**
+   * ⭐ 11/09/2026 — MANCANO PIÙ DI DUE ORE ALLA CONSEGNA?
+   *
+   * Il momento della consegna è la sua DATA più l'inizio della fascia oraria, letti nell'ora di Roma.
+   * La data in banca è a mezzanotte UTC, e l'ora della fascia è un testo «HH:mm»: si rimettono insieme
+   * qui, in un posto solo, perché la stessa domanda la fanno il server (che decide) e la pagina (che
+   * mostra o nasconde il bottone), e due conti diversi darebbero due risposte diverse.
+   *
+   * ⚠️ Senza fascia oraria vale l'INIZIO della giornata: una consegna di oggi senza orario potrebbe
+   * essere già partita, e in dubbio non si apre.
+   */
+  static mancanoDueOre(d: { date: Date | string; deliveryTimeFrom?: string | null }, adesso = new Date()): boolean {
+    if (!d?.date) return false;
+    const giorno = new Date(d.date);
+    if (Number.isNaN(giorno.getTime())) return false;
+    // `istanteRoma` fa già questo conto per la puntualità, ora legale compresa: si riusa, non si rifà.
+    const ora = /^\d{1,2}:\d{2}$/.test(String(d.deliveryTimeFrom ?? '')) ? String(d.deliveryTimeFrom) : '00:00';
+    const momento = istanteRoma(giorno, ora);
+    return momento.getTime() - adesso.getTime() > 2 * 60 * 60 * 1000;
+  }
 
   /**
    * Filtro di visibilità in base al ruolo, TEAM LEADER compreso.
@@ -2387,9 +2408,31 @@ export class DeliveriesService {
     // "da gestire" (created = il rosso della legenda) e solo se il tipo di
     // servizio non e' VENDITA. Admin/Operation non hanno limiti.
     if (user.role === Role.PARTNER) {
-      if (delivery.status !== DeliveryStatus.CREATED) {
+      /**
+       * ⭐ 11/09/2026 (regola utente): «per un partner consenti modifica di una consegna anche se è in
+       * gestione se mancano più di due ore alla consegna».
+       *
+       * Prima il partner poteva toccare la consegna solo finché era ROSSA (da gestire). Appena l'ufficio
+       * la prendeva in carico — gialla, «in gestione» — il bottone spariva, anche se la consegna era per
+       * il giorno dopo: per cambiare un citofono bisognava telefonare.
+       *
+       * Ora il confine non è più solo lo stato, è il TEMPO: finché mancano più di due ore si può ancora
+       * correggere. Due ore sono il margine in cui il giro non è ancora partito e un cambio non fa danni.
+       *
+       * ⚠️ Da «in consegna» in poi non si tocca più NIENTE, quante che siano le ore che mancano: il valet
+       * è per strada con un indirizzo in mano, e cambiarglielo sotto è peggio di non poterlo cambiare.
+       * ⚠️ Senza fascia oraria il conto si fa sull'INIZIO della giornata: una consegna di oggi senza orario
+       * può essere già in viaggio, e non è il momento di indovinare.
+       */
+      const modificabili: string[] = [DeliveryStatus.CREATED, DeliveryStatus.ASSIGNED];
+      if (!modificabili.includes(delivery.status as string)) {
         throw new ForbiddenException(
-          "Puoi modificare la consegna solo finché è da gestire",
+          "Puoi modificare la consegna solo finché è da gestire o in gestione",
+        );
+      }
+      if (delivery.status === DeliveryStatus.ASSIGNED && !DeliveriesService.mancanoDueOre(delivery as any)) {
+        throw new ForbiddenException(
+          'La consegna è già in gestione e mancano meno di due ore: per modificarla chiedi all’ufficio',
         );
       }
       if (delivery.serviceType?.pricingModel === PricingModel.VENDITA) {
