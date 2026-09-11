@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import { dentroOppureFuori } from "@/lib/sessione-server";
 import { creaListaAI, creaListaManuale } from "@/lib/actions";
 import { catalogoListe } from "@/lib/orders";
-import { dataIt, SEGMENTI } from "@/lib/etichette";
+import { dataIt, MESI, SEGMENTI, TIPI_RICORRENZA } from "@/lib/etichette";
 import { RigaLink } from "@/components/RigaLink";
 import BottoneInvio from "@/components/BottoneInvio";
 
@@ -16,6 +16,21 @@ type Query = { errore?: string; modo?: string };
 // I siti Deluxy (i brand negli ordini): si possono anche scrivere a mano.
 const SITI = ["deluxy.it", "cakedesign.me", "deluxyflowers.com"];
 const TIPOLOGIE = ["privato", "azienda", "horeca", "eventi", "rivenditore"];
+// Da dove arriva un cliente (il canale del suo primo ordine, come lo sa Orders).
+const CANALI: { chiave: string; nome: string }[] = [
+  { chiave: "google-ads", nome: "Google Ads" },
+  { chiave: "shopping", nome: "Google Shopping" },
+  { chiave: "ricerca", nome: "Ricerca non pagata" },
+  { chiave: "meta-ads", nome: "Facebook / Instagram a pagamento" },
+  { chiave: "social", nome: "Social" },
+  { chiave: "email", nome: "Email" },
+  { chiave: "whatsapp", nome: "WhatsApp" },
+  { chiave: "ai", nome: "Assistenti AI" },
+  { chiave: "referral", nome: "Da un altro sito" },
+  { chiave: "diretto", nome: "Diretto" },
+  { chiave: "manuale", nome: "Ordine creato a mano" },
+  { chiave: "pos", nome: "In negozio" },
+];
 
 // LISTE — i pubblici del CRM. Due strade per costruirne una: il brief in
 // italiano che l'AI traduce in criteri, oppure le CONDIZIONI scelte a mano nel
@@ -33,6 +48,18 @@ export default async function Liste({ searchParams }: { searchParams: Promise<Qu
     catalogoListe(),
   ]);
   const listeOrders = cat.ok ? cat.dati.liste : [];
+  // Le liste di Orders raggruppate per famiglia (valore, tipologia, occasioni…):
+  // 41 caselle in fila non si leggono, per gruppi sì.
+  const famiglie: { chiave: string; nome: string }[] = cat.ok
+    ? Array.isArray(cat.dati.famiglie)
+      ? cat.dati.famiglie
+      : Object.entries(cat.dati.famiglie).map(([chiave, nome]) => ({ chiave, nome }))
+    : [];
+  const perFamiglia = famiglie
+    .map((f) => ({ ...f, liste: listeOrders.filter((l) => l.famiglia === f.chiave) }))
+    .filter((f) => f.liste.length > 0);
+  const senzaFamiglia = listeOrders.filter((l) => !famiglie.some((f) => f.chiave === l.famiglia));
+  if (senzaFamiglia.length) perFamiglia.push({ chiave: "altro", nome: "Altre liste", liste: senzaFamiglia });
 
   return (
     <>
@@ -145,14 +172,19 @@ export default async function Liste({ searchParams }: { searchParams: Promise<Qu
                 <div className="card-titolo sezione-form">Chi</div>
                 <div className="campo">
                   <label>Parti da queste liste di Orders <span className="aiuto">(unione; vuoto = tutti i clienti)</span></label>
-                  <div className="scelte">
-                    {listeOrders.map((l) => (
-                      <label key={l.chiave} className="scelta" title={l.criterio}>
-                        <input type="checkbox" name="liste" value={l.chiave} /> {l.nome} <span className="terziario">· {l.clienti}</span>
-                      </label>
-                    ))}
-                    {listeOrders.length === 0 ? <span className="terziario piccolo">Orders non risponde: le liste non si vedono.</span> : null}
-                  </div>
+                  {perFamiglia.map((f) => (
+                    <div key={f.chiave} className="gruppo-scelte">
+                      <div className="gruppo-scelte-titolo">{f.nome}</div>
+                      <div className="scelte">
+                        {f.liste.map((l) => (
+                          <label key={l.chiave} className="scelta" title={l.criterio}>
+                            <input type="checkbox" name="liste" value={l.chiave} /> {l.nome} <span className="terziario">· {l.clienti}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  {listeOrders.length === 0 ? <span className="terziario piccolo">Orders non risponde: le liste non si vedono.</span> : null}
                 </div>
 
                 <div className="campo">
@@ -210,6 +242,47 @@ export default async function Liste({ searchParams }: { searchParams: Promise<Qu
                   </div>
                 </div>
 
+                <div className="campo">
+                  <label>Da dove sono arrivati <span className="aiuto">(il canale del primo ordine)</span></label>
+                  <div className="scelte">
+                    {CANALI.map((c) => (
+                      <label key={c.chiave} className="scelta">
+                        <input type="checkbox" name="canali" value={c.chiave} /> {c.nome}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="card-titolo sezione-form">Occasioni in arrivo</div>
+                <div className="campo">
+                  <label>Con una ricorrenza di questo tipo <span className="aiuto">(dedotta dagli ordini degli anni passati)</span></label>
+                  <div className="scelte">
+                    {Object.entries(TIPI_RICORRENZA)
+                      .filter(([k]) => k !== "da-precisare" && k !== "altro")
+                      .map(([k, t]) => (
+                        <label key={k} className="scelta">
+                          <input type="checkbox" name="ricorrenzaTipi" value={k} /> {t.nome}
+                        </label>
+                      ))}
+                  </div>
+                </div>
+                <div className="form-riga">
+                  <div className="campo">
+                    <label>Entro (giorni)</label>
+                    <input type="number" name="ricorrenzaEntroGiorni" min={1} max={366} step="1" placeholder="es. 30" />
+                  </div>
+                  <div className="campo">
+                    <label>Oppure nel mese di</label>
+                    <select name="ricorrenzaMese" defaultValue="">
+                      <option value="">— qualunque —</option>
+                      {MESI.map((m, i) => (
+                        <option key={m} value={i + 1}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <span className="aiuto">Se scegli un tipo senza giorni né mese, vale «entro 30 giorni».</span>
+
                 <div className="card-titolo sezione-form">Quanto</div>
                 <div className="form-riga">
                   <div className="campo">
@@ -229,6 +302,26 @@ export default async function Liste({ searchParams }: { searchParams: Promise<Qu
                   <div className="campo">
                     <label>Ordini massimi</label>
                     <input type="number" name="ordiniMax" min={0} step="1" />
+                  </div>
+                </div>
+                <div className="form-riga">
+                  <div className="campo">
+                    <label>Ordine medio da (€)</label>
+                    <input type="number" name="ordineMedioMin" min={0} step="1" />
+                  </div>
+                  <div className="campo">
+                    <label>Ordine medio fino a (€)</label>
+                    <input type="number" name="ordineMedioMax" min={0} step="1" />
+                  </div>
+                </div>
+                <div className="form-riga">
+                  <div className="campo">
+                    <label>Clienti da almeno (anni)</label>
+                    <input type="number" name="clienteDaAnniMin" min={0} step="1" placeholder="es. 2" />
+                  </div>
+                  <div className="campo">
+                    <label>Clienti da non più di (anni)</label>
+                    <input type="number" name="clienteDaAnniMax" min={0} step="1" placeholder="es. 1" />
                   </div>
                 </div>
                 <div className="form-riga">

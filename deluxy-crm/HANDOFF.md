@@ -8,6 +8,43 @@ Cartella: `deluxy-crm/`, porta **3190**, schema Postgres **`crm`**.
 **LIVE**: https://deluxy-crm.vercel.app (progetto Vercel `deluxy/deluxy-crm`,
 region fra1). Tessera nel Hub: id `crm`, ruoli admin+commerciale, `sso: true`.
 
+## Stato all'11/09/2026 (mattina) — liste con tutte le condizioni di Orders, eventi con liste, utenti
+
+Richieste dell'utente dopo il deploy delle ricorrenze lette dal biglietto:
+
+- **Liste a mano con TUTTE le condizioni che Orders sa dire** (`liste-ai.ts`
+  `CriteriLista` + esecutore, `creaListaManuale`, form in `liste/page.tsx`):
+  le 41 liste di Orders **per famiglia** (valore e ciclo di vita, tipologia,
+  occasioni…: `catalogoListe().famiglie`), **ordine medio** min/max, **canale
+  di arrivo** (il canale del primo ordine: google-ads, shopping, ricerca,
+  meta-ads, social, email, whatsapp, ai, referral, diretto, manuale, pos),
+  **cliente da N anni** (min/max, dal primo ordine), **ricorrenze in arrivo**
+  (tipo + entro N giorni, oppure nel mese M: legge `tutteLeRicorrenze` per
+  intero, o completa o errore; oltre 3000 → chiede di stringere). L'AI conosce
+  gli stessi campi (prompt). ⚠️ La base senza lista di partenza resta «i primi
+  3000 per spesa»: la nota della lista lo dice («restano quelli fra i clienti
+  letti»). Misura: compleanno entro 30 gg + ordine medio ≥ 50 + due canali →
+  11 clienti in 10,4 s (tutto da Orders).
+- **Eventi ↔ liste** (`EventoLista` {eventoId, listaId}, db push fatto):
+  caselle «Liste di clienti collegate» in Nuovo evento e in Modifica
+  (`components/ScelteListe.tsx`), card «Liste collegate» nel dettaglio con
+  **«Aggiungi gli invitati»** (`invitaDaLista`: `createMany skipDuplicates`
+  dai membri; esito con le parole: quanti entrati, quanti c'erano già), chip
+  «☰ nome lista» sotto il titolo nell'elenco eventi. `salvaEvento` sostituisce
+  le liste collegate con quelle spuntate (solo id che esistono).
+- **Utenti da Impostazioni**: il Hub NON espone un'API utenti (solo
+  `/api/chiavi`, `/api/health`, `/api/posta`, `/api/presenze`), e gli utenti
+  hanno una casa sola (standard §7). Card «Utenti del CRM» in Impostazioni che
+  spiega e porta a `HUB_URL/utenti` (creare l'utente, abilitare l'app «crm»).
+  Se si vuole l'elenco DENTRO il CRM, serve un'API nel Hub (lavoro del Hub).
+- Orders in produzione espone `tipoDa/motivoTipo/prova` (deploy
+  `deluxy-orders-2z87d3f00`), quindi il pop-up del dettaglio ricorrenza
+  (commit `23a46195`) mostra «come l'abbiamo dedotta» anche live.
+
+Trappola nuova: gli script Python nello scratchpad hanno un percorso > 260
+caratteri e `python file.py` fallisce (ENOENT): lanciarli con
+`python - < file.py` (bash apre il file, Python legge stdin).
+
 ## Stato al 10/09/2026 (giornata di richieste dell'utente — deployato in serata, vedi in fondo alla sezione)
 
 Diciassette richieste arrivate in sessione, tutte implementate in locale,

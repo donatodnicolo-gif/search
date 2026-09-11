@@ -46,7 +46,7 @@ export default async function Eventi({
       ...(finestra ? { dataInizio: { gte: finestra.da, lt: finestra.a } } : {}),
     },
     orderBy: { dataInizio: "desc" },
-    include: { inviti: { select: { stato: true } } },
+    include: { inviti: { select: { stato: true } }, liste: { select: { lista: { select: { id: true, nome: true } } } } },
   });
 
   const prossimi = eventi.filter((e) => e.dataInizio >= new Date(Date.now() - 86_400_000) && e.stato !== "annullato");
@@ -64,6 +64,16 @@ export default async function Eventi({
             <div className="cella-principale">{e.titolo}</div>
             <div className="cella-sotto">{e.luogo || "—"}</div>
           </a>
+          {/* Le liste collegate (11/09): si vede quale, senza aprire. */}
+          {e.liste.length ? (
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
+              {e.liste.map((el) => (
+                <span key={el.lista.id} className="chip" title="Lista di clienti collegata">
+                  ☰ {el.lista.nome}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </td>
         <td>{dataIt(e.dataInizio, true)}</td>
         <td>

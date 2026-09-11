@@ -1,4 +1,4 @@
-import { catalogoListe, clientiDiLista, elencoClienti, type ClienteRiga } from "./orders";
+import { catalogoListe, clientiDiLista, elencoClienti, tutteLeRicorrenze, type ClienteRiga } from "./orders";
 import { chiediJson } from "./openai";
 
 // DAL BRIEF ALLA LISTA — in due tempi, e la divisione è il punto:
@@ -28,6 +28,17 @@ export type CriteriLista = {
   soloEmail?: boolean;
   soloTelefono?: boolean;
   soloConsensoEmail?: boolean;
+  // Dall'11/09/2026: tutto ciò che Orders sa dire di un cliente.
+  ordineMedioMin?: number;
+  ordineMedioMax?: number;
+  canali?: string[]; // canale del primo ordine (acquisizione): google, meta, organico…
+  clienteDaAnniMin?: number; // cliente da almeno N anni (primo ordine)
+  clienteDaAnniMax?: number;
+  // Le ricorrenze (Orders → eventi-clienti): chi ha un'occasione di questi
+  // tipi entro N giorni, o in un certo mese.
+  ricorrenzaTipi?: string[];
+  ricorrenzaEntroGiorni?: number;
+  ricorrenzaMese?: number; // 1-12
   ordina?: "speso" | "recenti" | "ordini";
   limite?: number;
 };
@@ -58,7 +69,8 @@ Il tuo compito: tradurre il brief dell'operatore in CRITERI di selezione sui dat
 LISTE DISPONIBILI nel registro ordini (si possono UNIRE come base con "liste", o SOTTRARRE con "escludiListe"):
 ${catalogoTesto}
 
-CAMPI FILTRABILI per ogni cliente: citta (testo), brand (i siti da cui compra: deluxy.it, cakedesign.me, deluxyflowers.com...), segmento (vip, da-non-perdere, fedele, ricorrente, nuovo, una-tantum, da-riattivare, perso), tipologia (privato, azienda, horeca, eventi, rivenditore), speso (EUR totali), ordini (numero), giorniDallUltimo (giorni dall'ultimo ordine), gusti (il riassunto AI dei suoi acquisti: fiori preferiti, occasioni, destinatari).
+CAMPI FILTRABILI per ogni cliente: citta (testo), brand (i siti da cui compra: deluxy.it, cakedesign.me, deluxyflowers.com...), segmento (vip, da-non-perdere, fedele, ricorrente, nuovo, una-tantum, da-riattivare, perso), tipologia (privato, azienda, horeca, eventi, rivenditore), speso (EUR totali), ordini (numero), giorniDallUltimo (giorni dall'ultimo ordine), ordineMedio (EUR per ordine), canale (da dove è arrivato col primo ordine: google-ads, shopping, ricerca, meta-ads, social, email, whatsapp, ai, referral, diretto, manuale, pos), clienteDaAnni (anni dal primo ordine), gusti (il riassunto AI dei suoi acquisti: fiori preferiti, occasioni, destinatari).
+RICORRENZE: se il brief parla di compleanni, anniversari o altre occasioni in arrivo, usa ricorrenzaTipi (compleanno, anniversario, matrimonio, nascita, laurea, ricorrenza, ringraziamento, condoglianze) con ricorrenzaEntroGiorni (default 30) oppure ricorrenzaMese (1-12): tiene solo i clienti con quell'occasione in quella finestra, dedotta dagli ordini degli anni passati.
 ⚠️ "segmenti" e "tipologie" vogliono i valori AL SINGOLARE qui sopra (privato, fedele), NON le chiavi delle liste che sono al plurale (privati, fedeli). Se la selezione è già coperta dalle liste in "liste", NON ripeterla nei filtri: un filtro ridondante può solo restringere per sbaglio.
 
 Rispondi SOLO con un oggetto JSON:
@@ -72,6 +84,8 @@ Rispondi SOLO con un oggetto JSON:
     "spesaMin": null, "spesaMax": null, "ordiniMin": null, "ordiniMax": null,
     "giorniUltimoMax": null, "giorniUltimoMin": null,
     "gustiContiene": ["parole da cercare nei gusti, es. peonie, compleanno"],
+    "ordineMedioMin": numero, "ordineMedioMax": numero, "canali": ["google-ads"], "clienteDaAnniMin": numero, "clienteDaAnniMax": numero,
+    "ricorrenzaTipi": ["compleanno"], "ricorrenzaEntroGiorni": numero, "ricorrenzaMese": numero,
     "soloEmail": true/false, "soloTelefono": true/false, "soloConsensoEmail": true/false,
     "ordina": "speso" | "recenti" | "ordini",
     "limite": numero (default ${LIMITE_DEFAULT}, massimo ${LIMITE_MASSIMO})
@@ -222,7 +236,46 @@ export async function eseguiCriteri(
   const contiene = (valore: string | null | undefined, cercati: string[]) =>
     Boolean(valore) && cercati.some((c) => valore!.toLowerCase().includes(c.toLowerCase()));
 
+  // 3-bis. Le ricorrenze, se chieste: l'insieme dei clienti con un'occasione
+  // del tipo voluto entro N giorni (o in un mese). Si legge da Orders per
+  // intero: o completa o errore, come le esclusioni.
+  let conRicorrenza: Set<string> | null = null;
+  if (criteri.ricorrenzaTipi?.length || criteri.ricorrenzaEntroGiorni != null || criteri.ricorrenzaMese != null) {
+    const finestra = criteri.ricorrenzaMese != null ? 366 : (criteri.ricorrenzaEntroGiorni ?? 30);
+    const r = await tutteLeRicorrenze({ prossimi: finestra });
+    if (!r.ok) return { ok: false, errore: `Ricorrenze non leggibili — ${r.errore}. Lista NON generata.` };
+    if (r.dati.troncato) return { ok: false, errore: "Ricorrenze troppe per la finestra scelta (oltre 3000): stringi i giorni. Lista NON generata." };
+    const tipi = criteri.ricorrenzaTipi?.map((t) => t.toLowerCase());
+    conRicorrenza = new Set(
+      r.dati.eventi
+        .filter((e) => !tipi?.length || tipi.includes(e.tipo))
+        .filter((e) => criteri.ricorrenzaMese == null || e.mese === criteri.ricorrenzaMese)
+        .map((e) => e.cliente),
+    );
+    note.push(
+      `Ricorrenze: ${conRicorrenza.size} clienti con ${tipi?.length ? tipi.join("/") : "un'occasione"}${criteri.ricorrenzaMese != null ? ` a ${["", "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"][criteri.ricorrenzaMese]}` : ` entro ${finestra} giorni`}: restano quelli fra i clienti letti qui sotto.`,
+    );
+  }
+  const anniDa = (c: ClienteRiga): number | null => {
+    const p = c.acquisizione?.primoOrdine ?? null;
+    if (!p) return null;
+    const d = new Date(p);
+    return Number.isNaN(d.getTime()) ? null : (Date.now() - d.getTime()) / (365.25 * 86_400_000);
+  };
+
   let clienti = [...base.values()].filter((c) => {
+    if (conRicorrenza && !conRicorrenza.has(c.cliente)) return false;
+    if (criteri.ordineMedioMin != null && c.ordineMedio < criteri.ordineMedioMin) return false;
+    if (criteri.ordineMedioMax != null && c.ordineMedio > criteri.ordineMedioMax) return false;
+    if (criteri.canali?.length && !contiene(c.acquisizione?.canale ?? null, criteri.canali)) return false;
+    if (criteri.clienteDaAnniMin != null) {
+      const a = anniDa(c);
+      if (a == null || a < criteri.clienteDaAnniMin) return false;
+    }
+    if (criteri.clienteDaAnniMax != null) {
+      const a = anniDa(c);
+      if (a == null || a > criteri.clienteDaAnniMax) return false;
+    }
     if (criteri.citta?.length && !contiene(c.citta, criteri.citta)) return false;
     if (criteri.brand?.length && !c.brand.some((b) => contiene(b, criteri.brand!))) return false;
     if (segmenti?.length && !segmenti.includes(c.segmento.toLowerCase())) return false;

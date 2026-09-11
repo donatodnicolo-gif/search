@@ -10,7 +10,7 @@ import { inviaMail } from "./mail";
 import { aggiornaRicorrenza, proponiRicorrenza, schedaCliente, scriviPrivacy } from "./orders";
 import { daOraItaliana } from "./ore";
 import { sostituisciVariabili } from "./variabili";
-import { TIPI_ATTIVITA, TIPI_RICORRENZA } from "./etichette";
+import { MESI, TIPI_ATTIVITA, TIPI_RICORRENZA } from "./etichette";
 import { MAX_CLUSTER, normalizza, slug } from "./cluster";
 
 // Ogni action ricontrolla la sessione (il middleware non basta: una server
@@ -556,6 +556,20 @@ export async function salvaEvento(fd: FormData): Promise<void> {
     ? await prisma.evento.update({ where: { id }, data: dati })
     : await prisma.evento.create({ data: dati });
 
+  // Le liste di clienti collegate (11/09): si sostituiscono con quelle scelte
+  // nel form. Solo liste che esistono davvero, per non lasciare agganci vuoti.
+  const listeScelte = elenco(fd, "liste") ?? [];
+  const listeValide = listeScelte.length
+    ? (await prisma.listaClienti.findMany({ where: { id: { in: listeScelte } }, select: { id: true } })).map((l) => l.id)
+    : [];
+  await prisma.$transaction([
+    prisma.eventoLista.deleteMany({ where: { eventoId: evento.id, listaId: { notIn: listeValide } } }),
+    prisma.eventoLista.createMany({
+      data: listeValide.map((listaId) => ({ eventoId: evento.id, listaId })),
+      skipDuplicates: true,
+    }),
+  ]);
+
   // L'agenda di tutte le app è il Calendario: si spinge lì, best-effort.
   await spingiEventoInAgenda({
     id: evento.id,
@@ -610,6 +624,39 @@ export async function aggiungiInvitato(fd: FormData): Promise<void> {
   });
   revalidatePath(back);
   redirect(conEsito(back, "ok"));
+}
+
+// Gli invitati DALLA LISTA (11/09): tutti i membri di una lista collegata
+// entrano fra gli invitati (da_invitare); chi c'è già non si tocca.
+export async function invitaDaLista(fd: FormData): Promise<void> {
+  await richiediSessione();
+  const eventoId = testo(fd, "eventoId");
+  const listaId = testo(fd, "listaId");
+  const back = ritorno(fd, `/eventi/${eventoId}`);
+  if (!eventoId || !listaId) redirect(conEsito(back, "Manca la lista."));
+
+  const lista = await prisma.listaClienti.findUnique({
+    where: { id: listaId },
+    select: { nome: true, membri: { select: { chiaveCliente: true, nome: true, email: true } } },
+  });
+  if (!lista) redirect(conEsito(back, "Lista non trovata."));
+
+  const r = await prisma.invito.createMany({
+    data: lista.membri.map((m) => ({
+      eventoId,
+      chiaveCliente: m.chiaveCliente,
+      nomeCliente: m.nome,
+      emailCliente: m.email,
+    })),
+    skipDuplicates: true,
+  });
+  revalidatePath(back);
+  // Esito positivo con le parole (quanti entrati, quanti c'erano già).
+  const msg =
+    r.count === 0
+      ? `Nessun nuovo invitato: i ${lista.membri.length} di «${lista.nome}» erano già in lista.`
+      : `${r.count} invitati aggiunti da «${lista.nome}»${lista.membri.length - r.count ? ` (${lista.membri.length - r.count} c'erano già)` : ""}.`;
+  redirect(`${back}${back.includes("?") ? "&" : "?"}esito=${encodeURIComponent(msg)}`);
 }
 
 export async function cambiaStatoInvito(fd: FormData): Promise<void> {
@@ -872,6 +919,14 @@ export async function creaListaManuale(fd: FormData): Promise<void> {
     giorniUltimoMax: numero(fd, "giorniUltimoMax"),
     giorniUltimoMin: numero(fd, "giorniUltimoMin"),
     gustiContiene: elenco(fd, "gustiContiene"),
+    ordineMedioMin: numero(fd, "ordineMedioMin"),
+    ordineMedioMax: numero(fd, "ordineMedioMax"),
+    canali: elenco(fd, "canali"),
+    clienteDaAnniMin: numero(fd, "clienteDaAnniMin"),
+    clienteDaAnniMax: numero(fd, "clienteDaAnniMax"),
+    ricorrenzaTipi: elenco(fd, "ricorrenzaTipi"),
+    ricorrenzaEntroGiorni: numero(fd, "ricorrenzaEntroGiorni"),
+    ricorrenzaMese: numero(fd, "ricorrenzaMese"),
     soloEmail: Boolean(testo(fd, "soloEmail")),
     soloTelefono: Boolean(testo(fd, "soloTelefono")),
     soloConsensoEmail: Boolean(testo(fd, "soloConsensoEmail")),
@@ -914,6 +969,14 @@ function descriviCriteri(c: CriteriLista): string {
   if (c.giorniUltimoMax != null) p.push(`ultimo ordine entro ${c.giorniUltimoMax} giorni`);
   if (c.giorniUltimoMin != null) p.push(`ultimo ordine da almeno ${c.giorniUltimoMin} giorni`);
   if (c.gustiContiene?.length) p.push(`gusti: ${c.gustiContiene.join(", ")}`);
+  if (c.ordineMedioMin != null || c.ordineMedioMax != null) p.push(`ordine medio ${c.ordineMedioMin ?? 0}–${c.ordineMedioMax ?? "∞"} €`);
+  if (c.canali?.length) p.push(`arrivati da: ${c.canali.join(", ")}`);
+  if (c.clienteDaAnniMin != null) p.push(`clienti da almeno ${c.clienteDaAnniMin} anni`);
+  if (c.clienteDaAnniMax != null) p.push(`clienti da non più di ${c.clienteDaAnniMax} anni`);
+  if (c.ricorrenzaTipi?.length || c.ricorrenzaEntroGiorni != null || c.ricorrenzaMese != null)
+    p.push(
+      `con ${c.ricorrenzaTipi?.length ? c.ricorrenzaTipi.join("/") : "un'occasione"} ${c.ricorrenzaMese != null ? `a ${MESI[c.ricorrenzaMese - 1] ?? c.ricorrenzaMese}` : `entro ${c.ricorrenzaEntroGiorni ?? 30} giorni`}`,
+    );
   if (c.soloEmail) p.push("solo con email");
   if (c.soloTelefono) p.push("solo con telefono");
   if (c.soloConsensoEmail) p.push("solo con consenso email");

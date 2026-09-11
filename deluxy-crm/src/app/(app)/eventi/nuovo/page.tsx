@@ -1,11 +1,17 @@
 import { salvaEvento } from "@/lib/actions";
 import { dentroOppureFuori } from "@/lib/sessione-server";
+import { prisma } from "@/lib/db";
+import ScelteListe from "@/components/ScelteListe";
 
 export const dynamic = "force-dynamic";
 
 export default async function NuovoEvento({ searchParams }: { searchParams: Promise<{ errore?: string }> }) {
   await dentroOppureFuori(); // revoca: sessione con password vecchia = fuori
   const sp = await searchParams;
+  const liste = await prisma.listaClienti.findMany({
+    orderBy: { creatoIl: "desc" },
+    select: { id: true, nome: true, _count: { select: { membri: true } } },
+  });
   return (
     <>
       <div className="intestazione">
@@ -60,6 +66,7 @@ export default async function NuovoEvento({ searchParams }: { searchParams: Prom
             <label>Note interne</label>
             <input type="text" name="note" placeholder="Budget, fornitori, referenti…" />
           </div>
+          <ScelteListe liste={liste} />
           <div className="form-piede">
             <button className="btn" type="submit">Crea l&apos;evento</button>
           </div>

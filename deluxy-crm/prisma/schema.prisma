@@ -47,6 +47,7 @@ model Evento {
   stato        String    @default("bozza") // bozza | aperto | concluso | annullato
   note         String?   @db.Text
   inviti       Invito[]
+  liste        EventoLista[]
   creatoIl     DateTime  @default(now())
   aggiornatoIl DateTime  @updatedAt
 
@@ -122,6 +123,7 @@ model ListaClienti {
   modello      String        @default("")
   generataIl   DateTime      @default(now())
   membri       MembroLista[]
+  eventi       EventoLista[]
   creatoIl     DateTime      @default(now())
   aggiornatoIl DateTime      @updatedAt
 
@@ -223,6 +225,19 @@ model ProfiloCliente {
   autore        String   @default("")
   creatoIl      DateTime @default(now())
   aggiornatoIl  DateTime @updatedAt
+}
+
+// Una lista di clienti collegata a un evento (11/09/2026): da lì si invitano
+// i membri in un colpo, e nell'elenco degli eventi si vede quale lista c'è.
+model EventoLista {
+  eventoId  String
+  evento    Evento       @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  listaId   String
+  lista     ListaClienti @relation(fields: [listaId], references: [id], onDelete: Cascade)
+  creatoIl  DateTime     @default(now())
+
+  @@id([eventoId, listaId])
+  @@index([listaId])
 }
 
 // Le impostazioni del CRM che cambiano dall'app (riga unica, id "crm"). Oggi:

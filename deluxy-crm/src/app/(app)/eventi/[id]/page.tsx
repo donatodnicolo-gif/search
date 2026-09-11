@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { dentroOppureFuori } from "@/lib/sessione-server";
 import { prisma } from "@/lib/db";
 import { elencoClienti } from "@/lib/orders";
-import { aggiungiInvitato, cambiaStatoEvento, cambiaStatoInvito, rimuoviInvito, salvaEvento } from "@/lib/actions";
+import { aggiungiInvitato, cambiaStatoEvento, cambiaStatoInvito, invitaDaLista, rimuoviInvito, salvaEvento } from "@/lib/actions";
+import ScelteListe from "@/components/ScelteListe";
 import { aOraItaliana } from "@/lib/ore";
 import { dataIt, euro, segmento, statoEvento, statoInvito } from "@/lib/etichette";
 import { TornaIndietro } from "@/components/TornaIndietro";
@@ -28,11 +29,21 @@ export default async function DettaglioEvento({
   const sp = await searchParams;
   const qui = `/eventi/${id}`;
 
-  const evento = await prisma.evento.findUnique({
-    where: { id },
-    include: { inviti: { orderBy: { creatoIl: "asc" } } },
-  });
+  const [evento, tutteLeListe] = await Promise.all([
+    prisma.evento.findUnique({
+      where: { id },
+      include: {
+        inviti: { orderBy: { creatoIl: "asc" } },
+        liste: { include: { lista: { select: { id: true, nome: true, _count: { select: { membri: true } } } } } },
+      },
+    }),
+    prisma.listaClienti.findMany({
+      orderBy: { creatoIl: "desc" },
+      select: { id: true, nome: true, _count: { select: { membri: true } } },
+    }),
+  ]);
   if (!evento) notFound();
+  const listeCollegate = evento.liste.map((el) => el.lista);
 
   const cerca = sp.cerca?.trim();
   const risultati = cerca ? await elencoClienti({ q: cerca, limit: 8 }) : null;
@@ -68,7 +79,7 @@ export default async function DettaglioEvento({
         </div>
       </div>
 
-      {sp.esito === "ok" ? <div className="ok-card">Fatto.</div> : null}
+      {sp.esito === "ok" ? <div className="ok-card">Fatto.</div> : sp.esito ? <div className="ok-card">{sp.esito}</div> : null}
       {sp.errore ? <div className="errore-card">{sp.errore}</div> : null}
 
       <div className="griglia quattro" style={{ marginBottom: 16 }}>
@@ -249,6 +260,7 @@ export default async function DettaglioEvento({
                 <label>Note interne</label>
                 <input type="text" name="note" defaultValue={evento.note ?? ""} />
               </div>
+              <ScelteListe liste={tutteLeListe} scelte={listeCollegate.map((l) => l.id)} />
               <div className="form-piede">
                 <button className="btn" type="submit">Salva</button>
               </div>
@@ -257,6 +269,39 @@ export default async function DettaglioEvento({
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Le liste collegate (11/09): da ognuna si mettono in lista tutti i
+              membri in un colpo. Si collegano dal «Modifica l'evento». */}
+          <div className="card">
+            <div className="card-titolo">Liste collegate</div>
+            <div className="card-sub">
+              {listeCollegate.length === 0
+                ? "Nessuna lista collegata: si sceglie in «Modifica l'evento», qui a sinistra."
+                : "I clienti di queste liste entrano fra gli invitati con un click; chi c'è già non si tocca."}
+            </div>
+            {listeCollegate.length ? (
+              <div className="timeline">
+                {listeCollegate.map((l) => (
+                  <div className="timeline-voce" key={l.id}>
+                    <div className="timeline-corpo">
+                      <div className="timeline-titolo">
+                        <a className="link-quieto" href={`/liste/${l.id}`}>{l.nome}</a>
+                      </div>
+                      <div className="timeline-quando">{l._count.membri} clienti in lista</div>
+                    </div>
+                    <form action={invitaDaLista} style={{ alignSelf: "center" }}>
+                      <input type="hidden" name="eventoId" value={evento.id} />
+                      <input type="hidden" name="listaId" value={l.id} />
+                      <input type="hidden" name="torna" value={qui} />
+                      <button className="btn ghost mini" type="submit" disabled={l._count.membri === 0}>
+                        Aggiungi gli invitati
+                      </button>
+                    </form>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
           <div className="card">
             <div className="card-titolo">Aggiungi invitati</div>
             <div className="card-sub">Cerca nel libro clienti (fonte: Deluxy Orders) e metti in lista.</div>

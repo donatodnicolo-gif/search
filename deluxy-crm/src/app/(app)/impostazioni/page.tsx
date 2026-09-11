@@ -176,6 +176,19 @@ export default async function Impostazioni({
           </p>
         </div>
 
+        <div className="card" id="utenti">
+          <div className="card-titolo">Utenti del CRM</div>
+          <div className="card-sub">Chi entra nel CRM e con quale nome. Gli utenti hanno UNA casa: il Deluxy Hub.</div>
+          <p className="secondario piccolo" style={{ lineHeight: 1.6 }}>
+            Un utente si crea nel Hub (Utenti → Nuovo) e si abilita all&apos;app «CRM»: da quel momento entra da qui con
+            il suo accesso del Hub, e il suo nome firma attività, note e programmazioni. Qui non si duplica nulla:
+            si toglie o si cambia sempre nel Hub.
+          </p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+            <a className="btn" href={`${(process.env.HUB_URL ?? "https://deluxy-hub.vercel.app").replace(/\/$/, "")}/utenti`} target="_blank" rel="noreferrer">Crea o gestisci gli utenti nel Hub</a>
+          </div>
+        </div>
+
         <div className="card" id="clienti" style={{ gridColumn: "1 / -1" }}>
           <div className="card-titolo">Clienti del CRM: soglie e cluster</div>
           <div className="card-sub">
