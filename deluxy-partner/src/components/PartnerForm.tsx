@@ -26,6 +26,12 @@ export function PartnerForm({
 }) {
   const p = partner;
   const fin = anagrafica?.datiFinanziari;
+  // ⭐ 11/09/2026 — LA FEE ARRIVA DALLA PIATTAFORMA CONSEGNE.
+  // Da oggi viaggia nelle condizioni vendor (piattaforma → registro → qui). Il
+  // campo locale resta come ripiego per i partner su cui la piattaforma non
+  // l'ha ancora valorizzata, ma dove il registro parla è lui che comanda: due
+  // numeri diversi per lo stesso patto sono la strada per fatturare male.
+  const feeRegistro = anagrafica?.condizioniVendor?.feeVenditePercent ?? null;
   // ragione sociale: sola lettura dal registro; gli altri anagrafici: editabili
   // ma precompilati dal registro (fallback alla cache locale).
   const ragioneSociale = anagrafica?.ragioneSociale ?? p?.ragioneSociale ?? "";
@@ -105,6 +111,17 @@ export function PartnerForm({
         <div>
           <label className="field-label">Fee su vendite (%)</label>
           <input type="number" name="feePercent" step="0.1" min="0" max="100" defaultValue={p?.feePercent ?? ""} />
+          {feeRegistro != null ? (
+            <span className="muted" style={{ fontSize: 12, display: "block", marginTop: 4 }}>
+              Dalla piattaforma consegne: <strong>{feeRegistro}%</strong> — è questa che si applica ai calcoli.
+              Qui sotto resta il valore locale, usato solo se la piattaforma non la valorizza.
+            </span>
+          ) : (
+            <span className="muted" style={{ fontSize: 12, display: "block", marginTop: 4 }}>
+              La piattaforma consegne non l&apos;ha ancora valorizzata: vale questo valore.
+              Impostandola là, arriva qui da sola.
+            </span>
+          )}
         </div>
         <div>
           <label className="field-label">GG pagamento fatture (0 = vista fattura)</label>

@@ -26,6 +26,15 @@ export type CondizioniVendor = {
   pagamentoVendorGiorni: number | null;
   incassoServiziGiorni: number | null;
   incassoServiziFineMese: boolean | null;
+  /**
+   * ⭐ 11/09/2026 — LA FEE SULLE VENDITE (%), quinta condizione.
+   * La possiede la piattaforma consegne (`Partner.commissionPercent`), il
+   * registro la trasporta, Finance la legge: è la stessa strada delle altre
+   * quattro e dell'IBAN. Prima non esisteva nel contratto e la fee andava
+   * riscritta a mano qui — su Edenia Fiori era rimasta vuota.
+   * `null` = la piattaforma non l'ha ancora valorizzata, NON «zero».
+   */
+  feeVenditePercent: number | null;
 };
 
 export type DatiFinanziari = {

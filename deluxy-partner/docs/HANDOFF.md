@@ -4,6 +4,57 @@
 >
 > Come le tre app trattano il capogruppo all'11/09: **piattaforma** = entità Capogruppo (nome, P.IVA, CF, SDI, PEC, email) + «chi paga»/«paga da sé» sul partner, dati di fatturazione del partner copiati dal capogruppo e bloccati, pagina Capogruppi, ogni cambio comunicato al registro; **Anagrafiche** = fonte di verità (Capogruppo con anche IBAN, banca, condizioni, amministrazione; `leggiFatturazione` sostituisce i dati fiscali nella risposta API quando `pagaDaSe=false`); **Finance** = legge dal registro e ora intesta al capogruppo; il «fatturato per gruppo» somma le aziende agganciate.
 
+> 💰 **11/09/2026 — LA FEE SULLE VENDITE ARRIVA DA APP DELIVERY: CATENA
+> COMPLETA SU TRE APP (piattaforma → registro → Finance).**
+> Richiesta dell'utente («questi campi dovrebbero essere già passati da app
+> delivery» → «sistema tutto e fai deploy di tutte le app coinvolte»).
+> 🔎 **Diagnosi**: SDI e PEC il contratto li aveva già (`datiFinanziari`) e
+> Finance li mostra; per Edenia erano **vuoti nel registro**, cioè la
+> piattaforma non li ha mai mandati (misura sul registro: **24 schede su 50 con
+> SDI, 3 con PEC**). La **fee invece non esisteva proprio**: `condizioniVendor`
+> aveva quattro campi. La piattaforma la possiede da sempre come
+> `Partner.commissionPercent` («Fee value = Fee% × prezzo partner»).
+> **Cosa è stato fatto, in ordine:**
+> 1. **Registro** (`deluxy-anagrafiche`, commit `bc057499`): nuovo
+>    `feeVenditePercent Float?`, colonna creata in produzione con SQL additivo
+>    (`ADD COLUMN IF NOT EXISTS`), validazione a parte dai giorni
+>    (`CAMPI_PERCENTUALE`, 0–100 con decimali: `CAMPI_NUMERO` vuole un intero
+>    ≤365 e avrebbe rifiutato un 12,5), esce in `condizioniVendor`.
+>    Deploy `ljfnb1epj`, PROMOTED.
+> 2. **Piattaforma** (`deluxy-platform-next`, commit `80a47585` su
+>    `platform-0409`): `commissionPercent` viaggia come `feeVenditePercent`
+>    nel blocco condizioni, **solo se > 0** (il campo è `Float @default(0)` e
+>    uno zero non si distingue da «mai impostata»: mandarlo cancellerebbe il
+>    «da valorizzare» di ogni partner mai toccato). Riga «Fee su vendite (%)»
+>    nel confronto piattaforma/registro e fra i campi spuntabili.
+>    Deploy `delivery-8x019q9vo`, PROMOTED.
+>    ⚠️⚠️ **TRAPPOLA EVITATA, da ricordare**: la cartella
+>    `C:\Users\nicol\app\deluxy-platform-next` è sul branch
+>    `piattaforma-ricerca-insensitive`, che **non contiene** la produzione: il
+>    deploy vivo era `3e768f2` del branch **`platform-0409`** (worktree
+>    `.claude/worktrees/deploy-delivery`, di un'altra sessione), pubblicato
+>    alle 10:20 con la correzione del **pool di connessioni saturo**.
+>    Deployare dalla cartella dell'utente avrebbe **cancellato quella
+>    correzione**. Fatto invece: worktree isolato da `origin/platform-0409`,
+>    patch riapplicata lì (gli ancoraggi erano diversi: quella linea manda già
+>    le quattro condizioni con un ciclo), commit, push su `platform-0409`,
+>    deploy dal worktree, worktree rimosso. La cartella dell'utente è stata
+>    riportata come l'ho trovata (`git checkout` dei soli miei tre file).
+>    ⚠️ Il progetto Vercel `delivery` ha **Root Directory = deluxy-platform-next**:
+>    il deploy si lancia dalla RADICE del repo, non dalla cartella dell'app, e
+>    il `.vercel` da usare è quello del worktree `deploy-delivery` (quello della
+>    radice `C:\Users\nicol\app` punta a **deluxy-tasks**).
+> 3. **Finance** (questa cartella): `CondizioniVendor.feeVenditePercent`,
+>    `feeApplicabile` con l'ordine **tariffa datata → registro → copia locale**,
+>    nuova `origineFee()`, e nel modulo del partner si legge da dove viene la
+>    fee che si applica.
+> ✅ **Provato davvero, in produzione**: 150 → rifiutato dal registro
+> («percentuale fra 0 e 100»); 12,5 scritto su Edenia → Finance ha applicato
+> **12,5% con origine «registro»** mentre la copia locale diceva 20%; valore
+> **ripristinato a null** subito dopo (il dato vero deve venire dalla
+> piattaforma). Non ho potuto provare il passaggio piattaforma → registro: si
+> innesca salvando un partner là, ed è dato di produzione loro.
+
 > 🔎 **11/09/2026 — «SU ANAGRAFICHE È STATO CREATO EDENIA FIORI, COME MAI TU
 > NON LO VEDI?» — LO VEDEVA, LO NASCONDEVA IL FILTRO.**
 > Verificato: in Finance la scheda **«Edenia Fiori»** (`cmtlnxbvv000bl204l9g7kpkb`)
