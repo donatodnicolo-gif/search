@@ -8,7 +8,23 @@ Cartella: `deluxy-crm/`, porta **3190**, schema Postgres **`crm`**.
 **LIVE**: https://deluxy-crm.vercel.app (progetto Vercel `deluxy/deluxy-crm`,
 region fra1). Tessera nel Hub: id `crm`, ruoli admin+commerciale, `sso: true`.
 
-## Stato all'11/09/2026 (mattina) — liste con tutte le condizioni di Orders, eventi con liste, utenti
+## Stato all'11/09/2026 — TUTTO PUBBLICATO
+
+> ✅ **In produzione**: CRM `deluxy-mmvds18t3` · Customer Service
+> `deluxy-messaging-3mu9ky7u7` (deploy autorizzato dall'utente; quello del CS
+> ha pubblicato anche due funzioni dell'altra sessione, layout Orari negozi e
+> modifica bozza, che erano ferme). Verificato dal vivo sulle API di
+> produzione: `/api/v1/reclami` 12 reclami in 0,37 s · `/api/v1/nuovo-ordine/opzioni`
+> del negozio Deluxy in 1,66 s (fasce di oggi, 8 spedizioni, 3 metodi). Le
+> pagine del CRM stanno dietro la password di squadra: il controllo a schermo
+> in produzione lo può fare solo l'utente.
+>
+> 📖 Manuale generale: le tre righe dell'11/09 (reclami, opzioni nuovo ordine,
+> utenti) sono **nell'artifact pubblicato** — verificato riga per riga contro
+> `scoutwt/MANUALE-DELUXY.html` (270 righe uguali). Lo ripubblica l'altra
+> sessione: non serve rifarlo.
+
+### La giornata, in ordine: liste, eventi, utenti, pop-up, nuovo ordine, reclami
 
 Richieste dell'utente dopo il deploy delle ricorrenze lette dal biglietto:
 
@@ -515,7 +531,24 @@ avverte — un filtro che svuota in silenzio è un bug, non colpa del modello.
    (esito visibile in pagina: ok/errore).
 4. Tessera per i **commerciali**: gli admin vedono tutto; per gli altri va
    spuntata l'app nella loro scheda utente del Hub (`appAbilitate`).
-5. Idee a seguire: lista `evento-in-arrivo` di Orders in dashboard; rispetto
+5. **`MERCH_API_KEY`** (+ `MERCH_URL` se non standard): senza, il catalogo
+   Merchandising nei messaggi lo dice e il resto funziona. Le env di
+   produzione del CRM, oggi: `ORDERS_*`, `MESSAGGI_*`, `CALENDARIO_*`,
+   `MAIL_URL`/`MAIL_UTENTE`, `OPENAI_*`, `HUB_SSO_SECRET`, `HUB_KEYS_TOKEN`,
+   `CRM_APP_PASSWORD`, `CRM_SESSION_SECRET`, `DATABASE_URL`, `DIRECT_URL`.
+   Mancano **`MAIL_API_KEY`** (punto 1) e **`MERCH_API_KEY`**.
+6. **I ~4.470 biglietti che le parole non risolvono**: la lettura con l'AI si
+   lancia da Orders → Eventi, e in Orders serve `OPENAI_API_KEY`. Finché non
+   si fa, quelle ricorrenze restano «da precisare» (e il pop-up del dettaglio
+   lo dice onestamente).
+7. **In mano ai custodi** (non li chiudo io): UX — drawer mobile, inversione
+   API `.btn` col CS, `htmlFor/id`, `useActionState`, `error.tsx`, il form
+   lungo delle liste da piegare, il badge «stato» disegnato due volte (CS e
+   CRM); PERFORMANCE — endpoint aggregato di Orders per `/performance`, e la
+   riga nuova dell'11/09 sul **Hub a freddo** (`/api/chiavi` 12-20 s alla prima
+   chiamata dopo il riposo, 0,13 s a caldo: nel CRM il danno è tolto, la causa
+   è casa del Hub).
+8. Idee a seguire: lista `evento-in-arrivo` di Orders in dashboard; rispetto
    del consenso (`consenso-email`) accanto al bottone mail; promemoria
    automatici (cron) per le ricorrenze dei VIP; allegati negli inviti.
 
