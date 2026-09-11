@@ -2038,6 +2038,28 @@ export class DeliveryFormComponent implements AfterViewInit {
     // scelto (`?servizio=<id>`): si applica appena la lista servizi è qui.
     this.servizioDallaHome = this.route.snapshot.queryParamMap.get('servizio');
 
+    /**
+     * ⭐ 11/09/2026 (regola utente): «per ogni prodotto aggiungi possibilità di creare poi un ordine».
+     * Dalla scheda del prodotto si arriva qui con `?prodotto=<id>`: la prima riga della merce nasce già
+     * agganciata a quel prodotto, col suo nome nella casella di ricerca.
+     *
+     * ⚠️ Il nome va scritto anche in `query`: senza, la riga è collegata ma SEMBRA vuota — è già
+     * successo con l'ordine 12851, ed è un errore che si nota solo dopo aver salvato.
+     */
+    const idProdotto = this.route.snapshot.queryParamMap.get('prodotto');
+    if (idProdotto && !this.editId()) {
+      this.productRows = [{ productId: idProdotto, productVariantId: null, quantity: 1, price: null, flexiblePrice: false } as ProductRow];
+      this.http.get<Product>(`${environment.apiUrl}/products/${idProdotto}`).subscribe({
+        next: (p) => {
+          if (!p?.id) return;
+          this.products.set(this.unisciProdotti(this.products(), [p]));
+          const riga = this.productRows.find((r) => r.productId === p.id);
+          if (riga) { riga.query = p.name ?? ''; riga.price = p.price ?? null; }
+        },
+        error: () => undefined,
+      });
+    }
+
     // ⭐ 28/08: si arriva dalla sezione RICHIESTE. Si carica il testo nel
     // pannello dell'AI e lo si APRE: chi ha cliccato «crea consegna» da una
     // richiesta non deve andare a cercare dove incollarla.

@@ -109,6 +109,47 @@ import { SavedViewsComponent } from '../core/saved-views.component';
         @if (esitoAzione(); as e) { <div class="card esito-azione">{{ e }}</div> }
       }
       <p class="conto-record">{{ 'comune.record' | translate: { n: total() } }}</p>
+      <!--
+        ⭐ 11/09/2026 (regola utente): «consenti di scegliere anche visualizzazione a griglia».
+        Un catalogo si guarda anche con gli occhi: la tabella serve a confrontare prezzi e stati, la
+        griglia a riconoscere un prodotto dalla foto. Sono due modi di leggere la stessa cosa, quindi la
+        scelta resta di chi guarda e si ricorda fra una visita e l'altra.
+      -->
+      <div class="quick-tabs vista-scelta">
+        @for (v of VISTE; track v) {
+          <button type="button" class="quick-tab" [class.active]="vistaElenco() === v" (click)="cambiaVista(v)">
+            {{ 'products.vista.' + v | translate }}
+          </button>
+        }
+      </div>
+
+      @if (vistaElenco() === 'griglia') {
+        <div class="griglia-prodotti">
+          @for (p of products(); track p.id) {
+            <article class="scheda-prodotto">
+              <a class="foto" [routerLink]="['/products', p.id]">
+                @if (primaImmagine(p); as img) { <img [src]="img" [alt]="p.name" loading="lazy" /> }
+                @else { <span class="senza-foto">{{ 'products.senzaFoto' | translate }}</span> }
+              </a>
+              <div class="corpo">
+                <a class="nome" [routerLink]="['/products', p.id]">{{ p.name }}</a>
+                @if (p.partner?.insegna) { <span class="sotto">{{ p.partner?.insegna }}</span> }
+                <div class="riga-prezzo">
+                  <strong>{{ p.price != null ? (p.price + ' €') : '—' }}</strong>
+                  @if (p.active === false) { <span class="pill pill-neutral">{{ 'common.inactive' | translate }}</span> }
+                  @else if (p.approved) { <span class="pill s-ok">{{ 'products.approved' | translate }}</span> }
+                  @else { <span class="pill s-wait">{{ 'products.pending' | translate }}</span> }
+                </div>
+                <a class="btn btn-secondary ordina" [routerLink]="['/deliveries/new']" [queryParams]="{ prodotto: p.id }">
+                  {{ 'products.creaOrdine' | translate }}
+                </a>
+              </div>
+            </article>
+          } @empty {
+            <p class="muted">{{ 'products.nessuno' | translate }}</p>
+          }
+        </div>
+      } @else {
       <div class="card table-wrap">
         <table>
           <thead><tr>
@@ -130,7 +171,11 @@ import { SavedViewsComponent } from '../core/saved-views.component';
               <tr class="row-link" [class.scelta]="scelti().has(p.id)" tabindex="0" (click)="openDetail(p)" (keydown.enter)="openDetail(p)">
                 @if (puoAgire()) {
                   <td class="sel" (click)="$event.stopPropagation()">
-                    @if (puoToccare(p)) {
+                    <!-- ⭐ 11/09/2026 (regola utente): da un prodotto si crea l'ordine. Sta anche qui, non
+                       solo nella griglia: un comando che vive in una vista sola si trova per caso. -->
+                  <a class="act" [routerLink]="['/deliveries/new']" [queryParams]="{ prodotto: p.id }"
+                     (click)="$event.stopPropagation()">{{ 'products.creaOrdine' | translate }}</a>
+                  @if (puoToccare(p)) {
                       <input type="checkbox" [checked]="scelti().has(p.id)" (change)="scegli(p.id)" />
                     }
                   </td>
@@ -163,6 +208,7 @@ import { SavedViewsComponent } from '../core/saved-views.component';
           </tbody>
         </table>
       </div>
+      }
 
       <!-- Paginazione server-side -->
       <div class="pager">
@@ -187,6 +233,19 @@ import { SavedViewsComponent } from '../core/saved-views.component';
       .head-actions .field { flex: 1 1 180px; min-width: 0; }
       .head-actions .btn { text-decoration: none; }
       .table-wrap { overflow-x: auto; }
+      .vista-scelta { margin-bottom: 12px; }
+      .griglia-prodotti { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+      .scheda-prodotto { background: #fff; border: 1px solid var(--hairline); border-radius: 14px; overflow: hidden;
+        display: flex; flex-direction: column; }
+      .scheda-prodotto .foto { display: block; aspect-ratio: 4 / 3; background: var(--surface-2, #fbfbfd);
+        display: flex; align-items: center; justify-content: center; overflow: hidden; }
+      .scheda-prodotto .foto img { width: 100%; height: 100%; object-fit: cover; }
+      .scheda-prodotto .senza-foto { color: var(--text-tertiary); font-size: 12px; }
+      .scheda-prodotto .corpo { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; }
+      .scheda-prodotto .nome { font-weight: 600; font-size: 14px; text-decoration: none; color: inherit; }
+      .scheda-prodotto .sotto { font-size: 12px; color: var(--text-secondary); }
+      .scheda-prodotto .riga-prezzo { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+      .scheda-prodotto .ordina { margin-top: 4px; text-align: center; text-decoration: none; }
       table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
       th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--hairline); white-space: nowrap; }
       th { font-weight: 500; color: var(--text-tertiary); font-size: 12px; }
@@ -267,6 +326,37 @@ export class ProductsListComponent {
   /** Stato tabella: ricerca globale + ordinamento + paginazione (tutto server-side). */
   query = '';
   readonly total = signal(0);
+  readonly VISTE = ['tabella', 'griglia'] as const;
+  /**
+   * La scelta fra tabella e griglia si RICORDA: chi guarda il catalogo con le foto lo fa sempre, e
+   * ritrovare la tabella a ogni visita è una piccola battaglia quotidiana persa.
+   */
+  readonly vistaElenco = signal<'tabella' | 'griglia'>(
+    (localStorage.getItem('prodotti.vista') as 'tabella' | 'griglia') ?? 'tabella',
+  );
+  cambiaVista(v: 'tabella' | 'griglia'): void {
+    this.vistaElenco.set(v);
+    try { localStorage.setItem('prodotti.vista', v); } catch { /* finestra privata: pazienza */ }
+  }
+
+  /**
+   * La prima immagine del prodotto. `images` è un JSON di indirizzi, e su alcune righe è una stringa
+   * sola: si accettano tutte e due le forme, perché l'archivio contiene entrambe.
+   */
+  primaImmagine(p: { images?: string | null; imageUrl?: string | null }): string | null {
+    if (p.imageUrl) return p.imageUrl;
+    const grezzo = (p.images ?? '').trim();
+    if (!grezzo) return null;
+    if (!grezzo.startsWith('[')) return grezzo;
+    try {
+      const lista = JSON.parse(grezzo) as unknown[];
+      const prima = lista.find((x) => typeof x === 'string' && x.trim());
+      return (prima as string) ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   readonly page = signal(1);
   pageSize = 50;
   readonly pageSizes = [10, 25, 50, 100, 200, 500];

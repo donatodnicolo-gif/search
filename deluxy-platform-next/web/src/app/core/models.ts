@@ -169,6 +169,12 @@ export interface ProductRef {
   variants?: { id: string; name: string; price?: number | null; active?: boolean; controlStock?: boolean; stock?: number | null }[];
   partner?: { id: string; insegna: string } | null;
   category?: { id: string; name: string } | null;
+  /**
+   * ⭐ 11/09/2026: le immagini servono alla vista a GRIGLIA del catalogo. `images` è un JSON di
+   * indirizzi, ma su parte dell'archivio è una stringa sola: chi le legge accetta entrambe le forme.
+   */
+  images?: string | null;
+  imageUrl?: string | null;
 }
 
 export interface ServiceType {

@@ -1247,7 +1247,14 @@
     },
     "tabListino": "Il mio listino",
     "unarchive": "Togli dall'archivio",
-    "archived": "Archiviato"
+    "archived": "Archiviato",
+    "vista": {
+      "tabella": "Tabella",
+      "griglia": "Griglia"
+    },
+    "creaOrdine": "Crea ordine",
+    "senzaFoto": "nessuna foto",
+    "nessuno": "Nessun prodotto."
   },
   "aree": {
     "title": "Aree",

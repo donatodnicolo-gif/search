@@ -1245,7 +1245,14 @@
     },
     "tabListino": "My price list",
     "unarchive": "Unarchive",
-    "archived": "Archived"
+    "archived": "Archived",
+    "vista": {
+      "tabella": "Table",
+      "griglia": "Grid"
+    },
+    "creaOrdine": "Create order",
+    "senzaFoto": "no photo",
+    "nessuno": "No product."
   },
   "aree": {
     "title": "Areas",
