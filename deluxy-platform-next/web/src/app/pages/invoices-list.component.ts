@@ -32,6 +32,8 @@ interface Invoice {
   periodStart: string;
   periodEnd: string;
   netAmount: number;
+  /** ⭐ 11/09: il venduto della fattura (solo righe di vendita). */
+  venduto?: number | null;
   vatRate: number;
   totalAmount: number;
   legacyTotalAmount?: number | null;
@@ -189,13 +191,15 @@ const NEXT: Record<string, { next: string; key: string }> = {
       }
       <!-- ⭐ 27/08 (chiesto dall'utente): il recap di una tipologia per volta
            — «prima quello delle consegne standard, poi quello delle vendite». -->
-      @if (serviceTypes().length) {
+      <!-- ⭐ 11/09/2026 (regola utente): i MACRO servizi, non i 40 puntuali. La famiglia è la domanda vera
+           («fammi il recap delle vendite»); scegliendola si filtrano tutti i servizi che le appartengono. -->
+      @if (modelliPresenti().length) {
         <div class="f servizi">
           <span>{{ 'invoices.filter.services' | translate }}</span>
           <div class="chips-servizi">
-            @for (s of serviceTypes(); track s.id) {
-              <button type="button" class="chip-serv" [class.on]="serviziScelti().has(s.id)"
-                      (click)="scegliServizio(s.id)">{{ s.name }}</button>
+            @for (m of modelliPresenti(); track m) {
+              <button type="button" class="chip-serv" [class.on]="modelloScelto(m)"
+                      (click)="scegliModello(m)">{{ 'deliveries.svc.' + m | translate }}</button>
             }
           </div>
         </div>
@@ -419,6 +423,8 @@ const NEXT: Record<string, { next: string; key: string }> = {
               <th>{{ 'invoices.col.number' | translate }}</th>
               <th>{{ 'invoices.col.period' | translate }}</th>
               <th class="num">{{ 'invoices.col.deliveries' | translate }}</th>
+              <!-- ⭐ 11/09/2026 (regola utente): il venduto si legge anche qui, non solo nel dettaglio. -->
+              <th class="num">{{ 'invoices.pending.sold' | translate }}</th>
               <th class="num">{{ 'invoices.col.net' | translate }}</th>
               <th class="num">{{ 'invoices.col.vat' | translate }}</th>
               <th class="num">{{ 'invoices.col.total' | translate }}</th>
@@ -434,6 +440,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
                 <td>{{ i.number || '—' }}</td>
                 <td class="muted">{{ i.periodStart | date: 'dd/MM/yy' }} – {{ i.periodEnd | date: 'dd/MM/yy' }}</td>
                 <td class="num">{{ i.deliveriesCount }}</td>
+                <td class="num muted">{{ i.venduto ? ((i.venduto | number: '1.2-2') + ' €') : '—' }}</td>
                 <td class="num muted">{{ i.netAmount | number: '1.2-2' }} €</td>
                 <td class="num muted">{{ iva(i) | number: '1.2-2' }} €</td>
                 <td class="num strong">
@@ -477,7 +484,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
               </tr>
               @if (expanded() === i.id) {
                 <tr class="detail-row">
-                  <td [attr.colspan]="view() === 'archive' ? 8 : 7">
+                  <td [attr.colspan]="view() === 'archive' ? 9 : 8">
                     @if (righeInCorso()) { <span class="muted">{{ 'common.loading' | translate }}</span> }
                     @else if (righe().length) {
                       <table class="lines">
@@ -553,7 +560,7 @@ const NEXT: Record<string, { next: string; key: string }> = {
                 </tr>
               }
             }
-            @if (!filtered().length) { <tr><td [attr.colspan]="view() === 'archive' ? 8 : 7" class="muted empty">{{ 'invoices.empty' | translate }}</td></tr> }
+            @if (!filtered().length) { <tr><td [attr.colspan]="view() === 'archive' ? 9 : 8" class="muted empty">{{ 'invoices.empty' | translate }}</td></tr> }
           </tbody>
         </table>
       </div>
@@ -751,6 +758,34 @@ export class InvoicesListComponent {
   readonly serviceTypes = signal<{ id: string; name: string; pricingModel?: string }[]>([]);
   /** I tipi scelti. Vuoto = tutti, che è diverso da «nessuno». */
   readonly serviziScelti = signal<Set<string>>(new Set());
+
+  /**
+   * ⭐ 11/09/2026 (regola utente): il filtro parla di FAMIGLIE di servizio. Le linguette sono i modelli di
+   * prezzo presenti nel catalogo (PREZZO_FISSO, A_ORA, VENDITA, MAGAZZINO, CORPORATE); quello che parte
+   * all'API resta l'elenco degli id, così la rotta non cambia.
+   */
+  private static readonly ORDINE_MODELLI = ['PREZZO_FISSO', 'A_ORA', 'VENDITA', 'MAGAZZINO', 'CORPORATE'];
+  readonly modelliPresenti = computed(() => {
+    const presenti = new Set(this.serviceTypes().map((s) => s.pricingModel).filter(Boolean) as string[]);
+    const noti = InvoicesListComponent.ORDINE_MODELLI.filter((m) => presenti.has(m));
+    const altri = [...presenti].filter((m) => !InvoicesListComponent.ORDINE_MODELLI.includes(m)).sort();
+    return [...noti, ...altri];
+  });
+  private idDelModello(modello: string): string[] {
+    return this.serviceTypes().filter((s) => s.pricingModel === modello).map((s) => s.id);
+  }
+  modelloScelto(modello: string): boolean {
+    const ids = this.idDelModello(modello);
+    return ids.length > 0 && ids.every((id) => this.serviziScelti().has(id));
+  }
+  scegliModello(modello: string): void {
+    const ids = this.idDelModello(modello);
+    const x = new Set(this.serviziScelti());
+    if (this.modelloScelto(modello)) for (const id of ids) x.delete(id);
+    else for (const id of ids) x.add(id);
+    this.serviziScelti.set(x);
+    this.load();
+  }
 
   scegliServizio(id: string): void {
     const x = new Set(this.serviziScelti());

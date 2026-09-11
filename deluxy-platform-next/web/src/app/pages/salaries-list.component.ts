@@ -26,6 +26,12 @@ interface Pending {
   to: string;
 }
 interface PendingDelivery {
+  /** ⭐ 11/09: partner, «da pagare» e la scomposizione dei plus/minus. */
+  partner?: string | null;
+  orario?: string | null;
+  payable?: boolean;
+  plusScritto?: number;
+  plusRegola?: number;
   id: string; code: number; date: string; status: string;
   address?: string | null; service: string; cash: number;
   /** Plus/minus dentro la paga: quello della consegna + regola carnet + scaglione ritiri. */
@@ -355,8 +361,12 @@ const NEXT: Record<string, { next: string; key: string }> = {
                         <thead><tr>
                           <th>{{ 'salaries.line.delivery' | translate }}</th>
                           <th>{{ 'salaries.line.date' | translate }}</th>
+                          <!-- ⭐ 11/09/2026 (regola utente): partner, orario e «da pagare» in tabella. -->
+                          <th>{{ 'salaries.line.partner' | translate }}</th>
+                          <th>{{ 'salaries.line.orario' | translate }}</th>
                           <th>{{ 'salaries.pending.service' | translate }}</th>
                           <th>{{ 'salaries.pending.address' | translate }}</th>
+                          <th>{{ 'salaries.line.daPagare' | translate }}</th>
                           <th class="num">{{ 'salaries.col.cash' | translate }}</th>
                           <th class="num">{{ 'salaries.line.plusMinus' | translate }}</th>
                           <th class="num">{{ 'salaries.line.amount' | translate }}</th>
@@ -369,8 +379,14 @@ const NEXT: Record<string, { next: string; key: string }> = {
                                    [title]="'salaries.line.openDelivery' | translate">#{{ d.code }}</a>
                               </td>
                               <td>{{ d.date | date: 'dd/MM/yy' }}</td>
+                              <td>{{ d.partner || '—' }}</td>
+                              <td class="mono">{{ d.orario || '—' }}</td>
                               <td class="muted">{{ d.service }}</td>
                               <td class="muted">{{ d.address || '—' }}</td>
+                              <td>
+                                @if (d.payable === false) { <span class="pill-no">{{ 'common.no' | translate }}</span> }
+                                @else { <span class="pill-si">{{ 'common.yes' | translate }}</span> }
+                              </td>
                               <td class="num">{{ d.cash ? ('−' + (d.cash | number: '1.2-2') + ' €') : '—' }}</td>
                               <td class="num" [class.rosso]="(d.plusMinus ?? 0) < 0">
                                 <!-- ⭐ 01/09 (chiesto dall'utente): il plus/minus si scrive
@@ -388,6 +404,8 @@ const NEXT: Record<string, { next: string; key: string }> = {
                                 } @else {
                                   @if (d.plusMinus) { {{ (d.plusMinus > 0 ? '+' : '') + (d.plusMinus | number: '1.2-2') }} € } @else { — }
                                 }
+                                <!-- ⭐ 11/09/2026 (regola utente, «altri plus o minus»): quanto di questo arriva da una regola. -->
+                                @if (d.plusRegola) { <span class="scomposto-plus">{{ 'salaries.line.dellaRegola' | translate: { n: (d.plusRegola ?? 0).toFixed(2) } }}</span> }
                               </td>
                               <td class="num">
                                 @if (d.nelGiro) {
@@ -553,7 +571,12 @@ const NEXT: Record<string, { next: string; key: string }> = {
                             <tr>
                               <th>{{ 'salaries.col.date' | translate }}</th>
                               <th>{{ 'salaries.legacyDelivery' | translate }}</th>
+                              <!-- ⭐ 11/09/2026 (regola utente): partner, orario, «da pagare» e plus/minus anche qui. -->
+                              <th>{{ 'salaries.line.partner' | translate }}</th>
+                              <th>{{ 'salaries.line.orario' | translate }}</th>
                               <th>{{ 'salaries.legacyDescription' | translate }}</th>
+                              <th>{{ 'salaries.line.daPagare' | translate }}</th>
+                              <th class="num">{{ 'salaries.line.plusMinus' | translate }}</th>
                               <th class="num">{{ 'salaries.col.amount' | translate }}</th>
                             </tr>
                           </thead>
@@ -566,10 +589,25 @@ const NEXT: Record<string, { next: string; key: string }> = {
                                     <span class="muted"> {{ l.delivery.recipientLastName }} {{ l.delivery.recipientFirstName }}</span> }
                                   @else { <span class="muted">—</span> }
                                 </td>
+                                <td>{{ l.delivery?.partner?.insegna || '—' }}</td>
+                                <td class="mono">{{ orarioRiga(l) }}</td>
                                 <td class="muted">{{ l.description || l.delivery?.serviceType?.name || '—' }}</td>
+                                <td>
+                                  @if (l.delivery && l.delivery.payable === false) { <span class="pill-no">{{ 'common.no' | translate }}</span> }
+                                  @else if (l.delivery) { <span class="pill-si">{{ 'common.yes' | translate }}</span> }
+                                  @else { <span class="muted">—</span> }
+                                </td>
+                                <td class="num" [class.rosso]="plusRiga(l) < 0">
+                                  @if (plusRiga(l)) {
+                                    {{ plusRiga(l) | number: '1.2-2' }} €
+                                    @if (regolaRiga(l)) {
+                                      <span class="scomposto-plus">{{ 'salaries.line.dellaRegola' | translate: { n: regolaRiga(l).toFixed(2) } }}</span>
+                                    }
+                                  } @else { — }
+                                </td>
                                 <td class="num">{{ l.amount | number: '1.2-2' }} €</td>
                               </tr>
-                            } @empty { <tr><td colspan="4" class="muted">{{ 'salaries.legacyNoLines' | translate }}</td></tr> }
+                            } @empty { <tr><td colspan="8" class="muted">{{ 'salaries.legacyNoLines' | translate }}</td></tr> }
                           </tbody>
                         </table>
                       } @else { <span class="muted">…</span> }
@@ -651,6 +689,10 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .dettaglio-storico > td { background: var(--bg-secondary, #f6f6f7); padding: 10px 14px 14px; }
       .dettaglio-storico .riga-periodo { margin: 0 0 8px; font-size: 13px; }
       .dettaglio-storico .table.sotto { font-size: 13px; }
+      .scomposto-plus { display: block; font-size: 11.5px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+      .pill-si, .pill-no { display: inline-flex; border-radius: 980px; padding: 2px 9px; font-size: 11.5px; font-weight: 600; }
+      .pill-si { background: rgba(36,138,61,.12); color: #1a7f37; }
+      .pill-no { background: rgba(255,149,0,.14); color: #b25000; }
       table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
       th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--hairline); white-space: nowrap; }
       th { font-weight: 500; color: var(--text-tertiary); font-size: 12px; }
@@ -709,6 +751,19 @@ export class SalariesListComponent {
 
   idStipendio(r: { salaryId?: string | null; salary?: { id: string } | null }): string | null {
     return r.salaryId ?? r.salary?.id ?? null;
+  }
+
+  /** ⭐ 11/09: i plus/minus di una riga di stipendio: quello scritto sulla consegna più quello della regola. */
+  orarioRiga(l: any): string {
+    const d = l?.delivery;
+    if (!d?.deliveryTimeFrom) return '—';
+    return d.deliveryTimeFrom + (d.deliveryTimeTo ? '–' + d.deliveryTimeTo : '');
+  }
+  regolaRiga(l: any): number { return Math.round(((l?.delivery?.deliveryRule?.valetPayAdjustment ?? 0)) * 100) / 100; }
+  plusRiga(l: any): number {
+    const d = l?.delivery;
+    if (!d) return 0;
+    return Math.round(((d.valetAdditionalPrice ?? 0) + (d.deliveryRule?.valetPayAdjustment ?? 0)) * 100) / 100;
   }
 
   apriStorico(id: string): void {

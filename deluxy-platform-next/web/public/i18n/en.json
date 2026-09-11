@@ -775,6 +775,10 @@
       "amount": "Delivery total",
       "delivery": "Delivery",
       "plusMinus": "Plus/minus",
+      "partner": "Partner",
+      "orario": "Time",
+      "daPagare": "To pay",
+      "dellaRegola": "of which from rule {{n}} €",
       "openDelivery": "Open the delivery"
     },
     "requestPay": "Request payment",

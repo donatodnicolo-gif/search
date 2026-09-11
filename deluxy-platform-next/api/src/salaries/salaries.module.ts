@@ -388,7 +388,14 @@ export class SalariesService {
         valet: { select: { id: true, firstName: true, lastName: true } },
         lines: {
           orderBy: { date: 'asc' },
-          include: { delivery: { select: { code: true, recipientFirstName: true, recipientLastName: true, serviceType: { select: { name: true } } } } },
+          // ⭐ 11/09/2026 (regola utente): anche nello STORICO partner, orario, «da pagare» e plus/minus.
+          include: { delivery: { select: {
+            code: true, recipientFirstName: true, recipientLastName: true, payable: true,
+            deliveryTimeFrom: true, deliveryTimeTo: true, valetAdditionalPrice: true,
+            partner: { select: { insegna: true } },
+            deliveryRule: { select: { name: true, valetPayAdjustment: true } },
+            serviceType: { select: { name: true } },
+          } } },
         },
       },
     });
@@ -573,6 +580,8 @@ export class SalariesService {
         recipientAddress: true,
         deliveryTimeFrom: true, deliveryTimeTo: true,
         serviceType: { select: { name: true, pricingModel: true, minHours: true } },
+        // ⭐ 11/09/2026 (regola utente): il PARTNER si legge in tabella, accanto alla consegna.
+        partner: { select: { insegna: true } },
         // Le due regole che toccano la paga, e i ritiri del giro per gli scaglioni.
         deliveryRule: { select: { name: true, valetPayAdjustment: true, toPay: true } },
         // Le tariffe km del VALET (scheda valet, non listino-servizio): km
@@ -639,6 +648,13 @@ export class SalariesService {
           // non toccano il margine.
           rimborsi: Math.round(((d as any).refundedCosts ?? 0) * 100) / 100,
           address: d.recipientAddress,
+          // ⭐ 11/09/2026 (regola utente): partner, «da pagare» e la scomposizione dei plus/minus si leggono
+          // in tabella, senza aprire la consegna.
+          partner: (d as any).partner?.insegna ?? null,
+          payable: (d as any).payable !== false,
+          plusScritto: Math.round(((d as any).valetAdditionalPrice ?? 0) * 100) / 100,
+          plusRegola: Math.round(((((d as any).deliveryRule?.valetPayAdjustment ?? 0)
+            + plusRitiri((d as any).valetDeliveryRule ?? null, (d as any)._count?.pickups ?? 0))) * 100) / 100,
           orario: d.deliveryTimeFrom ? `${d.deliveryTimeFrom}${d.deliveryTimeTo ? '–' + d.deliveryTimeTo : ''}` : null,
           service: d.serviceType?.name ?? '—',
           cash: d.paymentOnDelivery ? (d.paymentAmount ?? 0) : 0,

@@ -776,6 +776,10 @@
       "delivery": "Consegna",
       "publicPrice": "Al pubblico",
       "plusMinus": "Plus/minus",
+      "partner": "Partner",
+      "orario": "Orario",
+      "daPagare": "Da pagare",
+      "dellaRegola": "di cui da regola {{n}} €",
       "openDelivery": "Apri la consegna"
     },
     "requestPay": "Richiedi pagamento",

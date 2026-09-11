@@ -306,7 +306,7 @@ export class InvoicesService {
    * `dal`/`al` guardano il PERIODO fatturato, non la data di emissione: e' il
    * modo in cui si cerca una fattura («quella di giugno»).
    */
-  findAll(user: JwtUser, archived = false, filtri: {
+  async findAll(user: JwtUser, archived = false, filtri: {
     partnerId?: string; stato?: string; dal?: string; al?: string; cerca?: string;
   } = {}) {
     const where: any = { archived };
@@ -331,11 +331,46 @@ export class InvoicesService {
     // Storico rispondeva 3,2 MB — 559 fatture con dentro tutte le 9.811 righe —
     // e il browser si piantava a montarle. Il dettaglio le chiede a parte,
     // quando qualcuno lo apre: sono 18 righe per volta, non 9.811.
-    return this.prisma.invoice.findMany({
+    const fatture = await this.prisma.invoice.findMany({
       where,
       include: { partner: { select: { id: true, insegna: true } } },
       orderBy: { periodStart: 'desc' },
     });
+    /**
+     * ⭐ 11/09/2026 (regola utente: «anche nel macro dettaglio metti il totale del venduto»): accanto a
+     * imponibile e totale si legge QUANTO SI È VENDUTO per conto del partner, senza aprire il dettaglio.
+     *
+     * ⚠️ Il venduto non sta sulla riga di fattura: sta sulle CONSEGNE, e solo quelle di VENDITA ne hanno uno
+     * (altrove il denaro va dal partner a noi). Si legge con la stessa formula del dettaglio
+     * (`valoreProdotti`), in una lettura sola per tutta la pagina.
+     */
+    if (!fatture.length) return fatture;
+    const righe = await this.prisma.invoiceLine.findMany({
+      where: { invoiceId: { in: fatture.map((f) => f.id) }, NOT: { deliveryId: null } },
+      select: {
+        invoiceId: true,
+        delivery: {
+          select: {
+            productValue: true,
+            serviceType: { select: { pricingModel: true } },
+            products: {
+              select: {
+                quantity: true, price: true, withoutCommission: true,
+                productVariant: { select: { price: true, publicPrice: true } },
+                product: { select: { publicPrice: true, price: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+    const perFattura = new Map<string, number>();
+    for (const r of righe) {
+      if ((r.delivery?.serviceType?.pricingModel ?? '') !== 'VENDITA') continue;
+      const v = calcolaValoreProdotti(r.delivery!.products as any, r.delivery!.productValue);
+      if (v) perFattura.set(r.invoiceId, (perFattura.get(r.invoiceId) ?? 0) + v);
+    }
+    return fatture.map((f) => ({ ...f, venduto: perFattura.has(f.id) ? Math.round(perFattura.get(f.id)! * 100) / 100 : null }));
   }
 
   /** Le righe di UNA fattura: si leggono aprendo il dettaglio, non prima. */

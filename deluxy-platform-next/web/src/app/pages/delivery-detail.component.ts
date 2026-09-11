@@ -410,11 +410,14 @@ interface DeliveryDetail {
                 <a class="num" [routerLink]="['/deliveries', a.id]" target="_blank" rel="noopener">#{{ a.code }}</a>
                 <span class="chi">{{ a.partner?.insegna ?? '—' }}</span>
                 <span class="che">{{ a.serviceType?.name ?? '—' }}</span>
-                @if (a.products; as pr) {
-                  @if (pr.length) {
-                    <span class="cosa">{{ pr[0].productName }}@if (pr.length > 1) { <span> +{{ pr.length - 1 }}</span> }</span>
-                  }
-                }
+                <!-- ⚠️ 11/09/2026 (segnalazione utente sul CSS): la cella del prodotto va SEMPRE resa. Con una
+                     griglia a colonne fisse, saltarla quando la consegna non ha prodotti faceva slittare data e
+                     stato di una colonna: le righe non erano più incolonnate fra loro. -->
+                <span class="cosa">
+                  @if (a.products?.length) {
+                    {{ a.products?.[0]?.productName }}@if ((a.products?.length ?? 0) > 1) { <span class="muted"> +{{ (a.products?.length ?? 1) - 1 }}</span> }
+                  } @else { <span class="muted">—</span> }
+                </span>
                 <span class="quando">{{ a.date | date: 'dd/MM/yyyy' }}</span>
                 <span class="stato">{{ 'status.delivery.' + a.status | translate }}</span>
               </li>
@@ -1261,11 +1264,16 @@ interface DeliveryDetail {
       .legame-ddt .chi { font-weight: 550; }
       .legame-ddt .che, .legame-ddt .cosa, .legame-ddt .quando, .legame-ddt .stato { color: var(--text-secondary); }
       .legame-ddt .cosa { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      /* ⭐ 11/09/2026: anche le altre celle si accorciano invece di sfondare la riga. */
+      .legame-ddt .chi, .legame-ddt .che, .legame-ddt .stato { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .legame-ddt .num { white-space: nowrap; }
       .legame-ddt .quando { font-variant-numeric: tabular-nums; }
       @media (max-width: 720px) {
         .legame-ddt li { grid-template-columns: 1fr; gap: 2px; padding: 10px 0; }
         .legame-ddt .che, .legame-ddt .cosa, .legame-ddt .quando, .legame-ddt .stato { font-size: 12.5px; }
       }
+      /* ⭐ 11/09/2026: i riquadri dei legami hanno lo stesso respiro delle altre schede. */
+      .riconsegna-legame, .legame-corporate { grid-column: 1 / -1; padding: 14px 18px; margin-bottom: 14px; }
       .riconsegna-legame p, .legame-corporate p { margin: 0 0 6px; font-size: 13.5px; }
       .riconsegna-legame p:last-child, .legame-corporate p:last-child { margin-bottom: 0; }
       .legame-corporate a, .riconsegna-legame a { font-weight: 600; }
