@@ -71,13 +71,14 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
           <label class="fld"><span class="req">{{ 'partnerForm.general.email' | translate }}</span>
             <input class="field" type="email" name="email" [(ngModel)]="model.email" required [attr.placeholder]="'partnerForm.general.emailPlaceholder' | translate" /></label>
           <label class="fld"><span>{{ 'partnerForm.general.businessName' | translate }}</span>
-            <input class="field" name="businessName" [(ngModel)]="model.businessName" [attr.placeholder]="'partnerForm.general.businessNamePlaceholder' | translate" /></label>
+            <input class="field" name="businessName" [ngModel]="valoreMostrato('businessName')" (ngModelChange)="model.businessName = $event" [readonly]="campoBloccato('businessName')" [attr.placeholder]="'partnerForm.general.businessNamePlaceholder' | translate" /></label>
           <label class="fld"><span>{{ 'partnerForm.general.phone' | translate }}</span>
             <input class="field" name="phone" [(ngModel)]="model.phone" placeholder="+39 …" /></label>
-          <label class="fld"><span>{{ 'partnerForm.general.vatNumber' | translate }}</span>
-            <input class="field" name="vatNumber" [(ngModel)]="model.vatNumber" placeholder="IT01234567890" /></label>
+          <!-- ⭐ 11/09/2026 (regola utente): se fattura il capogruppo, la P.IVA è la sua e non si modifica. -->
+          <label class="fld"><span>{{ 'partnerForm.general.vatNumber' | translate }}@if (pIvaBloccata()) { <em>{{ 'partnerForm.general.vatNumberBloccata' | translate }}</em> }</span>
+            <input class="field" name="vatNumber" [ngModel]="valoreMostrato('vatNumber')" (ngModelChange)="model.vatNumber = $event" [readonly]="campoBloccato('vatNumber')" placeholder="IT01234567890" /></label>
           <label class="fld"><span>{{ 'partnerForm.general.fiscalCode' | translate }}</span>
-            <input class="field" name="fiscalCode" [(ngModel)]="model.fiscalCode" /></label>
+            <input class="field" name="fiscalCode" [ngModel]="valoreMostrato('fiscalCode')" (ngModelChange)="model.fiscalCode = $event" [readonly]="campoBloccato('fiscalCode')" /></label>
           <label class="fld span-2"><span>{{ 'partnerForm.general.address' | translate }}</span>
             <input class="field" name="address" [(ngModel)]="model.address" appIndirizzoGoogle autocomplete="off" [attr.placeholder]="'partnerForm.general.addressPlaceholder' | translate" /></label>
         </div>
@@ -407,6 +408,11 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
             <label class="toggle"><input type="checkbox" name="pagaDaSe" [(ngModel)]="model.pagaDaSe" /><span>{{ 'partnerForm.payments.pagaDaSe' | translate }}</span></label>
           }
         </div>
+        <!-- ⭐ 11/09/2026 (regola utente): fattura il capogruppo e i suoi dati ci sono → i dati di fatturazione
+             sono i suoi e i campi sono chiusi. Si cambiano dalla pagina Capogruppi. -->
+        @if (fatturaIlCapogruppo()) {
+          <p class="hint avviso-cg">{{ 'partnerForm.payments.datiBloccati' | translate }} <a routerLink="/capogruppi">{{ 'partnerForm.payments.gestisciCapogruppi' | translate }}</a></p>
+        }
         <div class="grid-2">
           <label class="fld"><span>{{ 'partnerForm.payments.paymentMethod' | translate }}</span>
             <select class="field" name="paymentMethod" [(ngModel)]="model.paymentMethod">
@@ -426,11 +432,11 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
           <label class="fld"><span>{{ 'partnerForm.payments.bankAccountName' | translate }}</span>
             <input class="field" name="bankAccountName" [(ngModel)]="model.bankAccountName" /></label>
           <label class="fld"><span>{{ 'partnerForm.payments.sdiCode' | translate }}</span>
-            <input class="field" name="sdiCode" [(ngModel)]="model.sdiCode" [attr.placeholder]="'partnerForm.payments.sdiCodePlaceholder' | translate" /></label>
+            <input class="field" name="sdiCode" [ngModel]="valoreMostrato('sdiCode')" (ngModelChange)="model.sdiCode = $event" [readonly]="campoBloccato('sdiCode')" [attr.placeholder]="'partnerForm.payments.sdiCodePlaceholder' | translate" /></label>
           <label class="fld"><span>{{ 'partnerForm.payments.certifiedEmail' | translate }}</span>
-            <input class="field" type="email" name="certifiedEmail" [(ngModel)]="model.certifiedEmail" placeholder="pec@partner.it" /></label>
+            <input class="field" type="email" name="certifiedEmail" [ngModel]="valoreMostrato('certifiedEmail')" (ngModelChange)="model.certifiedEmail = $event" [readonly]="campoBloccato('certifiedEmail')" placeholder="pec@partner.it" /></label>
           <label class="fld"><span>{{ 'partnerForm.payments.invoiceEmail' | translate }}</span>
-            <input class="field" type="email" name="invoiceEmail" [(ngModel)]="model.invoiceEmail" placeholder="fatture@partner.it" /></label>
+            <input class="field" type="email" name="invoiceEmail" [ngModel]="valoreMostrato('invoiceEmail')" (ngModelChange)="model.invoiceEmail = $event" [readonly]="campoBloccato('invoiceEmail')" placeholder="fatture@partner.it" /></label>
         </div>
         <label class="toggle mt"><input type="checkbox" name="invoicingEnabled" [(ngModel)]="model.invoicingEnabled" /><span>{{ 'partnerForm.payments.invoicingEnabled' | translate }}</span></label>
       </section>
@@ -687,7 +693,25 @@ export class PartnerFormComponent {
   }
   readonly paymentMethods = Object.entries(PAYMENT_METHOD_LABELS);
   /** ⭐ 10/09/2026: i capogruppi fra cui scegliere chi paga. */
-  readonly capogruppi = signal<{ id: string; nome: string; pIva?: string | null }[]>([]);
+  readonly capogruppi = signal<{ id: string; nome: string; pIva?: string | null; codiceFiscale?: string | null; codiceSdi?: string | null; pec?: string | null; email?: string | null }[]>([]);
+  /** ⭐ 11/09: il capogruppo scelto, con i suoi dati (o quello nuovo scritto nel modulo). */
+  private capogruppoScelto(): { businessName?: string | null; vatNumber?: string | null; fiscalCode?: string | null; sdiCode?: string | null; certifiedEmail?: string | null; invoiceEmail?: string | null } | null {
+    const m = this.model;
+    if (!m.capogruppoId) return null;
+    if (m.capogruppoId === '__nuovo__') return { businessName: m.capogruppoNuovoNome.trim() || null, vatNumber: m.capogruppoNuovoPIva.trim() || null };
+    const c = this.capogruppi().find((x) => x.id === m.capogruppoId);
+    return c ? { businessName: c.nome, vatNumber: c.pIva, fiscalCode: c.codiceFiscale, sdiCode: c.codiceSdi, certifiedEmail: c.pec, invoiceEmail: c.email } : null;
+  }
+  /** Fattura il capogruppo (scelto e «paga da sé» spento). */
+  fatturaIlCapogruppo(): boolean { return !!this.model.capogruppoId && !this.model.pagaDaSe; }
+  /** Il campo è chiuso quando fattura il capogruppo E il capogruppo ha quel dato («già inserito»). */
+  campoBloccato(campo: 'businessName' | 'vatNumber' | 'fiscalCode' | 'sdiCode' | 'certifiedEmail' | 'invoiceEmail'): boolean {
+    return this.fatturaIlCapogruppo() && !!(this.capogruppoScelto()?.[campo] ?? '').trim();
+  }
+  valoreMostrato(campo: 'businessName' | 'vatNumber' | 'fiscalCode' | 'sdiCode' | 'certifiedEmail' | 'invoiceEmail'): string {
+    return this.campoBloccato(campo) ? String(this.capogruppoScelto()?.[campo] ?? '') : String((this.model as any)[campo] ?? '');
+  }
+  pIvaBloccata(): boolean { return this.campoBloccato('vatNumber'); }
   readonly paymentStatuses = Object.entries(PAYMENT_STATUS_LABELS);
 
   serviceRows: ServiceRow[] = [];
@@ -759,7 +783,7 @@ export class PartnerFormComponent {
 
   constructor() {
 
-    this.http.get<{ id: string; nome: string; pIva?: string | null }[]>(`${environment.apiUrl}/capogruppi`).subscribe({ next: (c) => this.capogruppi.set(c ?? []), error: () => undefined });
+    this.http.get<{ id: string; nome: string; pIva?: string | null; codiceFiscale?: string | null; codiceSdi?: string | null; pec?: string | null; email?: string | null }[]>(`${environment.apiUrl}/capogruppi`).subscribe({ next: (c) => this.capogruppi.set(c ?? []), error: () => undefined });
     const api = environment.apiUrl;
     this.http.get<Province[]>(`${api}/provinces`).subscribe((d) => this.provinces.set(d));
     this.http.get<Category[]>(`${api}/categories`).subscribe((d) => this.categories.set(d));

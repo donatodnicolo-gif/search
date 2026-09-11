@@ -84,6 +84,8 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
     title: 'nav.section.utenti',
     items: [
       { label: 'nav.partner', path: '/partners', icon: 'store', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
+      // ⭐ 11/09/2026: la sezione «Capogruppo» accanto ai partner.
+      { label: 'nav.capogruppi', path: '/capogruppi', icon: 'store', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
       { label: 'nav.valet', path: '/valets', icon: 'bike', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },
       { label: 'nav.clienti', path: '/customers', icon: 'people', roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER'] },
       { label: 'nav.operatori', path: '/operators', icon: 'badge', roles: ['ADMIN', 'OPERATION'] },

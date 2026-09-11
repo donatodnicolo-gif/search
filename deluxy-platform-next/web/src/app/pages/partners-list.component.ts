@@ -50,6 +50,7 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
             {{ (importing() ? 'partners.importing' : 'partners.importFromRegistry') | translate }}
           </button>
         }
+        <a routerLink="/capogruppi" class="btn btn-secondary">{{ 'nav.capogruppi' | translate }}</a>
         <a routerLink="/partners/new" class="btn btn-primary">+ {{ 'partners.add' | translate }}</a>
       </div>
     </div>

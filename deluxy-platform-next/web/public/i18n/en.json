@@ -33,6 +33,7 @@
     "attivita": "Activities",
     "vendite": "Sales",
     "partner": "Partners",
+    "capogruppi": "Parent entities",
     "valet": "Valets",
     "clienti": "Customers",
     "operatori": "Operators",
@@ -1900,6 +1901,7 @@
       "businessNamePlaceholder": "Partner Ltd.",
       "phone": "Phone",
       "vatNumber": "VAT number",
+      "vatNumberBloccata": "(the parent entity’s: locked while the parent entity is invoiced)",
       "fiscalCode": "Tax code",
       "address": "Main address",
       "addressPlaceholder": "Street …, ZIP City (PR)",
@@ -1997,6 +1999,8 @@
     "payments": {
       "title": "Payments and invoicing",
       "capogruppo": "Who pays (parent entity)",
+      "datiBloccati": "The parent entity is invoiced: company name, VAT, fiscal code, SDI, PEC and invoice email are theirs and cannot be edited here.",
+      "gestisciCapogruppi": "Manage parent entities →",
       "capogruppoNessuno": "None: pays by itself",
       "capogruppoNuovo": "New parent entity…",
       "capogruppoNome": "Parent entity company name",
@@ -3347,6 +3351,22 @@
     "eliminaRicorrente": "Delete the recurring service “{{nome}}”?",
     "inviaRecap": "Send the recap to {{a}}?",
     "rifiutaRichiesta": "Reject this request?"
+  },
+  "capogruppi": {
+    "title": "Parent entities",
+    "caption": "The companies invoiced for one or more locations: who pays. A location marked «↑» is invoiced through the parent entity.",
+    "aiPartner": "To partners",
+    "nuovo": "New parent entity",
+    "vuoto": "No parent entities",
+    "vuotoHint": "Create one here or from the partner form («Who pays»).",
+    "col": { "nome": "Company name", "pIva": "VAT", "sdi": "SDI", "pec": "PEC", "sedi": "Locations", "registro": "Registry" },
+    "collegato": "Linked",
+    "pagaDaSe": "pays by itself",
+    "fatturaLui": "parent entity is invoiced",
+    "campo": { "nome": "Company name", "pIva": "VAT number", "codiceFiscale": "Fiscal code", "codiceSdi": "SDI code", "pec": "PEC", "email": "Invoice email", "note": "Notes" },
+    "avvisoSedi": "On save, billing data is rewritten on every location invoiced through this parent entity.",
+    "creato": "Parent entity created ✓",
+    "salvato": "Parent entity saved ✓"
   },
   "comune": {
     "record": "{{n}} records",

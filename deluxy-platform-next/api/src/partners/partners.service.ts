@@ -216,11 +216,45 @@ export class PartnersService {
     );
   }
 
+  /**
+   * ⭐ 11/09/2026 (regola utente): «se fattura il capogruppo, la partita IVA del partner diventa
+   * la stessa del capogruppo e non è modificabile». Con un capogruppo e «paga da sé» spento, la
+   * P.IVA scritta nel modulo si ignora e si prende quella del capogruppo; se il capogruppo non
+   * ce l'ha, resta quella che il partner aveva (non si inventa niente). Torna il valore da
+   * scrivere, o `undefined` per non toccare il campo.
+   */
+  private async pIvaDalCapogruppo(capogruppoId: string | null | undefined, pagaDaSe: boolean | undefined, attuale: string | null | undefined): Promise<string | null | undefined> {
+    const dati = await this.datiDalCapogruppo(capogruppoId, pagaDaSe);
+    return dati?.vatNumber ?? (dati ? attuale ?? undefined : undefined);
+  }
+
+  /**
+   * ⭐ 11/09/2026 (regola utente): «quando seleziono che fattura capogruppo e i dati sono già inseriti, i
+   * dati di fatturazione non sono modificabili». Con un capogruppo e «paga da sé» spento, ragione sociale,
+   * P.IVA, codice fiscale, SDI, PEC ed email fatture del partner SONO quelli del capogruppo: quelli che il
+   * capogruppo ha compilati si copiano sul partner (ignorando ciò che arriva dal modulo), quelli vuoti non
+   * toccano niente. Torna null se il partner paga da sé o non ha capogruppo.
+   */
+  private async datiDalCapogruppo(capogruppoId: string | null | undefined, pagaDaSe: boolean | undefined): Promise<Record<string, string> | null> {
+    if (!capogruppoId || pagaDaSe !== false) return null;
+    const cg = await this.prisma.capogruppo.findUnique({ where: { id: capogruppoId }, select: { nome: true, pIva: true, codiceFiscale: true, codiceSdi: true, pec: true, email: true } });
+    if (!cg) return null;
+    const mappa: [string, string | null | undefined][] = [
+      ['businessName', cg.nome], ['vatNumber', cg.pIva], ['fiscalCode', cg.codiceFiscale],
+      ['sdiCode', cg.codiceSdi], ['certifiedEmail', cg.pec], ['invoiceEmail', cg.email],
+    ];
+    const dati: Record<string, string> = {};
+    for (const [campo, valore] of mappa) if (valore && String(valore).trim()) dati[campo] = String(valore).trim();
+    return dati;
+  }
+
   async create(dto: CreatePartnerDto, actor?: JwtUser) {
     const { provinceIds, categoryIds, mestiereIds, areaIds, consegnaProvince, services, openingHours, pickupAddresses, capogruppoNuovo, ...scalar } = dto;
     // ⭐ 10/09/2026: un capogruppo nuovo scritto nel modulo si crea qui e si assegna.
     if (capogruppoNuovo?.nome) (scalar as any).capogruppoId = (await this.capogruppi.trovaOCrea(capogruppoNuovo)).id;
     if ((scalar as any).capogruppoId && scalar.pagaDaSe === undefined) (scalar as any).pagaDaSe = false;
+    // ⭐ 11/09: fattura il capogruppo → i dati di fatturazione sono i suoi.
+    Object.assign(scalar as any, (await this.datiDalCapogruppo((scalar as any).capogruppoId, (scalar as any).pagaDaSe)) ?? {});
     await this.esigiCompensazioneSeVende(scalar.compensazioneIncassi, services, null);
     if ((scalar as any).insegna != null) (scalar as any).insegna = titleCaseInsegna((scalar as any).insegna) ?? (scalar as any).insegna;
     const partner = await this.prisma.partner.create({
@@ -565,7 +599,8 @@ export class PartnersService {
       const locale = (await this.prisma.capogruppo.findFirst({ where: { OR: [{ registroId: cg.id }, { nome: { equals: cg.nome, mode: 'insensitive' } }] } }))
         ?? (await this.prisma.capogruppo.create({ data: { nome: cg.nome, pIva: cg.pIva ?? null, codiceSdi: cg.codiceSdi ?? null, pec: cg.pec ?? null, registroId: cg.id } }));
       if (!locale.registroId) await this.prisma.capogruppo.update({ where: { id: locale.id }, data: { registroId: cg.id } }).catch(() => undefined);
-      await this.prisma.partner.update({ where: { id: p.id }, data: { capogruppoId: locale.id, pagaDaSe: trovato.pagaDaSe ?? false } });
+      const datiCg = (await this.datiDalCapogruppo(locale.id, trovato.pagaDaSe ?? false)) ?? {};
+      await this.prisma.partner.update({ where: { id: p.id }, data: { capogruppoId: locale.id, pagaDaSe: trovato.pagaDaSe ?? false, ...datiCg } });
       return { id: locale.id, nome: locale.nome, rispecchiato: true };
     } catch (e) {
       this.logger.warn(`Capogruppo dal registro non rispecchiato: ${(e as Error).message}`);
@@ -580,7 +615,9 @@ export class PartnersService {
     // ⭐ 10/09/2026: anche in piattaforma — il capogruppo è quello della capofila, o nasce dalla sua ragione sociale.
     const cgId = (capofila as any).capogruppoId ?? (await this.capogruppi.trovaOCrea({ nome: (capofila as any).businessName ?? capofila.insegna, pIva: (capofila as any).vatNumber ?? null, codiceFiscale: (capofila as any).fiscalCode ?? null, codiceSdi: (capofila as any).sdiCode ?? null, pec: (capofila as any).certifiedEmail ?? null })).id;
     if (!(capofila as any).capogruppoId) await this.prisma.partner.update({ where: { id: capofila.id }, data: { capogruppoId: cgId, pagaDaSe: true } });
-    await this.prisma.partner.update({ where: { id: sede.id }, data: { capogruppoId: cgId, pagaDaSe: false } });
+    // ⭐ 11/09: la sede che fattura sotto la capofila prende la P.IVA del capogruppo.
+    const datiSede = (await this.datiDalCapogruppo(cgId, false)) ?? {};
+    await this.prisma.partner.update({ where: { id: sede.id }, data: { capogruppoId: cgId, pagaDaSe: false, ...datiSede } });
     const esito = await this.anagrafiche.mettiSottoCapogruppo(sede as any, capofila as any);
     if (esito.ok && esito.capogruppo?.id) await this.prisma.capogruppo.update({ where: { id: cgId }, data: { registroId: esito.capogruppo.id } }).catch(() => undefined);
     return esito;
@@ -793,6 +830,13 @@ export class PartnersService {
     if (capogruppoNuovo?.nome) (rest as any).capogruppoId = (await this.capogruppi.trovaOCrea(capogruppoNuovo)).id;
     if ((rest as any).capogruppoId && rest.pagaDaSe === undefined) (rest as any).pagaDaSe = false;
     if ((rest as any).capogruppoId === null) (rest as any).pagaDaSe = true;
+    // ⭐ 11/09/2026 (regola utente): fattura il capogruppo → la P.IVA è la sua e non si cambia. Vale
+    // anche per una modifica che non tocca il capogruppo: si guarda com'è il partner DOPO.
+    {
+      const cgDopo = (rest as any).capogruppoId !== undefined ? (rest as any).capogruppoId : (prima as any).capogruppoId;
+      const pagaDaSeDopo = (rest as any).pagaDaSe !== undefined ? (rest as any).pagaDaSe : (prima as any).pagaDaSe;
+      Object.assign(rest as any, (await this.datiDalCapogruppo(cgDopo, pagaDaSeDopo)) ?? {});
+    }
     // Obbligatoria per chi vende: si controlla PRIMA di scrivere, e sul
     // risultato — servizi in arrivo se ci sono, altrimenti quelli in archivio.
     await this.esigiCompensazioneSeVende((rest as any).compensazioneIncassi, services, prima as any);

@@ -169,6 +169,13 @@ export const routes: Routes = [
           import('./pages/calendar.component').then((m) => m.CalendarComponent),
       },
       {
+        // ⭐ 11/09/2026 (regola utente): i CAPOGRUPPI, chi fattura per i punti vendita — si vedono e si correggono qui.
+        path: 'capogruppi',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'], title: 'Capogruppi' },
+        loadComponent: () => import('./pages/capogruppi-list.component').then((m) => m.CapogruppiListComponent),
+      },
+      {
         path: 'partners',
         canActivate: [roleGuard],
         data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER'] },

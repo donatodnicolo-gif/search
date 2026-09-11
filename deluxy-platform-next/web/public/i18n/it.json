@@ -33,6 +33,7 @@
     "attivita": "Attività",
     "vendite": "Vendite",
     "partner": "Partner",
+    "capogruppi": "Capogruppi",
     "valet": "Valet",
     "clienti": "Clienti",
     "operatori": "Operatori",
@@ -1902,6 +1903,7 @@
       "businessNamePlaceholder": "Partner S.r.l.",
       "phone": "Telefono",
       "vatNumber": "Partita IVA",
+      "vatNumberBloccata": "(del capogruppo: non si modifica finché fattura lui)",
       "fiscalCode": "Codice fiscale",
       "address": "Indirizzo principale",
       "addressPlaceholder": "Via …, CAP Città (PR)",
@@ -1999,6 +2001,8 @@
     "payments": {
       "title": "Pagamenti e fatturazione",
       "capogruppo": "Chi paga (capogruppo)",
+      "datiBloccati": "Fattura il capogruppo: ragione sociale, P.IVA, codice fiscale, SDI, PEC ed email fatture sono i suoi e non si modificano qui.",
+      "gestisciCapogruppi": "Gestisci i capogruppi →",
       "capogruppoNessuno": "Nessuno: paga da sé",
       "capogruppoNuovo": "Nuovo capogruppo…",
       "capogruppoNome": "Ragione sociale del capogruppo",
@@ -3349,6 +3353,22 @@
     "eliminaRicorrente": "Elimino il servizio ricorrente «{{nome}}»?",
     "inviaRecap": "Mando il recap a {{a}}?",
     "rifiutaRichiesta": "Rifiuto questa richiesta?"
+  },
+  "capogruppi": {
+    "title": "Capogruppi",
+    "caption": "Le società che fatturano per uno o più punti vendita: chi paga. Una sede con «↑» fattura il capogruppo.",
+    "aiPartner": "Ai partner",
+    "nuovo": "Nuovo capogruppo",
+    "vuoto": "Nessun capogruppo",
+    "vuotoHint": "Se ne crea uno da qui o dal modulo partner («Chi paga»).",
+    "col": { "nome": "Ragione sociale", "pIva": "P.IVA", "sdi": "SDI", "pec": "PEC", "sedi": "Sedi", "registro": "Registro" },
+    "collegato": "Collegato",
+    "pagaDaSe": "paga da sé",
+    "fatturaLui": "fattura il capogruppo",
+    "campo": { "nome": "Ragione sociale", "pIva": "Partita IVA", "codiceFiscale": "Codice fiscale", "codiceSdi": "Codice SDI", "pec": "PEC", "email": "Email fatture", "note": "Note" },
+    "avvisoSedi": "Salvando, i dati di fatturazione si riscrivono su tutte le sedi che fatturano sotto questo capogruppo.",
+    "creato": "Capogruppo creato ✓",
+    "salvato": "Capogruppo salvato ✓"
   },
   "comune": {
     "record": "{{n}} record",

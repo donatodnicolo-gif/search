@@ -67,6 +67,15 @@ export class CapogruppiService {
       if (dto[k] !== undefined) data[k] = k === 'nome' ? String(dto[k]).trim() : (dto[k] == null ? null : String(dto[k]).trim() || null);
     }
     if (data['nome'] === '') throw new BadRequestException('Il nome non può essere vuoto.');
+    // ⭐ 11/09/2026 (regola utente): la P.IVA del capogruppo È la P.IVA delle sedi che fatturano
+    // sotto di lui («paga da sé» spento): se cambia qui, cambia anche a loro.
+    const suSedi: Record<string, string> = {};
+    for (const [da, a] of [['nome', 'businessName'], ['pIva', 'vatNumber'], ['codiceFiscale', 'fiscalCode'], ['codiceSdi', 'sdiCode'], ['pec', 'certifiedEmail'], ['email', 'invoiceEmail']] as const) {
+      if (typeof data[da] === 'string' && data[da]) suSedi[a] = data[da] as string;
+    }
+    if (Object.keys(suSedi).length) {
+      await this.prisma.partner.updateMany({ where: { capogruppoId: id, pagaDaSe: false }, data: suSedi });
+    }
     return this.prisma.capogruppo.update({ where: { id }, data });
   }
 }
