@@ -50,6 +50,24 @@ Richieste dell'utente dopo il deploy delle ricorrenze lette dal biglietto:
   `deluxy-orders-2z87d3f00`), quindi il pop-up del dettaglio ricorrenza
   (commit `23a46195`) mostra «come l'abbiamo dedotta» anche live.
 
+> ⚠️ **In locale il `.env` punta al CS di SVILUPPO** (`MESSAGGI_URL=http://localhost:3140`),
+> perché la produzione non ha ancora l'API dei reclami: per vedere Reclami e le
+> opzioni del Nuovo ordine serve `npm run dev` anche in `scoutwt/deluxy-messaging`.
+> Quando il CS viene pubblicato, rimettere `https://deluxy-messaging.vercel.app`.
+> (Le env di Vercel non sono toccate: là punta alla produzione.)
+
+**Trappola pagata oggi — dare a un'app il token della cassaforte la può
+rallentare.** Appena il CRM ha avuto `HUB_KEYS_TOKEN` (per l'API utenti del
+Hub), ogni pagina ha cominciato a chiamare `GET /api/chiavi` del Hub, che
+**ci mette 12–20 s** (misurati; `/api/health` dello stesso Hub: 0,12 s): col
+timeout a 4 s, ogni pagina buttava 4 s — 8 se chiedeva due chiavi insieme,
+perché partivano due chiamate parallele e la cache si scrive solo dopo la
+risposta. Corretto in `src/lib/chiavi-app.ts`: **una sola chiamata in volo** e
+**cache anche del fallimento** (60 s). Prima → dopo, pagine calde: `/` 7,07 →
+0,37 s · `/clienti` 9,43 → 1,05 s · `/reclami` 8,53 → 0,81 s · `/ricorrenze`
+13,11 → 1,74 s. La lentezza del Hub è registrata in SEGNALAZIONI-PERFORMANCE
+(è cosa sua: non l'ho toccata).
+
 **Sezione RECLAMI** (utente, 11/09: «aggiungi sezioni reclami all'app e fatti
 passare i reclami dall'app customer service»). Nel CS due rotte nuove:
 **`GET /api/v1/reclami`** (filtri `cliente` — email o telefono, il telefono
