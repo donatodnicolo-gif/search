@@ -8,8 +8,10 @@ import {
   Post,
   Put,
   Query,
+  Res,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { Roles, Autenticato, CurrentUser, JwtUser, Public } from '../common/decorators';
 import { Role } from '../common/enums';
 import { DeliveriesService } from './deliveries.service';
@@ -41,6 +43,31 @@ export class DeliveriesController {
   })
   findAll(@CurrentUser() user: JwtUser, @Query() query: DeliveryListQueryDto) {
     return this.deliveriesService.findAll(user, query);
+  }
+
+  /**
+   * ⭐ 11/09/2026 (regola utente): l'estrazione di TUTTE le consegne che i filtri selezionano.
+   *
+   * Esce un CSV con il punto e virgola e il BOM: è quello che Excel apre con un doppio click, senza
+   * procedure d'importazione. Il nome del file porta la data, così due estrazioni non si sovrascrivono.
+   */
+  @Autenticato()
+  @Get('esporta')
+  @ApiOperation({ summary: 'Esporta in CSV (Excel) tutte le consegne che i filtri selezionano, coi permessi del ruolo' })
+  async esporta(@CurrentUser() user: JwtUser, @Query() query: DeliveryListQueryDto, @Res() res: Response) {
+    const { intestazioni, righe, troncato } = await this.deliveriesService.esporta(user, query);
+    const cella = (v: unknown) => {
+      const s = v === null || v === undefined ? '' : String(v);
+      return `"${s.replace(/"/g, '""')}"`;
+    };
+    const testo = [intestazioni, ...righe].map((r) => r.map(cella).join(';')).join('\r\n');
+    const nome = `consegne-${new Date().toISOString().slice(0, 10)}.csv`;
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${nome}"`);
+    // ⚠️ Il BOM non è un vezzo: senza, Excel legge «Citt\u00e0» al posto di «Città».
+    res.setHeader('X-Righe-Esportate', String(righe.length));
+    if (troncato) res.setHeader('X-Troncato', 'true');
+    res.send('\ufeff' + testo);
   }
 
   // NB: dichiarate PRIMA di :id, altrimenti verrebbero catturate dalla route param.

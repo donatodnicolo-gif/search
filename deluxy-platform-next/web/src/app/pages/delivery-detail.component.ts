@@ -149,26 +149,27 @@ interface DeliveryDetail {
     dovutoNetto: number;
   } | null;
   /** ⭐ 10/09: i margini di Deluxy sulla vendita — arriva SOLO all'ufficio. */
+  /**
+   * ⭐ 11/09/2026 — I MARGINI LI DÀ LA FINANZA (`/finance`), che è il proprietario del calcolo. Prima qui
+   * si faceva un conto a parte e diceva un altro numero: vedi il changelog 131.
+   */
   margineVendita?: {
     ordine: string | null;
-    /** ⭐ 11/09: la riga di prodotto, il totale dell'ordine (da Orders), la parte oltre i prodotti, quante vendite nell'ordine. */
-    prodottoVendita: number;
-    totaleOrdine: number | null;
-    righeProdotti: number;
-    extraOrdine: number | null;
-    venditeNellOrdine: number;
-    prezzoCliente: number;
-    valoreAlPartner: number;
-    scontoPercent: number | null;
-    scontoProdotto: number;
-    commissione: number;
-    ivaCommissione: number;
-    dovutoNetto: number;
-    restaADeluxy: number;
-    restaPercent: number;
-    costoValet: number | null;
-    margineDopoValet: number | null;
-    margineDopoValetPercent: number | null;
+    consegneNellOrdine: number;
+    venduto: number;
+    prodottiCliente: number;
+    consegnaCliente: number;
+    dalClienteVero: boolean;
+    alPartner: number;
+    guadagnoLordo: number;
+    guadagnoNetto: number;
+    iva: number;
+    feeContratto: number;
+    costoConsegna: number;
+    commissioneIncassi: number;
+    margine: number;
+    marginePercent: number;
+    questaConsegna: { alPartner: number; costoConsegna: number; feeContratto: number } | null;
   } | null;
   deliveryPrice?: number;
   valetSalary?: number;
@@ -625,45 +626,37 @@ interface DeliveryDetail {
           <section class="card block conto-vendita margini-vendita">
             <h2>{{ 'deliveryDetail.margini.title' | translate }}</h2>
             <dl>
-              <!-- ⭐ 11/09/2026 (segnalazione utente): il TOTALE pagato dal cliente viene da Orders;
-                   la riga di prodotto è solo una parte (10 € su 25 € nell'ordine 12913). -->
-              <dt>{{ 'deliveryDetail.margini.prodottoVendita' | translate }}</dt>
-              <dd>{{ m.prodottoVendita.toFixed(2) }} €
-                @if (m.ordine) { <span class="scomposto">{{ 'deliveryDetail.margini.ordine' | translate: { n: m.ordine } }}</span> }
+              <dt>{{ 'deliveryDetail.margini.venduto' | translate }}</dt>
+              <dd class="forte">{{ m.venduto.toFixed(2) }} €
+                <span class="scomposto">
+                  {{ 'deliveryDetail.margini.composizione' | translate: { p: m.prodottiCliente.toFixed(2), e: m.consegnaCliente.toFixed(2) } }}
+                  @if (m.ordine) { · {{ 'deliveryDetail.margini.ordine' | translate: { n: m.ordine } }} }
+                  @if (!m.dalClienteVero) { · {{ 'deliveryDetail.margini.stimato' | translate }} }
+                  @if (m.consegneNellOrdine > 1) { · {{ 'deliveryDetail.margini.piuConsegne' | translate: { n: m.consegneNellOrdine } }} }
+                </span>
               </dd>
-              <dt class="forte">{{ 'deliveryDetail.margini.totaleOrdine' | translate }}</dt>
-              <dd class="forte">
-                @if (m.totaleOrdine != null) {
-                  {{ m.totaleOrdine.toFixed(2) }} €
-                  <span class="scomposto">{{ 'deliveryDetail.margini.composizione' | translate: { p: m.righeProdotti.toFixed(2), e: (m.extraOrdine ?? 0).toFixed(2) } }}</span>
-                } @else {
-                  <span class="muted">{{ 'deliveryDetail.margini.nonLetto' | translate }}</span>
-                }
+
+              <dt>{{ 'deliveryDetail.margini.alPartner' | translate }}</dt>
+              <dd>−{{ m.alPartner.toFixed(2) }} €</dd>
+
+              <dt>{{ 'deliveryDetail.margini.guadagno' | translate }}</dt>
+              <dd>{{ m.guadagnoNetto.toFixed(2) }} €
+                <span class="scomposto">{{ 'deliveryDetail.margini.guadagnoNota' | translate: { lordo: m.guadagnoLordo.toFixed(2), iva: m.iva.toFixed(2) } }}</span>
               </dd>
-              @if (m.venditeNellOrdine > 1 || (m.totaleOrdine != null && m.prezzoCliente !== m.totaleOrdine)) {
-                <dt>{{ 'deliveryDetail.margini.attribuito' | translate }}</dt>
-                <dd>{{ m.prezzoCliente.toFixed(2) }} €
-                  <span class="scomposto">{{ 'deliveryDetail.margini.quotaExtra' | translate: { n: m.venditeNellOrdine } }}</span>
-                </dd>
-              }
-              <dt>{{ 'deliveryDetail.margini.valoreAlPartner' | translate }}</dt>
-              <dd>{{ m.valoreAlPartner.toFixed(2) }} €
-                @if (m.scontoPercent != null) { <span class="scomposto">{{ 'deliveryDetail.margini.sconto' | translate: { pct: m.scontoPercent } }}</span> }
-              </dd>
-              <dt>{{ 'deliveryDetail.margini.scontoProdotto' | translate }}</dt>
-              <dd>{{ m.scontoProdotto.toFixed(2) }} €</dd>
-              <dt>{{ 'deliveryDetail.margini.commissione' | translate }}</dt>
-              <dd>{{ m.commissione.toFixed(2) }} € <span class="scomposto">+ {{ 'deliveryDetail.saleAccountOffice.vat' | translate }} {{ m.ivaCommissione.toFixed(2) }} €</span></dd>
-              <dt>{{ 'deliveryDetail.margini.dovutoNetto' | translate }}</dt>
-              <dd>−{{ m.dovutoNetto.toFixed(2) }} €</dd>
-              <dt class="forte">{{ 'deliveryDetail.margini.resta' | translate }}</dt>
-              <dd class="forte">{{ m.restaADeluxy.toFixed(2) }} € <span class="scomposto">{{ m.restaPercent }} % {{ 'deliveryDetail.margini.delPrezzo' | translate }}</span></dd>
+
+              <dt>{{ 'deliveryDetail.margini.fee' | translate }}</dt>
+              <dd>+{{ m.feeContratto.toFixed(2) }} €</dd>
+
               <dt>{{ 'deliveryDetail.margini.costoValet' | translate }}</dt>
-              <dd>@if (m.costoValet != null) { −{{ m.costoValet.toFixed(2) }} € } @else { <span class="muted">{{ 'deliveryDetail.margini.valetMancante' | translate }}</span> }</dd>
-              @if (m.margineDopoValet != null) {
-                <dt class="forte">{{ 'deliveryDetail.margini.dopoValet' | translate }}</dt>
-                <dd class="forte" [class.negativo]="m.margineDopoValet < 0">{{ m.margineDopoValet.toFixed(2) }} € <span class="scomposto">{{ m.margineDopoValetPercent }} % {{ 'deliveryDetail.margini.delPrezzo' | translate }}</span></dd>
-              }
+              <dd>@if (m.costoConsegna) { −{{ m.costoConsegna.toFixed(2) }} € } @else { <span class="muted">{{ 'deliveryDetail.margini.valetMancante' | translate }}</span> }</dd>
+
+              <dt>{{ 'deliveryDetail.margini.incassi' | translate }}</dt>
+              <dd>@if (m.commissioneIncassi) { −{{ m.commissioneIncassi.toFixed(2) }} € } @else { <span class="muted">{{ 'deliveryDetail.margini.incassiIgnota' | translate }}</span> }</dd>
+
+              <dt class="forte">{{ 'deliveryDetail.margini.totale' | translate }}</dt>
+              <dd class="forte" [class.negativo]="m.margine < 0">{{ m.margine.toFixed(2) }} €
+                <span class="scomposto">{{ m.marginePercent }} % {{ 'deliveryDetail.margini.delVenduto' | translate }}</span>
+              </dd>
             </dl>
             <p class="nota-conto">{{ 'deliveryDetail.margini.note' | translate }}</p>
           </section>

@@ -153,6 +153,12 @@ interface PropostaVendita {
                 (click)="apriRicerca()">
           {{ 'deliveries.ricerca.apri' | translate }}@if (condizioniValide().length) { ({{ condizioniValide().length }}) }
         </button>
+        <!-- ⭐ 11/09/2026 (regola utente): l'estrazione per Excel di TUTTE le consegne che i filtri
+             selezionano — non solo la pagina a schermo. Vale per l'ufficio e per il partner (che
+             scarica le sue, senza i numeri che non lo riguardano). -->
+        <button type="button" class="quick-tab" [disabled]="esportando()" (click)="esporta()">
+          {{ (esportando() ? 'deliveries.export.corso' : 'deliveries.export.bottone') | translate }}
+        </button>
         <div class="pannello-filtri" [class.aperto]="filtriAperti()">
         <!-- ⭐ 10/09/2026 (regola utente): «da mobile serve come poter decidere ordinamento consegne».
              Sul telefono la tabella diventa schede e le intestazioni cliccabili spariscono: qui una
@@ -2608,6 +2614,36 @@ export class DeliveriesListComponent {
     this.router.navigate(['/deliveries', d.id], { queryParams: { chiudi: esito } });
   }
 
+  /**
+   * ⭐ 11/09/2026 (regola utente): scarica TUTTE le consegne dei filtri attivi, in un CSV che Excel apre
+   * con un doppio click. I filtri sono quelli della pagina: quello che si vede è quello che si scarica.
+   */
+  readonly esportando = signal(false);
+  esporta(): void {
+    if (this.esportando()) return;
+    this.esportando.set(true);
+    this.actionError.set(null);
+    const params = this.parametriRicerca();
+    this.http.get(`${environment.apiUrl}/deliveries/esporta`, { params, responseType: 'blob', observe: 'response' }).subscribe({
+      next: (res) => {
+        this.esportando.set(false);
+        const blob = res.body;
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `consegne-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        if (res.headers.get('X-Troncato')) this.actionError.set(this.translate.instant('deliveries.export.troncato'));
+      },
+      error: (e) => {
+        this.esportando.set(false);
+        this.actionError.set(e?.error?.message ?? this.translate.instant('deliveries.export.errore'));
+      },
+    });
+  }
+
   /** ⭐ 10/09: le consegne nate dalle accettazioni di questa sessione, in evidenza sopra la tabella. */
   readonly appenaAccettate = signal<Delivery[]>([]);
   private mostraAppenaAccettata(id: string): void {
@@ -3085,6 +3121,15 @@ export class DeliveriesListComponent {
 
   /** `silenzioso` (04/09): è il giro dell'auto-aggiornamento — niente
    *  rotellina, la selezione resta, un errore di rete non sporca la pagina. */
+  /**
+   * ⭐ 11/09/2026: i PARAMETRI DEI FILTRI, in un posto solo. Li usa la lista e li usa l'estrazione per
+   * Excel: quello che si vede a schermo è quello che si scarica, senza due liste di filtri da tenere allineate.
+   */
+  parametriRicerca(): HttpParams {
+    let params = this.parametriRicerca();
+
+    return params;
+  }
   load(silenzioso = false): void {
     if (!silenzioso) {
       this.loading.set(true);

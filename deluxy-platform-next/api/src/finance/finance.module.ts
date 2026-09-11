@@ -612,6 +612,122 @@ export class FinanceService {
    * (`OrdineCliente`, riempita dalla corsa notturna dei margini): prodotti e
    * consegna, per numero d'ordine Shopify. E' la fonte dei margini dove c'e'.
    */
+  /**
+   * ⭐ 11/09/2026 (segnalazione utente: «i margini del dettaglio consegna sono sbagliati, copia da Finanza»).
+   *
+   * I NUMERI DI QUESTA PAGINA, PER UNA CONSEGNA SOLA. Li chiede il dettaglio della consegna, che prima si
+   * calcolava un margine per conto suo e diceva un altro numero. Qui non si copia niente: si usano
+   * `computeRow` e `recap`, gli stessi che fanno la tabella dei corrispettivi — così il giorno che la regola
+   * cambia, cambia in un posto solo.
+   *
+   * ⚠️ Il margine è dell'ORDINE, non della singola consegna: se l'ordine ne ha più d'una, `recap` le somma.
+   * Per questo si leggono anche le SORELLE (stesso `realOrderNumber`), e la risposta dice quante sono.
+   */
+  /**
+   * ⭐ 11/09/2026: I MARGINI DI PIÙ CONSEGNE INSIEME (una pagina della lista Consegne). Stesso conto di
+   * `margineDiConsegna`, ma in blocco: due letture per pagina invece di una per riga.
+   *
+   * ⚠️ Il margine è dell'ORDINE: se due consegne stanno nello stesso ordine ricevono lo STESSO margine, ed
+   * è giusto così — quell'ordine, nel suo insieme, rende quella cifra.
+   */
+  async marginiDiConsegne(ids: string[]): Promise<Map<string, { euro: number; percent: number; consegneNellOrdine: number }>> {
+    const esito = new Map<string, { euro: number; percent: number; consegneNellOrdine: number }>();
+    if (!ids.length) return esito;
+    const prime = await this.prisma.delivery.findMany({ where: { id: { in: ids } }, select: { id: true, realOrderNumber: true } });
+    const numeri = [...new Set(prime.map((d) => d.realOrderNumber).filter(Boolean))] as string[];
+    const deliveries = await this.prisma.delivery.findMany({
+      where: numeri.length ? { OR: [{ id: { in: ids } }, { realOrderNumber: { in: numeri }, deletedAt: null }] } : { id: { in: ids } },
+      include: {
+        partner: { select: { insegna: true, commissionPercent: true } },
+        valet: { select: { hasVat: true, withholdingPercent: true, minimumKmIncluded: true, extraOutOfCityPrice: true } },
+        deliveryRule: { select: { name: true, toPay: true, valetPayAdjustment: true } },
+        serviceType: { select: { name: true, pricingModel: true } },
+        products: {
+          include: {
+            product: { select: { name: true, price: true, publicPrice: true, category: { select: { name: true } } } },
+            productVariant: { select: { name: true, price: true, publicPrice: true } },
+          },
+        },
+      },
+      take: 500,
+    });
+    if (!deliveries.length) return esito;
+    const ctx = await this.contestoMargine(deliveries);
+    const rows = deliveries.map((d) => this.computeRow(d, ctx));
+    const ordini = this.recap(rows, ctx.tariffe, await this.clientePagato(rows));
+    for (const o of ordini) {
+      for (const r of o.righe as any[]) {
+        if (!ids.includes(r.deliveryId)) continue;
+        esito.set(r.deliveryId, { euro: o.totalMargin, percent: o.totalMarginPercent, consegneNellOrdine: o.consegne });
+      }
+    }
+    return esito;
+  }
+
+  async margineDiConsegna(deliveryId: string) {
+    const consegna = await this.prisma.delivery.findUnique({
+      where: { id: deliveryId },
+      select: { id: true, realOrderNumber: true, status: true },
+    });
+    if (!consegna) return null;
+    // Le consegne dello stesso ordine (o solo questa, se l'ordine non è noto).
+    const where: any = consegna.realOrderNumber
+      ? { realOrderNumber: consegna.realOrderNumber, deletedAt: null }
+      : { id: deliveryId };
+    const deliveries = await this.prisma.delivery.findMany({
+      where,
+      include: {
+        partner: { select: { insegna: true, commissionPercent: true } },
+        valet: { select: { hasVat: true, withholdingPercent: true, minimumKmIncluded: true, extraOutOfCityPrice: true } },
+        deliveryRule: { select: { name: true, toPay: true, valetPayAdjustment: true } },
+        serviceType: { select: { name: true, pricingModel: true } },
+        products: {
+          include: {
+            product: { select: { name: true, price: true, publicPrice: true, category: { select: { name: true } } } },
+            productVariant: { select: { name: true, price: true, publicPrice: true } },
+          },
+        },
+      },
+      take: 50,
+    });
+    if (!deliveries.length) return null;
+    const ctx = await this.contestoMargine(deliveries);
+    const rows = deliveries.map((d) => this.computeRow(d, ctx));
+    const ordini = this.recap(rows, ctx.tariffe, await this.clientePagato(rows));
+    const o = ordini.find((x) => x.righe.some((r: any) => r.deliveryId === deliveryId)) ?? ordini[0];
+    if (!o) return null;
+    const mia = rows.find((r: any) => r.deliveryId === deliveryId) as any;
+    return {
+      /** Il numero d'ordine, quando si sa. */
+      ordine: o.numeroOrdine ?? null,
+      /** Quante consegne stanno in questo ordine: il margine è la loro somma. */
+      consegneNellOrdine: o.consegne,
+      /** Quello che il cliente ha pagato: prodotti + consegna. */
+      venduto: Math.round((o.saleValue + o.deliveryFee) * 100) / 100,
+      prodottiCliente: o.saleValue,
+      consegnaCliente: o.deliveryFee,
+      /** true = il venduto viene dall'ordine vero (Orders); false = stimato dal listino pubblico. */
+      dalClienteVero: o.fonteCliente,
+      /** Quello che paghiamo al partner. */
+      alPartner: o.partnerPrice,
+      /** Guadagno lordo e netto IVA (l'IVA sta nella differenza). */
+      guadagnoLordo: o.takings,
+      guadagnoNetto: o.takingsNet,
+      iva: o.vat,
+      /** La quota che fatturiamo al partner. */
+      feeContratto: o.feeContract,
+      /** Quanto ci costa la consegna (paga del valet e plus/minus). */
+      costoConsegna: o.deliveryCost,
+      /** La commissione per incassare dal cliente (da Orders; zero se il metodo non si sa). */
+      commissioneIncassi: o.incassiCommission,
+      /** IL MARGINE, con la formula della pagina Finanza. */
+      margine: o.totalMargin,
+      marginePercent: o.totalMarginPercent,
+      /** La quota di questa consegna dentro l'ordine (per capire la propria parte). */
+      questaConsegna: mia ? { alPartner: mia.partnerPrice, costoConsegna: mia.deliveryCost, feeContratto: mia.feeContract } : null,
+    };
+  }
+
   private async clientePagato(rows: CorrispettivoRow[]) {
     // ⭐ 06/09/2026: le consegne nate dalle VENDITE non avevano `realOrderNumber`
     // (162 su 636 dal 01/08) e la cache non le trovava mai. Qui si risale dalla

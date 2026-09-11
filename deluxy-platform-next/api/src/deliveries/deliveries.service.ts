@@ -41,6 +41,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { pagaConsegna, scegliListinoValet } from '../salaries/salaries.module';
 import { SettingsService } from '../settings/settings.module';
 import { OrdersClientService } from '../orders/orders-client.module';
+import { FinanceService } from '../finance/finance.module';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
 import { UpdateDeliveryDto } from './dto/update-delivery.dto';
 
@@ -268,6 +269,7 @@ export class DeliveriesService {
     private readonly notifications: NotificationsService,
     private readonly stock: StockService,
     private readonly orders: OrdersClientService,
+    private readonly finance: FinanceService,
   ) {}
 
   /**
@@ -648,6 +650,79 @@ export class DeliveriesService {
   ];
 
   /**
+   * ⭐ 11/09/2026 (regola utente): L'ESTRAZIONE DI TUTTE LE CONSEGNE, per l'ufficio e per il partner.
+   *
+   * Non è la pagina che si sta guardando: sono TUTTE le righe che i filtri attivi selezionano, fino a un
+   * tetto di 20.000 (oltre, il foglio diventa ingestibile e la funzione va in timeout: chi esporta di più
+   * restringe il periodo, e il file lo dice).
+   *
+   * ⚠️ Stessi filtri e stessi PERMESSI della lista: si passa da `findAll`, non da una query nuova — se no
+   * il giorno che cambia una regola di visibilità l'estrazione diventa la strada per aggirarla. Il partner
+   * riceve solo le sue consegne e senza i numeri del valet (la maschera per ruolo è quella di sempre).
+   */
+  async esporta(
+    user: JwtUser,
+    query: DeliveryListQueryDto,
+  ): Promise<{ intestazioni: string[]; righe: (string | number)[][]; totale: number; troncato: boolean }> {
+    const TETTO = 20000;
+    const PAGINA = 500;
+    const ufficio = user.role === Role.ADMIN || user.role === Role.OPERATION || user.role === Role.PROJECT_MANAGER;
+    const righe: (string | number)[][] = [];
+    let totale = 0;
+    for (let pagina = 1; ; pagina++) {
+      const esito = (await this.findAll(user, { ...query, page: pagina, pageSize: PAGINA } as DeliveryListQueryDto)) as any;
+      const items: any[] = esito.items ?? [];
+      totale = esito.total ?? items.length;
+      for (const d of items) {
+        const prodotti = (d.products ?? [])
+          .map((p: any) => `${p.product?.name ?? ""}${(p.quantity ?? 1) > 1 ? " ×" + p.quantity : ""}`)
+          .filter(Boolean)
+          .join(" + ");
+        const base: (string | number)[] = [
+          d.code ?? "",
+          d.date ? new Date(d.date).toISOString().slice(0, 10) : "",
+          d.deliveryTimeFrom ? `${d.deliveryTimeFrom}${d.deliveryTimeTo ? "–" + d.deliveryTimeTo : ""}` : "",
+          d.pickupTimeFrom ? `${d.pickupTimeFrom}${d.pickupTimeTo ? "–" + d.pickupTimeTo : ""}` : "",
+          d.status ?? "",
+          d.serviceType?.name ?? "",
+          d.partner?.insegna ?? "",
+          `${d.recipientFirstName ?? ""} ${d.recipientLastName ?? ""}`.trim(),
+          d.recipientAddress ?? "",
+          d.province?.code ?? "",
+          d.pickupAddress ?? "",
+          prodotti,
+          d.ddtNumber ? `${d.ddtNumber}${d.ddtBrand ? " (" + d.ddtBrand + ")" : ""}` : "",
+          d.price ?? "",
+          d.additionalPrice ?? "",
+          d.billable === false ? "no" : "sì",
+          d.invoiced ? "sì" : "no",
+        ];
+        // Le colonne dell'UFFICIO: chi porta la consegna, quanto gli va pagato, il margine. Al partner
+        // questi numeri non arrivano nemmeno dalla lista, e qui non compaiono.
+        if (ufficio) {
+          base.push(
+            d.valet ? `${d.valet.lastName ?? ""} ${d.valet.firstName ?? ""}`.trim() : "",
+            d.valetSalary ?? d.valetSalaryDalListino ?? "",
+            d.valetAdditionalPrice ?? "",
+            d.payable === false ? "no" : "sì",
+            d.margine ? d.margine.euro : "",
+            d.margine ? d.margine.percent : "",
+          );
+        }
+        righe.push(base);
+        if (righe.length >= TETTO) break;
+      }
+      if (righe.length >= TETTO || !items.length || righe.length >= totale) break;
+    }
+    const intestazioni = [
+      "Consegna", "Data", "Orario consegna", "Orario ritiro", "Stato", "Servizio", "Partner",
+      "Destinatario", "Indirizzo", "Provincia", "Ritiro", "Prodotti", "DDT",
+      "Prezzo", "Plus/minus", "Fatturabile", "Fatturata",
+    ];
+    if (ufficio) intestazioni.push("Valet", "Paga valet", "Plus/minus valet", "Da pagare", "Margine €", "Margine %");
+    return { intestazioni, righe, totale, troncato: righe.length >= TETTO && totale > TETTO };
+  }
+  /**
    * Lista consegne: filtri specifici (stato/partner/valet/data) + ricerca
    * globale, ordinamento e paginazione dal contratto comune.
    */
@@ -813,84 +888,20 @@ export class DeliveriesService {
         // mano, senza nessuna vendita dietro. Meglio vuoto che inventato.
         if (v) r.vendita = { id: v.id, ordine: v.externalOrderNumber, brand: v.brand, stato: v.status };
       }
-      // ⭐ 10/09/2026 (regola utente): «in tabella consegne (anche storico) per ufficio le vendite
-      // con margine inferiore al 5% o negativo hanno testo in rosso». Il MARGINE è lo stesso del
-      // dettaglio (`margineVendita`): prezzo pagato dal cliente − dovuto netto al partner − paga
-      // del valet (scritta o dal suo listino, come Stipendi). Solo per l'ufficio; quattro letture
-      // per tutta la pagina, non una per riga. Dove manca un numero (valore, quota) non si inventa:
-      // la riga resta senza margine e senza colore.
+      // ⭐ 10/09/2026 (regola utente): «in tabella consegne (anche storico) per ufficio le vendite con
+      // margine inferiore al 5% o negativo hanno testo in rosso».
+      // 🔴 11/09/2026 (segnalazione utente: «questi margini son tutti sbagliati: copia da Finanza»): il
+      // margine NON si calcola più qui. Lo dà la FINANZA, con lo stesso conto della sua pagina, in blocco
+      // per tutta la pagina della lista (due letture, non quattro per riga). Solo per l'ufficio.
       if (user.role === Role.ADMIN || user.role === Role.OPERATION) {
-        const righeVendita = (rows as any[]).filter((r) => ((perConsegna.get(r.id)?.amount ?? 0) as number) > 0);
-        if (righeVendita.length) {
-          const ids = righeVendita.map((r) => r.id as string);
-          const coppie = [...new Set(righeVendita
-            .filter((r) => !((r.price ?? 0) > 0) && r.partner?.id && r.serviceType?.id)
-            .map((r) => `${r.partner.id}|${r.serviceType.id}`))]
-            .map((k) => { const [partnerId, serviceTypeId] = k.split('|'); return { partnerId, serviceTypeId }; });
-          const valetIds = [...new Set(righeVendita.map((r) => r.valetId).filter(Boolean))] as string[];
-          // 🔴 11/09/2026 — QUESTE LETTURE VANNO IN FILA, NON IN PARALLELO. Il pool della funzione ha
-          // TRE connessioni (lo dice l'errore: «connection limit: 3»): quattro query insieme se le
-          // prendono tutte e il resto della richiesta aspetta fino al timeout di 10 s — è così che la
-          // pagina Consegne ha risposto «Internal server error». In fila costano una connessione per
-          // volta e qualche decina di millisecondi in più.
-          const prodotti = await this.prisma.deliveryProduct.findMany({
-            where: { deliveryId: { in: ids } },
-            select: { deliveryId: true, price: true, quantity: true, withoutCommission: true, productVariant: { select: { price: true } }, product: { select: { price: true } } },
-          });
-          const listini = coppie.length
-            ? await this.prisma.partnerService.findMany({ where: { OR: coppie }, select: { partnerId: true, serviceTypeId: true, price: true } })
-            : ([] as { partnerId: string; serviceTypeId: string; price: number | null }[]);
-          const listiniValet = valetIds.length
-            ? await this.prisma.valetService.findMany({ where: { valetId: { in: valetIds } }, include: { serviceType: { select: { pricingModel: true, minHours: true } } }, orderBy: [{ validFrom: 'desc' }] })
-            : ([] as any[]);
-          const valets = valetIds.length
-            ? await this.prisma.valet.findMany({ where: { id: { in: valetIds } }, select: { id: true, minimumKmIncluded: true, extraOutOfCityPrice: true } })
-            : ([] as any[]);
-          const perRiga = new Map<string, any[]>();
-          for (const p of prodotti) { const a = perRiga.get(p.deliveryId) ?? []; a.push(p); perRiga.set(p.deliveryId, a); }
-          const fee = new Map(listini.map((l) => [`${l.partnerId}|${l.serviceTypeId}`, l.price]));
-          const perIdL = new Map<string, any>(listiniValet.map((l: any) => [l.id, l]));
-          const perValetL = new Map<string, any[]>();
-          for (const l of listiniValet as any[]) { const a = perValetL.get(l.valetId) ?? []; a.push(l); perValetL.set(l.valetId, a); }
-          const perValet = new Map<string, any>((valets as any[]).map((v) => [v.id, v]));
-          const q2 = (x: number) => Math.round(x * 100) / 100;
-          // ⭐ 11/09: il TOTALE pagato dal cliente da Orders (mappa in cache, una per pagina) e la
-          // somma delle vendite dello stesso ordine (una groupBy), come nel dettaglio.
-          const venditeRighe = righeVendita.map((r) => perConsegna.get(r.id)!);
-          const ordini = await this.orders.mappa(new Date(Math.min(...venditeRighe.map((v) => new Date(v.createdAt).getTime()))));
-          const idsOrdine = [...new Set(venditeRighe.map((v) => v.externalOrderId).filter(Boolean))] as string[];
-          const somme = idsOrdine.length
-            ? await this.prisma.sale.groupBy({ by: ['externalOrderId'], where: { externalOrderId: { in: idsOrdine }, status: { notIn: ['non_accettata', 'annullata'] } }, _sum: { amount: true }, _count: { _all: true } })
-            : [];
-          const perOrdine = new Map(somme.map((g) => [g.externalOrderId as string, { somma: g._sum.amount ?? 0, n: g._count._all }]));
-          for (const r of righeVendita) {
-            const righe = perRiga.get(r.id) ?? [];
-            const valore = valoreProdotti(righe as any, r.productValue);
-            if (!valore) continue;
-            let quota: number | null = (r.price ?? 0) > 0 ? (r.price as number) : null;
-            if (quota == null) {
-              const f = fee.get(`${r.partner?.id}|${r.serviceType?.id}`);
-              if (f != null) quota = q2((baseFee(righe as any, r.productValue) * f) / 100);
-            }
-            if (quota == null) continue;
-            const v = perConsegna.get(r.id)!;
-            let prezzoCliente = v.amount as number;
-            const o = OrdersClientService.chiavi(v.externalOrderId, v.externalOrderNumber).map((k) => ordini.get(k)).find(Boolean);
-            if (o?.totale != null) {
-              const g = perOrdine.get(v.externalOrderId ?? '') ?? { somma: v.amount, n: 1 };
-              prezzoCliente = q2(v.amount + (o.totale - g.somma) / Math.max(1, g.n));
-            }
-            if (!(prezzoCliente > 0)) continue;
-            const resta = q2(prezzoCliente - q2(valore - conIva(quota)));
-            let costoValet: number | null = null;
-            if ((r.valetSalary ?? 0) > 0) costoValet = q2(r.valetSalary + (r.valetAdditionalPrice ?? 0));
-            else if (r.valetId) {
-              const l = scegliListinoValet(r, perIdL, perValetL);
-              const c = l ? pagaConsegna({ ...r, valet: perValet.get(r.valetId) } as any, l as any, r.deliveryRule ?? null) : null;
-              if (c) costoValet = c.amount;
-            }
-            const margine = costoValet != null ? q2(resta - costoValet) : resta;
-            r.margine = { euro: margine, percent: q2((margine / prezzoCliente) * 100), conValet: costoValet != null };
+        const idsVendita = (rows as any[])
+          .filter((r) => r.serviceType?.pricingModel === 'VENDITA')
+          .map((r) => r.id as string);
+        if (idsVendita.length) {
+          const margini = await this.finance.marginiDiConsegne(idsVendita).catch(() => new Map());
+          for (const r of rows as any[]) {
+            const m = margini.get(r.id);
+            if (m) r.margine = { euro: m.euro, percent: m.percent, conValet: true };
           }
         }
       }
@@ -1157,53 +1168,15 @@ export class DeliveriesService {
     // fa il server con gli stessi numeri della Fatturazione e di Stipendi: nessuna regola
     // economica nuova, solo la differenza fra numeri che esistono già.
     const economia = this.economiaVendita(delivery, feeVendita);
+    // 🔴 11/09/2026 (segnalazione utente: «questi margini sono tutti sbagliati: copia da Finanza»).
+    // Il margine NON si calcola più qui. Lo dà la sezione Finanza, che è il proprietario del conto
+    // (venduto dal cliente − pagato al partner, al netto IVA, più la quota fatturata al partner, meno il
+    // costo della consegna e la commissione d'incasso). Prima questo riquadro sottraeva il «dovuto netto»
+    // (righe a prezzo partner) da un prezzo preso dalla vendita: due basi diverse, e numeri negativi su
+    // ordini sani. ⚠️ Solo per l'ufficio, come prima.
     let margineVendita: Record<string, unknown> | null = null;
-    if (economia && user.role !== Role.PARTNER && user.role !== Role.VALET) {
-      const vendita = await this.prisma.sale.findFirst({
-        where: { deliveryId: delivery.id },
-        select: { id: true, amount: true, discountPercent: true, quantity: true, externalOrderNumber: true, externalOrderId: true, createdAt: true },
-        orderBy: { createdAt: 'desc' },
-      });
-      if (vendita && vendita.amount > 0) {
-        const q2 = (x: number) => Math.round(x * 100) / 100;
-        // ⭐ 11/09/2026 (segnalazione utente: «nei margini manca il vero totale pagato dal cliente»).
-        // `Sale.amount` è la RIGA di prodotto; il TOTALE lo sa Orders (la casa dell'ordine): su
-        // #12913 il cliente ha pagato 25 € (10 € di prodotto + 15 € di consegna). Il margine si fa
-        // su quello che è entrato davvero. Se l'ordine ha più vendite — più consegne — la parte
-        // oltre i prodotti (consegna, extra, sconti) si divide fra loro in parti uguali. Se Orders
-        // non risponde, resta il prodotto, e la scheda lo dice.
-        const ordine = await this.orders.perVendita(vendita);
-        const sorelle = vendita.externalOrderId
-          ? await this.prisma.sale.findMany({ where: { externalOrderId: vendita.externalOrderId, status: { notIn: ['non_accettata', 'annullata'] } }, select: { id: true, amount: true } })
-          : [];
-        const venditeNellOrdine = Math.max(1, sorelle.length);
-        const righeProdotti = q2(sorelle.length ? sorelle.reduce((s, x) => s + (x.amount ?? 0), 0) : vendita.amount);
-        const totaleOrdine = ordine?.totale ?? null;
-        const extraOrdine = totaleOrdine != null ? q2(totaleOrdine - righeProdotti) : null;
-        const prezzoCliente = q2(vendita.amount + (extraOrdine ?? 0) / venditeNellOrdine);
-        const scontoProdotto = q2(prezzoCliente - economia.incasso);
-        const restaADeluxy = q2(prezzoCliente - economia.dovutoNetto);
-        const costoValet = (delivery as any).valetSalary ?? valetSalaryDalListino ?? null;
-        const extraValet = (delivery as any).valetAdditionalPrice ?? 0;
-        const costoValetTotale = costoValet != null ? q2(costoValet + extraValet) : null;
-        margineVendita = {
-          ordine: vendita.externalOrderNumber ?? null,
-          prodottoVendita: q2(vendita.amount),
-          totaleOrdine, righeProdotti, extraOrdine, venditeNellOrdine,
-          prezzoCliente,
-          valoreAlPartner: economia.incasso,
-          scontoPercent: vendita.discountPercent ?? null,
-          scontoProdotto,
-          commissione: economia.commissione,
-          ivaCommissione: economia.ivaCommissione,
-          dovutoNetto: economia.dovutoNetto,
-          restaADeluxy,
-          restaPercent: q2((restaADeluxy / prezzoCliente) * 100),
-          costoValet: costoValetTotale,
-          margineDopoValet: costoValetTotale != null ? q2(restaADeluxy - costoValetTotale) : null,
-          margineDopoValetPercent: costoValetTotale != null ? q2(((restaADeluxy - costoValetTotale) / prezzoCliente) * 100) : null,
-        };
-      }
+    if (user.role !== Role.PARTNER && user.role !== Role.VALET && delivery.serviceType?.pricingModel === 'VENDITA') {
+      margineVendita = (await this.finance.margineDiConsegna(delivery.id).catch(() => null)) as Record<string, unknown> | null;
     }
 
     // REGOLA PAGA VALET come la applica Stipendi (02/09, utente: «verifica la
