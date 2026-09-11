@@ -1,4 +1,4 @@
-import { PRESET_PERIODO, type PeriodoRisolto } from "@/lib/periodo";
+import { PRESET_PERIODO, TIPI_CONFRONTO, type Periodo, type PeriodoRisolto } from "@/lib/periodo";
 
 // Il periodo di tutta la pagina, in un posto solo.
 //
@@ -12,11 +12,25 @@ export function SceltaPeriodo({
   a,
   azione,
   altriFiltri,
+  confronto,
+  tipoConfronto,
+  confDa,
+  confA,
 }: {
   periodo: PeriodoRisolto;
   da?: string;
   a?: string;
   azione: string;
+  /**
+   * La finestra di confronto scelta, e quale tipo è. Si passano insieme:
+   * `confronto: null` con `tipoConfronto: "nessuno"` vuol dire «scelto di non
+   * confrontare», ed è diverso da «la pagina non offre il confronto» — che si
+   * ottiene non passando `tipoConfronto` affatto.
+   */
+  confronto?: Periodo | null;
+  tipoConfronto?: string;
+  confDa?: string;
+  confA?: string;
   /**
    * Gli ALTRI parametri con cui si sta guardando la pagina (canale, brand,
    * stato, ricerca…), come query string senza `preset`/`da`/`a`.
@@ -57,6 +71,25 @@ export function SceltaPeriodo({
   const daMostrare = da ?? iso(periodo.corrente.da);
   const aMostrare = a ?? iso(new Date(periodo.corrente.a.getTime() - 86_400_000));
 
+  // Il confronto si offre solo se la pagina lo sa usare: una riga di pillole
+  // che non cambia niente è peggio di una riga assente.
+  const offreConfronto = tipoConfronto != null;
+  const linkConf = (tipo: string) => {
+    const q = new URLSearchParams(coda);
+    if (periodo.preset === "libero" && da && a) {
+      q.set("da", da);
+      q.set("a", a);
+    } else {
+      q.set("preset", periodo.preset);
+    }
+    q.set("conf", tipo);
+    q.delete("confDa");
+    q.delete("confA");
+    return `${azione}?${q.toString()}`;
+  };
+  const confLibero = tipoConfronto === "libero";
+  const isoConf = (x: Date) => iso(x);
+
   return (
     <section className="scheda" style={{ paddingBottom: 14 }}>
       <div className="scheda-titolo">Periodo</div>
@@ -87,6 +120,73 @@ export function SceltaPeriodo({
           {giorni === 1 ? "giorno" : "giorni"}, estremi compresi
         </span>
       </form>
+
+      {/* ——— CONTRO CHE COSA ———
+          Sta nei filtri, accanto al periodo, perché è la stessa decisione:
+          quale finestra si guarda e contro quale si legge. Prima il confronto
+          non si scegliva — le tessere ne mostravano due fissi e le tabelle
+          nessuno — e «220 €» dentro una tabella non diceva se fosse tanto o
+          poco. */}
+      {offreConfronto && (
+        <div style={{ marginTop: 14, borderTop: "1px solid var(--hairline)", paddingTop: 12 }}>
+          <div className="cella-sub" style={{ marginBottom: 8 }}>
+            <b>Confronta con</b> — vale per le tessere e per le colonne Δ delle tabelle
+          </div>
+          <div className="pill-scelta riga-chips-scorri" style={{ marginBottom: confLibero ? 10 : 0 }}>
+            {TIPI_CONFRONTO.map((t) => (
+              <a
+                key={t.chiave}
+                className={`pill-opt${tipoConfronto === t.chiave ? " attuale" : ""}`}
+                href={linkConf(t.chiave)}
+              >
+                {t.nome}
+              </a>
+            ))}
+          </div>
+          {confLibero && (
+            <form className="filtri" method="get" action={azione} style={{ marginBottom: 0 }}>
+              {nascosti.map(([k, v]) => (
+                <input key={k} type="hidden" name={k} value={v} />
+              ))}
+              {periodo.preset === "libero" && da && a ? (
+                <>
+                  <input type="hidden" name="da" value={da} />
+                  <input type="hidden" name="a" value={a} />
+                </>
+              ) : (
+                <input type="hidden" name="preset" value={periodo.preset} />
+              )}
+              <input type="hidden" name="conf" value="libero" />
+              <input
+                type="date"
+                name="confDa"
+                defaultValue={confDa ?? (confronto ? isoConf(confronto.da) : undefined)}
+                title="Confronta dal (compreso)"
+              />
+              <input
+                type="date"
+                name="confA"
+                defaultValue={
+                  confA ?? (confronto ? isoConf(new Date(confronto.a.getTime() - 86_400_000)) : undefined)
+                }
+                title="Confronta al (compreso)"
+              />
+              <button className="btn small" type="submit">Vai</button>
+            </form>
+          )}
+          <div className="cella-sub" style={{ marginTop: 8 }}>
+            {confronto ? (
+              <>
+                Confronto attivo: <b>{confronto.etichetta}</b>
+              </>
+            ) : (
+              // ⚠️ Si dice cosa comporta, non solo che è spento: è la ragione
+              // per cui «Nessuno» è una scelta utile e non un ripiego.
+              <>Nessun confronto: le tabelle non hanno la colonna Δ e non fanno la seconda lettura.</>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

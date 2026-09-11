@@ -1,4 +1,5 @@
 import { CellaResa, Euro } from "@/components/CellaResa";
+import { Delta } from "@/components/Delta";
 import { perArea } from "@/lib/brand-tabelle";
 import { ETICHETTA_AREA } from "@/lib/aree";
 import { prisma } from "@/lib/db";
@@ -20,16 +21,29 @@ import type { Periodo } from "@/lib/periodo";
 // guarda sa quali sono: una stima presentata come misura fa spostare budget su
 // una certezza che non c'è.
 
-export async function BrandPerArea({ brand, periodo }: { brand: string; periodo: Periodo }) {
+export async function BrandPerArea({
+  brand,
+  periodo,
+  confronto,
+}: {
+  brand: string;
+  periodo: Periodo;
+  /** La finestra scelta nei filtri; assente o `null` = nessuna seconda lettura. */
+  confronto?: Periodo | null;
+}) {
   const conti = await prisma.accountAdv.findMany({
     where: { piattaforma: "meta_ads", attivo: true, brand },
     select: { idEsterno: true },
   });
-  const t = await perArea(
-    brand,
-    periodo,
-    conti.map((c) => c.idEsterno)
-  );
+  const idConti = conti.map((c) => c.idEsterno);
+  const [t, tPrima] = await Promise.all([
+    perArea(brand, periodo, idConti),
+    // ⚠️ Il confronto rilegge anche le REGIONI di Meta, che è una chiamata
+    // alla Graph API: sta sotto la stessa cache di mezz'ora, per periodo, e
+    // non si fa affatto quando il confronto è «nessuno».
+    confronto ? perArea(brand, confronto, idConti) : Promise.resolve(null),
+  ]);
+  const primaDi = new Map((tPrima?.righe ?? []).map((r) => [r.area, r]));
   const be = breakEvenRoas(brand);
 
   return (
@@ -42,6 +56,13 @@ export async function BrandPerArea({ brand, periodo }: { brand: string; periodo:
         località del targeting; la <b>spesa Meta</b> la dà Meta stessa, <b>per regione e non per
         città</b>: leggiamo la Lombardia come area di Milano perché lì consegniamo solo in città, ma
         è una nostra lettura, non un dato di Meta.
+        {confronto && (
+          <>
+            {" "}
+            Sotto incasso e spesa c&apos;è la <b>variazione</b> rispetto a <b>{confronto.etichetta}</b>{" "}
+            (sulla spesa il verde vuol dire <b>meno</b> speso).
+          </>
+        )}
         {t.erroreMeta && (
           <>
             {" "}
@@ -102,7 +123,17 @@ export async function BrandPerArea({ brand, periodo }: { brand: string; periodo:
                         </div>
                       )}
                     </td>
-                    <Euro v={r.incasso} />
+                    <td className="num">
+                      {r.incasso > 0 ? formattaEuro(r.incasso) : "—"}
+                      {confronto && (
+                        <Delta
+                          ora={r.incasso}
+                          prima={primaDi.get(r.area)?.incasso ?? 0}
+                          etichetta={confronto.etichetta}
+                          sotto
+                        />
+                      )}
+                    </td>
                     <td className="num cella-muta">{r.ordini || "—"}</td>
                     <Euro v={r.spesaGoogle} />
                     <Euro v={r.incassoGoogle} zeroEsplicito={r.spesaGoogle > 0} />
@@ -122,7 +153,21 @@ export async function BrandPerArea({ brand, periodo }: { brand: string; periodo:
                         <CellaResa incasso={r.incassoMeta} spesa={r.spesaMeta} breakEven={be} nonLetto />
                       </>
                     )}
-                    <Euro v={spesa} />
+                    <td className="num">
+                      {spesa > 0 ? formattaEuro(spesa) : "—"}
+                      {confronto && (
+                        <Delta
+                          ora={spesa}
+                          prima={(() => {
+                            const p = primaDi.get(r.area);
+                            return p ? p.spesaGoogle + p.spesaMeta : 0;
+                          })()}
+                          etichetta={confronto.etichetta}
+                          invertito
+                          sotto
+                        />
+                      )}
+                    </td>
                     <CellaResa incasso={r.incasso} spesa={spesa} breakEven={be} />
                   </tr>
                 );
@@ -189,6 +234,14 @@ export async function BrandPerArea({ brand, periodo }: { brand: string; periodo:
                 </td>
                 <td className="num">
                   <b>{formattaEuro(t.totali.incasso)}</b>
+                  {confronto && tPrima && (
+                    <Delta
+                      ora={t.totali.incasso}
+                      prima={tPrima.totali.incasso}
+                      etichetta={confronto.etichetta}
+                      sotto
+                    />
+                  )}
                 </td>
                 <td className="num cella-muta">—</td>
                 <Euro v={t.totali.spesaGoogle} />

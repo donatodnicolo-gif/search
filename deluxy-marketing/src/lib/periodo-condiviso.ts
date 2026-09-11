@@ -1,5 +1,5 @@
 import { prisma } from "./db";
-import { risolviPeriodo, type PeriodoRisolto } from "./periodo";
+import { risolviConfronto, risolviPeriodo, type Periodo, type PeriodoRisolto } from "./periodo";
 
 // Il periodo di analisi, **uno solo per tutta l'app**.
 //
@@ -22,8 +22,23 @@ import { risolviPeriodo, type PeriodoRisolto } from "./periodo";
 const CHIAVE_PRESET = "periodo.preset";
 const CHIAVE_DA = "periodo.da";
 const CHIAVE_A = "periodo.a";
+// Il CONFRONTO si ricorda come il periodo, e per la stessa ragione: se si sta
+// guardando «contro l'anno prima», cambiare pagina non deve riportare
+// silenziosamente al periodo precedente — due letture a due minuti di distanza
+// sembrerebbero confrontabili e non lo sarebbero.
+const CHIAVE_CONFRONTO = "periodo.confronto";
+const CHIAVE_CONF_DA = "periodo.confronto.da";
+const CHIAVE_CONF_A = "periodo.confronto.a";
 
-export type ParametriPeriodo = { preset?: string; da?: string; a?: string };
+export type ParametriPeriodo = {
+  preset?: string;
+  da?: string;
+  a?: string;
+  /** precedente | anno | libero | nessuno */
+  conf?: string;
+  confDa?: string;
+  confA?: string;
+};
 
 async function leggi(chiave: string): Promise<string | undefined> {
   const r = await prisma.impostazione.findUnique({ where: { chiave } }).catch(() => null);
@@ -46,6 +61,18 @@ export type PeriodoApp = PeriodoRisolto & {
   aStr?: string;
   // true = il periodo arrivava dall'indirizzo; false = ripreso dalla memoria
   esplicito: boolean;
+  /**
+   * La finestra contro cui confrontare, oppure `null` quando il confronto è
+   * «nessuno». ⚠️ `null` non vuol dire «non lo so»: vuol dire che qualcuno ha
+   * scelto di non confrontare, e chi legge questo campo NON deve ripiegare sul
+   * periodo precedente «per sicurezza» — sarebbe un confronto che nessuno ha
+   * chiesto, mostrato come se fosse stato chiesto.
+   */
+  confronto: Periodo | null;
+  /** precedente | anno | libero | nessuno */
+  tipoConfronto: string;
+  confDaStr?: string;
+  confAStr?: string;
 };
 
 // `predefinito` è il periodo di partenza della pagina la primissima volta, se
@@ -55,6 +82,25 @@ export async function periodoApp(
   predefinito = "30g"
 ): Promise<PeriodoApp> {
   const esplicito = Boolean(p.preset || (p.da && p.a));
+  // Il confronto è una scelta SUA: si può cambiare senza toccare il periodo
+  // (ed è il caso normale — «lo stesso mese, ma contro l'anno prima»).
+  const confEsplicito = Boolean(p.conf || (p.confDa && p.confA));
+
+  if (confEsplicito) {
+    const [tipo, cda, ca] = await Promise.all([
+      leggi(CHIAVE_CONFRONTO),
+      leggi(CHIAVE_CONF_DA),
+      leggi(CHIAVE_CONF_A),
+    ]);
+    const nuovo = p.conf ?? (p.confDa && p.confA ? "libero" : "precedente");
+    if (tipo !== nuovo || cda !== (p.confDa ?? undefined) || ca !== (p.confA ?? undefined)) {
+      await Promise.all([
+        scrivi(CHIAVE_CONFRONTO, nuovo),
+        scrivi(CHIAVE_CONF_DA, p.confDa ?? null),
+        scrivi(CHIAVE_CONF_A, p.confA ?? null),
+      ]);
+    }
+  }
 
   if (esplicito) {
     // La scelta appena fatta diventa quella dell'app. Si scrive solo se è
@@ -69,15 +115,38 @@ export async function periodoApp(
         scrivi(CHIAVE_A, p.a ?? null),
       ]);
     }
-    return { ...risolviPeriodo(p.preset, p.da, p.a), daStr: p.da, aStr: p.a, esplicito: true };
+    const risolto = risolviPeriodo(p.preset, p.da, p.a);
+    const conf = await confrontoDi(risolto, p, confEsplicito);
+    return { ...risolto, ...conf, daStr: p.da, aStr: p.a, esplicito: true };
   }
 
   const [pre, da, a] = await Promise.all([leggi(CHIAVE_PRESET), leggi(CHIAVE_DA), leggi(CHIAVE_A)]);
+  const risolto = risolviPeriodo(pre ?? predefinito, da, a);
+  const conf = await confrontoDi(risolto, p, confEsplicito);
   return {
-    ...risolviPeriodo(pre ?? predefinito, da, a),
+    ...risolto,
+    ...conf,
     daStr: da,
     aStr: a,
     esplicito: false,
+  };
+}
+
+// Il confronto: quello nell'indirizzo se c'è, altrimenti quello ricordato.
+async function confrontoDi(
+  risolto: PeriodoRisolto,
+  p: ParametriPeriodo,
+  confEsplicito: boolean
+): Promise<{ confronto: Periodo | null; tipoConfronto: string; confDaStr?: string; confAStr?: string }> {
+  const [tipo, cda, ca] = confEsplicito
+    ? [p.conf, p.confDa, p.confA]
+    : await Promise.all([leggi(CHIAVE_CONFRONTO), leggi(CHIAVE_CONF_DA), leggi(CHIAVE_CONF_A)]);
+  const esito = risolviConfronto(risolto, tipo, cda, ca);
+  return {
+    confronto: esito.periodo,
+    tipoConfronto: esito.tipo,
+    confDaStr: esito.tipo === "libero" ? cda : undefined,
+    confAStr: esito.tipo === "libero" ? ca : undefined,
   };
 }
 
@@ -90,6 +159,16 @@ export function parametriPeriodo(periodo: PeriodoApp): string {
     q.set("a", periodo.aStr);
   } else {
     q.set("preset", periodo.preset);
+  }
+  // ⚠️ Anche il confronto viaggia nel link: un indirizzo incollato a qualcuno
+  // deve mostrare quello che mostrava a chi l'ha copiato — confronto compreso.
+  // Senza, la stessa pagina letta da due persone poteva confrontare contro due
+  // finestre diverse senza che niente lo dicesse.
+  if (periodo.tipoConfronto === "libero" && periodo.confDaStr && periodo.confAStr) {
+    q.set("confDa", periodo.confDaStr);
+    q.set("confA", periodo.confAStr);
+  } else if (periodo.tipoConfronto !== "precedente") {
+    q.set("conf", periodo.tipoConfronto);
   }
   return q.toString();
 }

@@ -1,4 +1,5 @@
 import { CellaResa, Euro } from "@/components/CellaResa";
+import { Delta } from "@/components/Delta";
 import { perCategoria } from "@/lib/brand-tabelle";
 import { ETICHETTA_CATEGORIA_ORDINE } from "@/lib/vendite-campagna";
 import { formattaEuro } from "@/lib/dominio";
@@ -22,8 +23,25 @@ import type { Periodo } from "@/lib/periodo";
 
 const campagneDette = (n: number) => `${n} ${n === 1 ? "campagna" : "campagne"}`;
 
-export async function BrandPerCategoria({ brand, periodo }: { brand: string; periodo: Periodo }) {
-  const t = await perCategoria(brand, periodo);
+export async function BrandPerCategoria({
+  brand,
+  periodo,
+  confronto,
+}: {
+  brand: string;
+  periodo: Periodo;
+  /**
+   * La finestra scelta nei filtri. ⚠️ `null` o assente = nessun confronto, e
+   * allora la seconda lettura **non si fa**: è la ragione per cui «Nessuno» è
+   * una scelta utile e non un ripiego.
+   */
+  confronto?: Periodo | null;
+}) {
+  const [t, tPrima] = await Promise.all([
+    perCategoria(brand, periodo),
+    confronto ? perCategoria(brand, confronto) : Promise.resolve(null),
+  ]);
+  const primaDi = new Map((tPrima?.righe ?? []).map((r) => [r.categoria, r]));
   const be = breakEvenRoas(brand);
 
   return (
@@ -36,6 +54,19 @@ export async function BrandPerCategoria({ brand, periodo }: { brand: string; per
         — quindi è una stima, e la <b>resa su tutto</b> accanto dice se la famiglia sta in piedi nel
         complesso. La <b>spesa</b> è quella delle campagne di questa categoria: una campagna prende
         la categoria assegnata sulla sua scheda, o quella dedotta dal nome finché nessuno la sceglie.
+        {confronto ? (
+          <>
+            {" "}
+            Sotto incasso e spesa c&apos;è la <b>variazione</b> rispetto a{" "}
+            <b>{confronto.etichetta}</b>: sulla spesa il verde vuol dire <b>meno</b> speso, perché lì
+            scendere è un miglioramento.
+          </>
+        ) : (
+          <>
+            {" "}
+            Nessun confronto attivo: si sceglie in cima, fra le pillole «Confronta con».
+          </>
+        )}
       </p>
 
       {t.righe.length === 0 ? (
@@ -103,7 +134,17 @@ export async function BrandPerCategoria({ brand, periodo }: { brand: string; per
                         </div>
                       )}
                     </td>
-                    <Euro v={r.incasso} />
+                    <td className="num">
+                      {r.incasso > 0 ? formattaEuro(r.incasso) : "—"}
+                      {confronto && (
+                        <Delta
+                          ora={r.incasso}
+                          prima={primaDi.get(r.categoria)?.incasso ?? 0}
+                          etichetta={confronto.etichetta}
+                          sotto
+                        />
+                      )}
+                    </td>
                     <td className="num cella-muta">{r.ordini || "—"}</td>
                     <Euro v={r.spesaGoogle} />
                     <Euro v={r.incassoGoogle} zeroEsplicito={r.spesaGoogle > 0} />
@@ -111,7 +152,21 @@ export async function BrandPerCategoria({ brand, periodo }: { brand: string; per
                     <Euro v={r.spesaMeta} />
                     <Euro v={r.incassoMeta} zeroEsplicito={r.spesaMeta > 0} />
                     <CellaResa incasso={r.incassoMeta} spesa={r.spesaMeta} breakEven={be} />
-                    <Euro v={spesa} />
+                    <td className="num">
+                      {spesa > 0 ? formattaEuro(spesa) : "—"}
+                      {confronto && (
+                        <Delta
+                          ora={spesa}
+                          prima={(() => {
+                            const p = primaDi.get(r.categoria);
+                            return p ? p.spesaGoogle + p.spesaMeta : 0;
+                          })()}
+                          etichetta={confronto.etichetta}
+                          invertito
+                          sotto
+                        />
+                      )}
+                    </td>
                     <CellaResa incasso={r.incasso} spesa={spesa} breakEven={be} />
                   </tr>
                 );
@@ -149,6 +204,14 @@ export async function BrandPerCategoria({ brand, periodo }: { brand: string; per
                 </td>
                 <td className="num">
                   <b>{formattaEuro(t.totali.incasso)}</b>
+                  {confronto && tPrima && (
+                    <Delta
+                      ora={t.totali.incasso}
+                      prima={tPrima.totali.incasso}
+                      etichetta={confronto.etichetta}
+                      sotto
+                    />
+                  )}
                 </td>
                 <td className="num cella-muta">—</td>
                 <Euro v={t.totali.spesaGoogle} />
@@ -163,6 +226,15 @@ export async function BrandPerCategoria({ brand, periodo }: { brand: string; per
                 <CellaResa incasso={t.totali.incassoMeta} spesa={t.totali.spesaMeta} breakEven={be} />
                 <td className="num">
                   <b>{formattaEuro(t.totali.spesa)}</b>
+                  {confronto && tPrima && (
+                    <Delta
+                      ora={t.totali.spesa}
+                      prima={tPrima.totali.spesa}
+                      etichetta={confronto.etichetta}
+                      invertito
+                      sotto
+                    />
+                  )}
                 </td>
                 <CellaResa incasso={t.totali.incasso} spesa={t.totali.spesa} breakEven={be} />
               </tr>

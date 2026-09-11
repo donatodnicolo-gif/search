@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { BudgetCampagneBrand } from "@/components/BudgetCampagneBrand";
 import { BudgetQuestoMese } from "@/components/BudgetQuestoMese";
 import { Badge } from "@/components/Badge";
+import { Delta } from "@/components/Delta";
 import { BrandPerArea } from "@/components/BrandPerArea";
 import { BrandPerCategoria } from "@/components/BrandPerCategoria";
 import { VisteSalvate } from "@/components/VisteSalvate";
@@ -10,6 +11,7 @@ import { FreschezzaDati } from "@/components/FreschezzaDati";
 import { GraficoSpesa } from "@/components/GraficoSpesa";
 import { RigaLink } from "@/components/RigaLink";
 import { Scadenza } from "@/components/Scadenza";
+import { SceltaPeriodo } from "@/components/SceltaPeriodo";
 import { Sidebar } from "@/components/Sidebar";
 import { mer, numeriBrand, numeriPerCanale, quotaPagato, roasPiattaforma, scostamentoAttribuzione } from "@/lib/brand-dati";
 import { prisma } from "@/lib/db";
@@ -34,22 +36,11 @@ import {
   STATI_CAMPAGNA_VIVE,
 } from "@/lib/dominio";
 import { breakEvenRoas } from "@/lib/guardrail";
-import { PRESET_PERIODO, variazione } from "@/lib/periodo";
+// (`variazione` sta dentro il componente Delta condiviso: qui non serve piu)
 import { periodoApp } from "@/lib/periodo-condiviso";
 import { COLORE_VERDETTO, schedaDi, type VerdettoScheda } from "@/lib/scheda-analisi";
 
 export const dynamic = "force-dynamic";
-
-function Delta({ ora, prima, invertito }: { ora: number; prima: number; invertito?: boolean }) {
-  const v = variazione(ora, prima);
-  if (v == null) return <i style={{ fontStyle: "normal", color: "var(--text-tertiary)" }}>—</i>;
-  const positivo = invertito ? v < 0 : v > 0;
-  return (
-    <i style={{ fontStyle: "normal", fontSize: 11.5, fontVariantNumeric: "tabular-nums", color: positivo ? "var(--green)" : "var(--red)" }}>
-      {v > 0 ? "+" : ""}{v.toFixed(0)}%
-    </i>
-  );
-}
 
 // La dashboard di un brand: il marketing e le vendite nello stesso posto, sul
 // periodo che scegli. Il ROAS di piattaforma dice cosa si attribuisce Google;
@@ -60,7 +51,17 @@ export default async function PaginaBrand({
   searchParams,
 }: {
   params: Promise<{ brand: string }>;
-  searchParams: Promise<{ preset?: string; da?: string; a?: string; ord?: string; verso?: string; vista?: string }>;
+  searchParams: Promise<{
+    preset?: string;
+    da?: string;
+    a?: string;
+    ord?: string;
+    verso?: string;
+    vista?: string;
+    conf?: string;
+    confDa?: string;
+    confA?: string;
+  }>;
 }) {
   const { brand } = await params;
   if (!(BRANDS as readonly string[]).includes(brand)) notFound();
@@ -74,11 +75,16 @@ export default async function PaginaBrand({
   const oggi = new Date();
   oggi.setHours(0, 0, 0, 0);
 
-  const [ora, prima, anno, aperte, scadute, analisi, letture, campagne, metrichePeriodo, alertAperti, pubblici, landing, canali] =
+  const [ora, prima, aperte, scadute, analisi, letture, campagne, metrichePeriodo, alertAperti, pubblici, landing, canali] =
     await Promise.all([
       numeriBrand(brand, periodo.corrente),
-      numeriBrand(brand, periodo.precedente),
-      numeriBrand(brand, periodo.annoPrima),
+      // ⚠️ IL CONFRONTO È QUELLO SCELTO NEI FILTRI, non due finestre fisse.
+      // Prima ogni tessera portava DUE delta — «Δ» sul periodo precedente e
+      // «Δa» sull'anno prima — sempre accesi: due numeri di confronto accanto
+      // a ogni numero sono rumore quando uno dei due non interessa, e nessuno
+      // dei due si poteva spegnere. Con «Nessuno» la lettura non si fa
+      // nemmeno: `VUOTI` è il periodo che non esiste.
+      periodo.confronto ? numeriBrand(brand, periodo.confronto) : Promise.resolve(null),
       prisma.azione.findMany({
         where: { brand, stato: { in: STATI_AZIONE_APERTI } },
         orderBy: [{ scadenza: { sort: "asc", nulls: "last" } }, { creataIl: "desc" }],
@@ -137,7 +143,7 @@ export default async function PaginaBrand({
   const be = breakEvenRoas(brand);
   const roasOra = roasPiattaforma(ora);
   const merOra = mer(ora);
-  const merPrima = mer(prima);
+  const merPrima = prima ? mer(prima) : null;
   const quota = quotaPagato(ora);
   const scost = scostamentoAttribuzione(ora);
   const ultimoAudit = analisi.find((a) => a.tipo.startsWith("audit_"));
@@ -187,7 +193,8 @@ export default async function PaginaBrand({
         <div className="page-head">
           <div>
             <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span className="sb-dot" style={{ background: COLORE_BRAND[brand], width: 14, height: 14 }} />
+              {/* `.pallino`, non `.sb-dot`: quella è della sidebar e porta margini automatici. */}
+              <span className="pallino" style={{ background: COLORE_BRAND[brand], width: 14, height: 14 }} />
               {ETICHETTA_BRAND[brand]}
             </h1>
             <p className="page-sub">
@@ -237,21 +244,26 @@ export default async function PaginaBrand({
 
         <VisteSalvate pagina="brand" base={`/brand/${brand}`} parametri={sp} />
 
-        {/* Periodo */}
-        <section className="scheda" style={{ paddingBottom: 14 }}>
-          <div className="pill-scelta" style={{ marginBottom: 12 }}>
-            {PRESET_PERIODO.filter((x) => x.chiave !== "libero").map((x) => (
-              <a key={x.chiave} className={`pill-opt${periodo.preset === x.chiave ? " attuale" : ""}`} href={linkPreset(x.chiave)}>
-                {x.nome}
-              </a>
-            ))}
-          </div>
-          <form className="filtri" method="get" style={{ marginBottom: 0 }}>
-            <input type="date" name="da" defaultValue={sp.da ?? ""} title="Dal" />
-            <input type="date" name="a" defaultValue={sp.a ?? ""} title="Al (compreso)" />
-            <button className="btn small" type="submit">Applica</button>
-          </form>
-        </section>
+        {/* ⚠️ Il selettore del periodo era RISCRITTO A MANO qui, e divergeva da
+            quello del resto dell'app: le caselle delle date restavano vuote
+            («gg/mm/aaaa» anche guardando settembre), non c'era la pillola
+            «Personalizzato» e non diceva quanti giorni stessi guardando — tutte
+            cose che `SceltaPeriodo` aveva già risolto altrove. Due copie della
+            stessa scelta divergono sempre: vince quella condivisa, che adesso
+            porta anche il CONFRONTO. */}
+        <SceltaPeriodo
+          periodo={periodo}
+          da={sp.da}
+          a={sp.a}
+          azione={`/brand/${brand}`}
+          altriFiltri={new URLSearchParams(
+            Object.entries({ ord: sp.ord, verso: sp.verso }).filter(([, v]) => v) as [string, string][]
+          ).toString()}
+          confronto={periodo.confronto}
+          tipoConfronto={periodo.tipoConfronto}
+          confDa={periodo.confDaStr}
+          confA={periodo.confAStr}
+        />
 
         <FreschezzaDati brand={brand} />
 
@@ -363,22 +375,37 @@ export default async function PaginaBrand({
             tabella per canale perché rispondono alla stessa domanda su un
             altro asse — la media di brand nasconde la categoria che perde
             esattamente come nasconde il canale che perde. */}
-        <BrandPerCategoria brand={brand} periodo={periodo.corrente} />
-        <BrandPerArea brand={brand} periodo={periodo.corrente} />
+        <BrandPerCategoria brand={brand} periodo={periodo.corrente} confronto={periodo.confronto} />
+        <BrandPerArea brand={brand} periodo={periodo.corrente} confronto={periodo.confronto} />
 
         {/* I numeri che contano */}
         <div className="kpi-riga">
           <div className="kpi">
             <div className="kpi-valore">{formattaEuro(ora.spesa)}</div>
             <div className="kpi-etichetta">
-              Spesa ADV · Δ <Delta ora={ora.spesa} prima={prima.spesa} /> · Δa <Delta ora={ora.spesa} prima={anno.spesa} />
+              Spesa ADV
+              {prima && (
+                <>
+                  {" · Δ "}
+                  <Delta ora={ora.spesa} prima={prima.spesa} etichetta={periodo.confronto?.etichetta} invertito />
+                </>
+              )}
             </div>
           </div>
           <div className="kpi">
             <div className="kpi-valore">{ora.ordini > 0 ? formattaEuro(ora.venditeTotali) : "—"}</div>
             <div className="kpi-etichetta">
-              Vendite Shopify ({ora.ordini} ordini) · Δ <Delta ora={ora.venditeTotali} prima={prima.venditeTotali} /> · Δa{" "}
-              <Delta ora={ora.venditeTotali} prima={anno.venditeTotali} />
+              Vendite Shopify ({ora.ordini} ordini)
+              {prima && (
+                <>
+                  {" · Δ "}
+                  <Delta
+                    ora={ora.venditeTotali}
+                    prima={prima.venditeTotali}
+                    etichetta={periodo.confronto?.etichetta}
+                  />
+                </>
+              )}
             </div>
           </div>
           <div className="kpi">
@@ -386,7 +413,13 @@ export default async function PaginaBrand({
               {merOra != null ? `${merOra.toFixed(2).replace(".", ",")}×` : "—"}
             </div>
             <div className="kpi-etichetta">
-              MER — tutte le vendite / tutta la spesa · Δ <Delta ora={merOra ?? 0} prima={merPrima ?? 0} />
+              MER — tutte le vendite / tutta la spesa
+              {prima && (
+                <>
+                  {" · Δ "}
+                  <Delta ora={merOra ?? 0} prima={merPrima ?? 0} etichetta={periodo.confronto?.etichetta} />
+                </>
+              )}
             </div>
           </div>
           <div className="kpi">

@@ -87,10 +87,67 @@ export function risolviPeriodo(preset?: string, daStr?: string, aStr?: string, a
   const annoPrima: Periodo = {
     da: new Date(new Date(da).setFullYear(da.getFullYear() - 1)),
     a: new Date(new Date(a).setFullYear(a.getFullYear() - 1)),
-    etichetta: "stesso periodo 2025",
+    // ⚠️ L'anno si CALCOLA. Era scritto a mano («stesso periodo 2025»): giusto
+    // finché si guardava il 2026, una bugia dal 1° gennaio dopo — e una bugia
+    // su un'etichetta di confronto fa leggere i numeri dell'anno sbagliato.
+    etichetta: `stesso periodo ${da.getFullYear() - 1}`,
   };
 
   return { corrente: { da, a, etichetta }, precedente, annoPrima, preset: chiave };
+}
+
+/**
+ * CONTRO CHE COSA si confronta il periodo scelto.
+ *
+ * Fino all'11/09/2026 il confronto non era una scelta: le tessere della
+ * dashboard mostravano **due** delta fissi (periodo precedente e anno prima) e
+ * le tabelle nessuno. Due numeri di confronto sempre accesi accanto a ogni
+ * numero sono rumore quando uno dei due non interessa; e zero confronti dentro
+ * una tabella vuol dire leggere 220 € senza sapere se è tanto o poco.
+ *
+ * ⚠️ «Nessuno» è una scelta vera, non un ripiego: senza confronto le tabelle
+ * non fanno la seconda lettura sul database. Chi guarda un elenco per trovare
+ * una riga non deve pagare il conto di un confronto che non guarderà.
+ */
+export const TIPI_CONFRONTO: { chiave: string; nome: string }[] = [
+  { chiave: "precedente", nome: "Periodo precedente" },
+  { chiave: "anno", nome: "Anno precedente" },
+  { chiave: "libero", nome: "Personalizzato" },
+  { chiave: "nessuno", nome: "Nessuno" },
+];
+
+export function risolviConfronto(
+  p: PeriodoRisolto,
+  tipo?: string,
+  daStr?: string,
+  aStr?: string
+): { periodo: Periodo | null; tipo: string } {
+  const scelto = (tipo ?? "").trim() || "precedente";
+
+  if (scelto === "nessuno") return { periodo: null, tipo: "nessuno" };
+
+  if (scelto === "libero") {
+    const dOk = daStr && !isNaN(new Date(daStr).getTime());
+    const aOk = aStr && !isNaN(new Date(aStr).getTime());
+    // ⚠️ Un «personalizzato» senza date non è un confronto: si dichiara tale e
+    // si torna al periodo precedente, invece di confrontare con l'epoca zero.
+    if (!dOk || !aOk) return { periodo: p.precedente, tipo: "precedente" };
+    const da = mezzanotte(new Date(daStr as string));
+    const a = new Date(mezzanotte(new Date(aStr as string)).getTime() + GIORNO);
+    return {
+      periodo: {
+        da,
+        a,
+        etichetta: `${da.toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })} – ${new Date(
+          a.getTime() - GIORNO
+        ).toLocaleDateString("it-IT", { timeZone: "Europe/Rome" })}`,
+      },
+      tipo: "libero",
+    };
+  }
+
+  if (scelto === "anno") return { periodo: p.annoPrima, tipo: "anno" };
+  return { periodo: p.precedente, tipo: "precedente" };
 }
 
 // Variazione percentuale con gestione dei casi vuoti
