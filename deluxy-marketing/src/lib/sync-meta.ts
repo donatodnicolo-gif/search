@@ -201,8 +201,13 @@ export async function eseguiSyncMeta(
           nuove: adset.creati,
           aggiornate: metricheAdSet.salvate,
           scartate: adset.senzaCampagna + metricheAdSet.scartate,
-          dal,
-          al,
+          // ⚠️ `dal`/`al` qui sono le stringhe "AAAA-MM-GG" del periodo, ma la
+          // colonna è un DateTime: passarle così fa fallire tutta la sync con
+          // «premature end of input» (succeduto in produzione l'11/09, 500 sul
+          // giro intero DOPO che gli ad set erano già stati salvati). Si
+          // convertono a mezzanotte UTC, come fa salvaMetricheAdSetMeta.
+          dal: new Date(`${dal}T00:00:00.000Z`),
+          al: new Date(`${al}T00:00:00.000Z`),
           esito: adset.errore || metricheAdSet.errore ? "parziale" : "ok",
         },
       });
