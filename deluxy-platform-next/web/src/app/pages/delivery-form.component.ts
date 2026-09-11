@@ -2154,6 +2154,16 @@ export class DeliveryFormComponent implements AfterViewInit {
     ] as const) {
       if (d[key] != null) (m as Record<string, unknown>)[key] = !!d[key];
     }
+    /**
+     * ⚠️ 11/09/2026 (segnalazione utente: «ho modificato il luogo ma mi rimane salvato il precedente»).
+     * Il luogo già salvato appartiene all'INDIRIZZO già salvato: è un riempimento automatico di prima, non
+     * una scelta fatta a mano adesso. Se non lo si dichiara qui, cambiando indirizzo il modulo lo tratta
+     * come scritto dall'utente e si tiene «Excelsior Hotel Gallia» su una via dall'altra parte di Milano.
+     * Dichiarandolo, il posto nuovo lo sostituisce — e se poi qualcuno lo corregge a mano, quella
+     * correzione resta, perché da quel momento il valore non combacia più con l'ultimo automatico.
+     */
+    this.ultimoLuogoAuto = (d['recipientPlace'] as string | null | undefined)?.trim() || null;
+
     // La paga che gli stipendi ricaverebbero dal listino, se quella scritta manca.
     this.pagaDaListino.set((d['valetSalaryDalListino'] as number | null | undefined) ?? null);
     for (const key of ['paymentAmount', 'price', 'additionalPrice', 'ruleAdjustment', 'deliveryPrice', 'valetSalary', 'valetAdditionalPrice', 'hours'] as const) {

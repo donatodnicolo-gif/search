@@ -114,6 +114,31 @@ const DELIVERY_LIST_SELECT = {
 } as const;
 
 /**
+ * ⭐ 11/09/2026 (regola utente: «l'export deve essere delle sole informazioni di base»).
+ *
+ * L'ESTRAZIONE HA UNA SELEZIONE SUA, più corta di quella dell'elenco: niente regole di listino,
+ * consegne collegate, token di tracciamento, orari tecnici, chilometri. Un foglio si apre per leggere
+ * chi, dove, quando e quanto — il resto è roba dell'applicazione, e su ventimila righe è peso inutile.
+ *
+ * ⚠️ `serviceType.hideCustomerInfo` e `deliveredByPartner` NON sono decorazione: la mascheratura dei dati
+ * del cliente li legge per decidere cosa togliere al partner. Toglierli dalla selezione non svuoterebbe
+ * una colonna, spegnerebbe una protezione.
+ */
+const DELIVERY_EXPORT_SELECT = {
+  id: true, code: true, date: true, status: true,
+  deliveryTimeFrom: true, deliveryTimeTo: true, pickupTimeFrom: true, pickupTimeTo: true,
+  recipientFirstName: true, recipientLastName: true, recipientAddress: true, recipientPlace: true,
+  pickupAddress: true, ddtNumber: true, ddtBrand: true,
+  price: true, additionalPrice: true, billable: true, invoiced: true,
+  valetId: true, valetSalary: true, valetAdditionalPrice: true, payable: true,
+  deliveredByPartner: true,
+  partner: { select: { insegna: true } },
+  valet: { select: { firstName: true, lastName: true } },
+  serviceType: { select: { name: true, pricingModel: true, hideCustomerInfo: true } },
+  province: { select: { code: true } },
+} as const;
+
+/**
  * IL RITIRO E' NELLA CITTA' DI CONSEGNA — partner "locali" (25/08/2026).
  *
  * Per un partner come «Artista Locale» il fornitore sta, per definizione, dove
@@ -672,14 +697,13 @@ export class DeliveriesService {
     const righe: (string | number)[][] = [];
     let totale = 0;
     for (let pagina = 1; ; pagina++) {
-      const esito = (await this.findAll(user, { ...query, page: pagina, pageSize: PAGINA } as DeliveryListQueryDto, { leggero: true })) as any;
+      // 🔴 11/09/2026 (regola utente): SOLO LE INFORMAZIONI DI BASE. `leggero` toglie i calcoli che
+      // servono a schermo (margini, puntualità, aggancio delle vendite), `soloBase` toglie anche le
+      // colonne che il foglio non usa: si legge meno database e si scrive meno CSV.
+      const esito = (await this.findAll(user, { ...query, page: pagina, pageSize: PAGINA } as DeliveryListQueryDto, { leggero: true, soloBase: true })) as any;
       const items: any[] = esito.items ?? [];
       totale = esito.total ?? items.length;
       for (const d of items) {
-        const prodotti = (d.products ?? [])
-          .map((p: any) => `${p.product?.name ?? ""}${(p.quantity ?? 1) > 1 ? " ×" + p.quantity : ""}`)
-          .filter(Boolean)
-          .join(" + ");
         const base: (string | number)[] = [
           d.code ?? "",
           d.date ? new Date(d.date).toISOString().slice(0, 10) : "",
@@ -693,23 +717,23 @@ export class DeliveriesService {
           d.recipientPlace ?? "",
           d.province?.code ?? "",
           d.pickupAddress ?? "",
-          prodotti,
           d.ddtNumber ? `${d.ddtNumber}${d.ddtBrand ? " (" + d.ddtBrand + ")" : ""}` : "",
           d.price ?? "",
           d.additionalPrice ?? "",
           d.billable === false ? "no" : "sì",
           d.invoiced ? "sì" : "no",
         ];
-        // Le colonne dell'UFFICIO: chi porta la consegna, quanto gli va pagato, il margine. Al partner
-        // questi numeri non arrivano nemmeno dalla lista, e qui non compaiono.
+        // Le colonne dell'UFFICIO: chi porta la consegna, quanto gli va pagato. Al partner questi numeri
+        // non arrivano nemmeno dalla lista, e qui non compaiono.
+        // ⚠️ 11/09/2026: le colonne «Margine €» e «Margine %» sono state TOLTE. Uscivano sempre vuote:
+        // il margine lo calcola la Finanza, e l'estrazione non passa di lì dal giorno in cui è stata
+        // alleggerita. Una colonna che non si riempie mai è peggio di una colonna che non c'è.
         if (ufficio) {
           base.push(
             d.valet ? `${d.valet.lastName ?? ""} ${d.valet.firstName ?? ""}`.trim() : "",
-            d.valetSalary ?? d.valetSalaryDalListino ?? "",
+            d.valetSalary ?? "",
             d.valetAdditionalPrice ?? "",
             d.payable === false ? "no" : "sì",
-            d.margine ? d.margine.euro : "",
-            d.margine ? d.margine.percent : "",
           );
         }
         righe.push(base);
@@ -719,10 +743,10 @@ export class DeliveriesService {
     }
     const intestazioni = [
       "Consegna", "Data", "Orario consegna", "Orario ritiro", "Stato", "Servizio", "Partner",
-      "Destinatario", "Indirizzo", "Luogo", "Provincia", "Ritiro", "Prodotti", "DDT",
+      "Destinatario", "Indirizzo", "Luogo", "Provincia", "Ritiro", "DDT",
       "Prezzo", "Plus/minus", "Fatturabile", "Fatturata",
     ];
-    if (ufficio) intestazioni.push("Valet", "Paga valet", "Plus/minus valet", "Da pagare", "Margine €", "Margine %");
+    if (ufficio) intestazioni.push("Valet", "Paga valet", "Plus/minus valet", "Da pagare");
     return { intestazioni, righe, totale, troncato: righe.length >= TETTO && totale > TETTO };
   }
   /**
@@ -737,7 +761,7 @@ export class DeliveriesService {
      * senza i calcoli che servono solo a schermo: l'aggancio delle vendite, la puntualità e i margini della
      * Finanza. Con 72 righe l'estrazione restava appesa su «Preparo il file» per colpa di quelli.
      */
-    opzioni: { leggero?: boolean } = {},
+    opzioni: { leggero?: boolean; soloBase?: boolean } = {},
   ): Promise<PagedResult<unknown>> {
     const scope: any = { ...DeliveriesService.VIVE, ...(await this.filtroRuolo(user)) };
     if (query.status) scope.status = query.status;
@@ -828,7 +852,8 @@ export class DeliveriesService {
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.delivery.findMany({
         where,
-        select: DELIVERY_LIST_SELECT,
+        // 🔴 11/09/2026: l'estrazione chiede meno colonne dell'elenco (vedi DELIVERY_EXPORT_SELECT).
+        select: (opzioni.soloBase ? DELIVERY_EXPORT_SELECT : DELIVERY_LIST_SELECT) as typeof DELIVERY_LIST_SELECT,
         orderBy: this.ordinamento(query),
         skip,
         take,
