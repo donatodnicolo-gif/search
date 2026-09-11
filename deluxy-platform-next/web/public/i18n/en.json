@@ -1779,6 +1779,10 @@
       "auto": "auto",
       "luogo": "Hotel, office, hospital …"
     },
+    "quando": {
+      "oggi": "Today",
+      "domani": "Tomorrow"
+    },
     "hint": {
       "provinceDetected": "Province {{code}} → only enabled partners/valets are shown",
       "provinceUnknown": "Province not recognized: partners/valets not filtered by province.",
@@ -3656,6 +3660,11 @@
     "nascondiSotto": "Removes it from the list and leaves it in History: it can always be brought back."
   },
   "statPartner": {
+    "consegne": "deliveries in the period",
+    "precedente": "Previous period",
+    "annoPrima": "Year before",
+    "senzaConfronto": "Pick a period with a start and an end to see the comparison.",
+    "apriStatistiche": "Statistics",
     "dal": "From",
     "al": "To",
     "titolo": "Statistics",

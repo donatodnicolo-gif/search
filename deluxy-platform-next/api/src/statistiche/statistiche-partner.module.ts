@@ -36,6 +36,38 @@ const NON_FATTE = ['cancelled', 'cancelled_office', 'not_delivered', 'refused'];
 const GIORNI = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
 
 type Filtri = { da?: string; a?: string; serviceTypeId?: string; pricingModel?: string };
+type Intervallo = { da: string; a: string };
+
+const daIso = (s: string) => new Date(`${s}T00:00:00.000Z`);
+/** Il giorno DOPO quello indicato: gli intervalli si chiudono con «<», così il 31 entra tutto. */
+const dopoIso = (s: string) => { const d = daIso(s); d.setUTCDate(d.getUTCDate() + 1); return d; };
+const iso = (d: Date) => d.toISOString().slice(0, 10);
+
+/**
+ * I DUE TERMINI DI PARAGONE di un periodo (regola utente, 11/09/2026).
+ *
+ * - **precedente**: stessa lunghezza, finisce il giorno prima dell'inizio. Trenta giorni contro trenta,
+ *   mai un mese in corso contro un mese pieno.
+ * - **anno prima**: le stesse date dell'anno scorso. Per chi vende fiori o pasticceria la stagione conta
+ *   più del mese appena passato: Natale si confronta con Natale.
+ *
+ * Senza due estremi non esiste un «prima»: si torna null, e chi legge lo vede scritto invece di trovarsi
+ * accanto un numero inventato.
+ */
+function intervalliDiConfronto(da?: string, a?: string): { precedente: Intervallo | null; annoPrima: Intervallo | null } {
+  if (!da || !a) return { precedente: null, annoPrima: null };
+  const inizio = daIso(da);
+  const fine = daIso(a);
+  if (fine < inizio) return { precedente: null, annoPrima: null };
+  const giorni = Math.round((fine.getTime() - inizio.getTime()) / 86400000) + 1;
+  const finePrec = new Date(inizio); finePrec.setUTCDate(finePrec.getUTCDate() - 1);
+  const iniPrec = new Date(finePrec); iniPrec.setUTCDate(iniPrec.getUTCDate() - (giorni - 1));
+  const meno = (d: Date) => { const x = new Date(d); x.setUTCFullYear(x.getUTCFullYear() - 1); return x; };
+  return {
+    precedente: { da: iso(iniPrec), a: iso(finePrec) },
+    annoPrima: { da: iso(meno(inizio)), a: iso(meno(fine)) },
+  };
+}
 
 @Injectable()
 export class StatistichePartnerService {
@@ -91,25 +123,69 @@ export class StatistichePartnerService {
     const sql = this.periodoSql(f);
     const fatte = Prisma.sql`d."deletedAt" IS NULL AND d."status" NOT IN (${Prisma.join(NON_FATTE)})`;
 
-    // 1. TIPOLOGIA DI SERVIZI RICHIESTI — sempre: è la fotografia di cosa chiede questo partner.
-    const perServizio = await this.prisma.delivery.groupBy({
-      by: ['serviceTypeId'],
-      where: dove,
-      _count: { _all: true },
-    });
-    const tipi = await this.prisma.serviceType.findMany({
-      where: { id: { in: perServizio.map((r) => r.serviceTypeId).filter(Boolean) as string[] } },
-      select: { id: true, name: true, pricingModel: true },
-    });
-    const nomeTipo = new Map(tipi.map((t) => [t.id, t]));
+    /**
+     * ⭐ 11/09/2026 (regola utente): IL CONFRONTO COL PERIODO PRECEDENTE E CON L'ANNO PRIMA.
+     *
+     * «120 consegne» non dice niente da solo: dice qualcosa quando accanto c'è «erano 95». I due termini
+     * di paragone sono quelli che si usano in azienda — il periodo appena passato (come sta andando adesso)
+     * e le stesse date dell'anno scorso (come va rispetto alla stagione, che per i fiori e la pasticceria
+     * conta più del mese precedente).
+     *
+     * ⚠️ Il confronto esiste solo se il periodo ha DUE ESTREMI. Su «Sempre» non c'è un «prima» con cui
+     * fare i conti, e inventarne uno sarebbe peggio che non darlo: i riquadri lo dicono e basta.
+     * ⚠️ Il periodo precedente ha la STESSA LUNGHEZZA e finisce il giorno prima dell'inizio: trenta giorni
+     * contro trenta. Confrontare un mese in corso con un mese pieno è il modo classico di leggere un calo
+     * che non esiste.
+     */
+    const confronti = intervalliDiConfronto(f.da, f.a);
+
+    // 1. TIPOLOGIA DI SERVIZI RICHIESTI, COI TRE PERIODI IN UNA QUERY SOLA.
+    //    I tre conteggi si fanno con le somme condizionate, non con tre giri sul database: le righe da
+    //    leggere sono le stesse, e leggerle tre volte costerebbe tre volte.
+    const finestra = (iv: Intervallo | null) =>
+      iv ? Prisma.sql`(d."date" >= ${daIso(iv.da)} AND d."date" < ${dopoIso(iv.a)})` : Prisma.sql`FALSE`;
+    const corrente = f.da || f.a
+      ? Prisma.sql`(${f.da ? Prisma.sql`d."date" >= ${daIso(f.da)}` : Prisma.sql`TRUE`} AND ${f.a ? Prisma.sql`d."date" < ${dopoIso(f.a)}` : Prisma.sql`TRUE`})`
+      : Prisma.sql`TRUE`;
+    const perServizio = await this.prisma.$queryRaw<
+      { sid: string | null; nome: string | null; modello: string | null; n: bigint; nprec: bigint; nanno: bigint; vend: number | null; vprec: number | null; vanno: number | null }[]
+    >(Prisma.sql`
+      SELECT d."serviceTypeId" AS sid, s."name" AS nome, s."pricingModel" AS modello,
+             SUM(CASE WHEN ${corrente} THEN 1 ELSE 0 END)::bigint AS n,
+             SUM(CASE WHEN ${finestra(confronti.precedente)} THEN 1 ELSE 0 END)::bigint AS nprec,
+             SUM(CASE WHEN ${finestra(confronti.annoPrima)} THEN 1 ELSE 0 END)::bigint AS nanno,
+             SUM(CASE WHEN ${corrente} AND s."pricingModel" = 'VENDITA' THEN COALESCE(d."productValue", 0) ELSE 0 END)::float AS vend,
+             SUM(CASE WHEN ${finestra(confronti.precedente)} AND s."pricingModel" = 'VENDITA' THEN COALESCE(d."productValue", 0) ELSE 0 END)::float AS vprec,
+             SUM(CASE WHEN ${finestra(confronti.annoPrima)} AND s."pricingModel" = 'VENDITA' THEN COALESCE(d."productValue", 0) ELSE 0 END)::float AS vanno
+      FROM platform."Delivery" d
+      LEFT JOIN platform."ServiceType" s ON s."id" = d."serviceTypeId"
+      WHERE d."partnerId" = ${partnerId} AND ${fatte}
+        AND (${corrente} OR ${finestra(confronti.precedente)} OR ${finestra(confronti.annoPrima)})
+        ${f.serviceTypeId ? Prisma.sql`AND d."serviceTypeId" = ${f.serviceTypeId}` : Prisma.empty}
+        ${f.pricingModel ? Prisma.sql`AND s."pricingModel" = ${f.pricingModel}` : Prisma.empty}
+      GROUP BY 1, 2, 3
+    `);
     const servizi = perServizio
       .map((r) => ({
-        nome: nomeTipo.get(r.serviceTypeId ?? '')?.name ?? 'senza servizio',
-        pricingModel: nomeTipo.get(r.serviceTypeId ?? '')?.pricingModel ?? null,
-        quantita: r._count._all,
+        nome: r.nome ?? 'senza servizio',
+        pricingModel: r.modello ?? null,
+        quantita: Number(r.n),
+        precedente: confronti.precedente ? Number(r.nprec) : null,
+        annoPrima: confronti.annoPrima ? Number(r.nanno) : null,
       }))
+      .filter((r) => r.quantita > 0 || (r.precedente ?? 0) > 0 || (r.annoPrima ?? 0) > 0)
       .sort((a, b) => b.quantita - a.quantita);
-    const totale = servizi.reduce((s, r) => s + r.quantita, 0);
+    const somma = (prendi: (r: (typeof perServizio)[number]) => number) => perServizio.reduce((s, r) => s + prendi(r), 0);
+    const totale = somma((r) => Number(r.n));
+    const confronto = {
+      precedente: confronti.precedente
+        ? { ...confronti.precedente, totale: somma((r) => Number(r.nprec)), venduto: somma((r) => r.vprec ?? 0) }
+        : null,
+      annoPrima: confronti.annoPrima
+        ? { ...confronti.annoPrima, totale: somma((r) => Number(r.nanno)), venduto: somma((r) => r.vanno ?? 0) }
+        : null,
+      venduto: somma((r) => r.vend ?? 0),
+    };
 
     const vuoto: never[] = [];
 
@@ -244,6 +320,7 @@ export class StatistichePartnerService {
       periodo: { da: f.da ?? null, a: f.a ?? null },
       mostra: { consegna: haConsegna, ora: haOra, vendita: haVendita },
       totale,
+      confronto,
       servizi,
       fasce,
       giorni,

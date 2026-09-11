@@ -1781,6 +1781,10 @@
       "auto": "auto",
       "luogo": "Hotel, ufficio, ospedale …"
     },
+    "quando": {
+      "oggi": "Oggi",
+      "domani": "Domani"
+    },
     "hint": {
       "provinceDetected": "Provincia {{code}} → mostrati solo partner/valet abilitati",
       "provinceUnknown": "Provincia non riconosciuta: partner/valet non filtrati per provincia.",
@@ -3658,6 +3662,11 @@
     "nascondiSotto": "La toglie dall'elenco e la lascia in Storico: si può sempre rimettere."
   },
   "statPartner": {
+    "consegne": "consegne nel periodo",
+    "precedente": "Periodo precedente",
+    "annoPrima": "Anno prima",
+    "senzaConfronto": "Scegli un periodo con inizio e fine per vedere il confronto.",
+    "apriStatistiche": "Statistiche",
     "dal": "Dal",
     "al": "Al",
     "titolo": "Statistiche",

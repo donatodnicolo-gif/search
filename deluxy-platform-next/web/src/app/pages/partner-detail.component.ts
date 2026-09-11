@@ -112,7 +112,11 @@ const WEEK_DAYS: { dayOfWeek: number; key: string }[] = [
             @if (canSeeCalendar()) {
               <a class="btn btn-secondary" [routerLink]="['/calendar']" [queryParams]="{ partnerId: p.id }">{{ 'nav.calendario' | translate }}</a>
             }
+            <!-- ⭐ 11/09/2026 (regola utente): «consenti a ufficio di vedere queste statistiche da pagina
+                 del partner». Sono le STESSE che vede il partner, non una versione d'ufficio: quando
+                 chiama e chiede «in quali hotel vado di più», si guarda la sua stessa pagina. -->
             @if (canEdit()) {
+              <a class="btn btn-secondary" [routerLink]="['/statistiche-partner']" [queryParams]="{ partnerId: p.id }">{{ 'statPartner.apriStatistiche' | translate }}</a>
               <a class="btn btn-secondary" [routerLink]="['/partners', p.id, 'edit']">{{ 'common.edit' | translate }}</a>
             }
             <!-- ⭐ 09/09/2026 (regola utente): DISATTIVA — «lo lascia tra quelli

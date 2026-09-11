@@ -146,6 +146,19 @@ interface ProductRow {
         <div class="grid-2">
           <label class="fld"><span class="req">{{ 'deliveryForm.field.date' | translate }}</span>
             <input class="field" type="date" name="date" [(ngModel)]="model.date" [min]="deliveryMinDate()" required />
+            <!-- ⭐ 11/09/2026 (regola utente): OGGI e DOMANI sotto la data. Quasi tutte le consegne sono
+                 per oggi o per domani, e prenderle dal calendarietto è tre clic per una cosa che si sa.
+                 ⚠️ Se il servizio ha un preavviso, il giorno che cade prima del minimo non si offre:
+                 un bottone che scrive una data rifiutata dal modulo è peggio che non averlo. -->
+            <span class="scorciatoie-data">
+              @for (s of SCORCIATOIE_DATA; track s.chiave) {
+                @if (dataAmmessa(s.giorni)) {
+                  <button type="button" class="scorciatoia" [class.scelta]="model.date === dataFra(s.giorni)" (click)="scegliData(s.giorni)">
+                    {{ 'deliveryForm.quando.' + s.chiave | translate }}
+                  </button>
+                }
+              }
+            </span>
             @if (selectedService()?.noticeDays) { <span class="slot-hint">{{ 'deliveryForm.hint.notice' | translate:{ days: selectedService()?.noticeDays, date: deliveryMinDate() } }}</span> }
           </label>
           <label class="fld"><span class="req">{{ 'deliveryForm.field.recipientAddress' | translate }}</span>
@@ -730,6 +743,12 @@ interface ProductRow {
       .mt2 { margin-top: 20px; }
       .stock-hint { display: inline-block; font-size: 12.5px; color: var(--text-secondary); margin: 2px 0 6px; }
       .stock-hint.ko { color: var(--red); font-weight: 600; }
+      /* ⭐ 11/09/2026: «Oggi» e «Domani» sotto la data — piccole, discrete, a portata di pollice. */
+      .scorciatoie-data { display: flex; gap: 10px; margin-top: 5px; }
+      .scorciatoia { border: 0; background: none; padding: 2px 0; cursor: pointer; font-size: 12.5px;
+        color: var(--text-secondary); text-decoration: underline; text-underline-offset: 3px; }
+      .scorciatoia:hover { color: var(--text); }
+      .scorciatoia.scelta { color: var(--text); font-weight: 600; text-decoration: none; }
       .slot-hint { margin-top: 6px; font-size: 12.5px; color: var(--gold-strong); font-weight: 550; }
       .listino-live { margin: 0 0 12px; font-size: 13px; font-weight: 550; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
       .luogo-scelto { display: block; margin-top: 5px; font-size: 13px; color: var(--text-secondary); }
@@ -1654,6 +1673,36 @@ export class DeliveryFormComponent implements AfterViewInit {
   readonly deliverySlots = signal<{ from: string; to: string }[]>([]);
   /** Data minima consegna = oggi + giorni preavviso del servizio (YYYY-MM-DD). */
   readonly deliveryMinDate = signal<string>('');
+
+  /**
+   * ⭐ 11/09/2026 (regola utente): «nella scelta della data metti sotto in piccolo cliccabile OGGI
+   * DOMANI, che riempie con oggi o domani la data».
+   *
+   * ⚠️ La data si costruisce sull'ora LOCALE, non con `toISOString()`: a Roma, dopo le due di notte
+   * d'estate, l'ISO in UTC è ancora il giorno prima e «Oggi» scriverebbe ieri.
+   */
+  readonly SCORCIATOIE_DATA = [
+    { chiave: 'oggi', giorni: 0 },
+    { chiave: 'domani', giorni: 1 },
+  ] as const;
+
+  dataFra(giorni: number): string {
+    const d = new Date();
+    d.setDate(d.getDate() + giorni);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
+
+  /** Un giorno si offre solo se il preavviso del servizio lo permette. */
+  dataAmmessa(giorni: number): boolean {
+    const min = this.deliveryMinDate();
+    return !min || this.dataFra(giorni) >= min;
+  }
+
+  scegliData(giorni: number): void {
+    // Si scrive nel modello, esattamente come farebbe il calendario: il resto del modulo reagisce da sé.
+    this.model.date = this.dataFra(giorni);
+  }
 
   readonly slotHours = computed(() => {
     const h = this.selectedService()?.slotHours;
