@@ -245,10 +245,19 @@ export function campiDaPiattaforma(
   };
 }
 
-/** Viene dalla piattaforma consegne? (l'origine la scrive chi manda). */
+/**
+ * Viene dalla piattaforma consegne? (l'origine la scrive chi manda).
+ *
+ * ⚠️ 11/09/2026 — **«partner» ci voleva.** «Torta Damiano», il primo prodotto
+ * vero arrivato da un partner (Chanel Test, 09:26), porta `origine: "partner"`,
+ * non `platform`: con l'elenco di prima sarebbe finita in «prototipo» invece
+ * che in attesa di approvazione, cioè fuori dalla coda che questa funzione
+ * esiste per riempire. Un elenco di parole chiave si controlla su un dato vero,
+ * non sul nome che ci si aspetta.
+ */
 export function daPiattaforma(origine: string | null | undefined): boolean {
-  const o = (origine ?? "").toLowerCase();
-  return o === "platform" || o === "piattaforma" || o === "app-delivery" || o === "delivery";
+  const o = (origine ?? "").toLowerCase().trim();
+  return ["platform", "piattaforma", "partner", "app-delivery", "delivery", "consegne"].includes(o);
 }
 
 /**

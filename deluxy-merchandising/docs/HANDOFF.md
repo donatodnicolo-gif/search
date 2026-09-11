@@ -86,6 +86,34 @@ manca: il prezzo pubblico… · manca la categoria…», e **anche il tasto rapi
 «⚠️ Piattaforma consegne non configurata: approvato qui, non comunicato».
 Prodotto e chiave di prova cancellati (0 rimasti).
 
+### «Torta Damiano»: il primo prodotto vero, e il buco che ha trovato
+Il prodotto caricato da **Chanel Test** alle 09:26 (`DXY-23281`) è arrivato con
+la rotta di stamattina e **porta `origine: "partner"`**, non `platform`: la mia
+`daPiattaforma()` non la riconosceva e il prodotto sarebbe finito in
+«prototipo», cioè **fuori dalla coda che questa fase esiste per riempire**.
+Corretto: l'elenco ora è platform · piattaforma · partner · app-delivery ·
+delivery · consegne. Un elenco di parole chiave si controlla su un dato vero.
+
+Sistemato con le regole di oggi (senza inventare quello che non abbiamo):
+fase **attesa_approvazione**, categoria **TORTE_DOLCI** (era «Torte (2)», il nome
+grezzo della categoria di là), classificazione **unico**, partner **Chanel Test**
+letto dalla nota, **SEO scritta dalle regole**. Restano vuoti prezzo pubblico,
+plus e varianti: quei dati stanno nell'app delivery e non li manda nessuno.
+Verificato a schermo: badge «Attesa approvazione», riquadro con l'insegna del
+partner, blocco «manca il prezzo pubblico» e link al modulo.
+
+⚠️ Nel catalogo altri **2 prodotti** hanno una categoria che non è una nostra
+chiave («Gastronomia»), stessa origine: col codice nuovo non succede più.
+
+### Un difetto vecchio trovato guardando la scheda
+Il badge della categoria mostrava la **chiave grezza** («TORTE_DOLCI») perché
+`etichettaCategoria()` legge la mappa di `dominio.ts`, che è la tassonomia
+vecchia e delle categorie di oggi non sa niente: **506 schede TORTE_DOLCI, 300
+FIORI, 137 VINI_SPIRITS**. È lo stesso guasto chiuso il 10/09 dentro la
+descrizione del cliente, rimasto qui. Ora il badge legge il nome dalla tabella.
+⚠️ `etichettaCategoria()` resta usata in anagrafica, elenco prodotti e CSV: lì
+il difetto è ancora vivo.
+
 ### 🔴 Restano fuori (lato piattaforma, altra cartella e altra sessione)
 1. allargare `inviaOra` ai campi che ha già (diff pronto nel documento);
 2. aprire `POST /api/v1/app/prodotti/:id/approvato`.

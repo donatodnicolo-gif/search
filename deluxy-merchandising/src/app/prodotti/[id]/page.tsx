@@ -161,7 +161,17 @@ export default async function ProdottoPage({
             </div>
             <div className="prodotto-badges">
               <Badge testo={ETICHETTA_FASE[prodotto.fase]} colore={COLORE_FASE[prodotto.fase]} />
-              <Badge testo={etichettaCategoria(prodotto.categoria)} colore="var(--text-tertiary)" />
+              {/* ⚠️ 11/09/2026 — il nome della categoria si legge dalla TABELLA, non
+                  dalla mappa `ETICHETTA_CATEGORIA` di `dominio.ts`: quella è la
+                  tassonomia vecchia (BOUQUET, PIANTA, HOME_FRAGRANCE) e delle
+                  categorie di oggi non sa niente — sul badge usciva la chiave
+                  grezza «TORTE_DOLCI», su 506 schede. È lo stesso guasto che il
+                  10/09 era stato chiuso nella descrizione del cliente e qui era
+                  rimasto. */}
+              <Badge
+                testo={categorieVere.find((c) => c.chiave === prodotto.categoria)?.nome ?? etichettaCategoria(prodotto.categoria)}
+                colore="var(--text-tertiary)"
+              />
               <Badge testo={ETICHETTA_SHOPIFY[prodotto.shopifyStato]} colore={COLORE_SHOPIFY[prodotto.shopifyStato]} />
               {/* ⭐ 07/09/2026: su QUALI negozi sta, uno per uno (dal modulo o dall'import). */}
               {prodotto.pubblicazioni
