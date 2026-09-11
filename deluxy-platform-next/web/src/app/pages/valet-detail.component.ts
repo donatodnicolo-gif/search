@@ -183,6 +183,8 @@ interface ValetDetail {
           <section class="card block span-2">
             <h2>{{ 'valetForm.sections.services' | translate }}</h2>
             @if (v.services?.length) {
+              <!-- ⭐ 11/09/2026: la tabella delle tariffe scorre dentro la scheda invece di allargarla. -->
+              <div class="tab-scorre">
               <table class="mini">
                 <thead><tr>
                   <th>{{ 'services.col.name' | translate }}</th>
@@ -201,6 +203,7 @@ interface ValetDetail {
                   }
                 </tbody>
               </table>
+              </div>
             } @else { <p class="muted">{{ 'valetForm.servicesEmpty' | translate }}</p> }
             <dl class="mt">
               <dt>{{ 'valetForm.fields.minimumKmIncluded' | translate }}</dt>
@@ -292,7 +295,9 @@ interface ValetDetail {
       .chips { display: flex; flex-wrap: wrap; gap: 8px; }
       .chip { border: 1px solid var(--hairline-strong); border-radius: 980px; padding: 4px 12px; font-size: 12.5px; }
       .chip.excl { background: rgba(215,0,21,0.09); color: var(--red); border-color: rgba(215,0,21,0.22); }
+      .tab-scorre { overflow-x: auto; }
       table.mini { width: 100%; border-collapse: collapse; font-size: 13px; }
+      table.mini th.num, table.mini td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
       table.mini th, table.mini td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--hairline); }
       table.mini th { color: var(--text-tertiary); font-weight: 500; font-size: 12px; }
       .num { text-align: right; }
@@ -301,6 +306,15 @@ interface ValetDetail {
       .state-card { padding: 32px; color: var(--text-secondary); }
       .state-card.err { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); color: var(--red); }
       @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+      /* ⭐ 11/09/2026: sul telefono etichetta e valore si impilano, invece di stringersi in due colonne strette. */
+      @media (max-width: 560px) {
+        dl { grid-template-columns: 1fr; gap: 2px 0; }
+        dt { margin-top: 8px; }
+        .block { padding: 16px 16px; }
+        .title-row { padding-right: 0; flex-wrap: wrap; }
+        h1 { font-size: 26px; }
+        .edit { margin-left: 0; }
+      }
     `,
   ],
 })
