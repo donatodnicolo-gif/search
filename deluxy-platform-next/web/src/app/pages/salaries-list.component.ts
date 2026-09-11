@@ -344,6 +344,12 @@ const NEXT: Record<string, { next: string; key: string }> = {
                       {{ 'salaries.pending.ricevuta' | translate }}
                     </button>
                   }
+                  <!-- ⭐ 11/09/2026 (regola utente): anticipo o extra si chiedono anche da qui, senza aprire la scheda del valet. -->
+                  @if (canManage()) {
+                    <button class="link-btn" (click)="apriRichiesta(r.valetId, r.valet.firstName + ' ' + r.valet.lastName)">
+                      {{ 'valetDetail.pagamento.bottone' | translate }}
+                    </button>
+                  }
                   @if (canManage()) {
                     <button class="link-btn" [disabled]="recapInCorso() === r.valetId" (click)="inviaRecap(r)">
                       {{ (recapInCorso() === r.valetId ? 'common.saving' : 'salaries.pending.sendRecap') | translate }}
@@ -625,6 +631,47 @@ const NEXT: Record<string, { next: string; key: string }> = {
                     [conMotivo]="c.conMotivo ?? false" [motivoLabel]="c.motivoLabel ?? ''"
                     (confermato)="eseguiConferma($event)" (annullato)="confermaPendente.set(null)" />
     }
+    <!-- ⭐ 11/09/2026 (regola utente): LA RICHIESTA DI ANTICIPO O EXTRA, dalla pagina Stipendi. Stessa rotta
+         e stesse regole della scheda valet (POST /valets/:id/richiesta-pagamento): l'anticipo si scala dai
+         prossimi stipendi, l'extra no, e la richiesta va a Deluxy Transactions, dove una persona autorizza
+         il bonifico. L'IBAN si legge PRIMA di chiedere: senza, non si invia. -->
+    @if (richiestaPer(); as chi) {
+      <div class="overlay" (click)="chiudiRichiesta()"></div>
+      <div class="dialog card" role="dialog" aria-modal="true">
+        <header class="dialog-head">
+          <h2>{{ 'valetDetail.pagamento.titolo' | translate }}</h2>
+          <button type="button" class="modal-close" (click)="chiudiRichiesta()" [attr.aria-label]="'common.close' | translate">×</button>
+        </header>
+        <p class="muted">{{ 'valetDetail.pagamento.a' | translate: { nome: chi.nome } }}</p>
+        @if (ibanValet()) {
+          <p class="muted mono">{{ 'valetForm.fields.iban' | translate }}: {{ ibanValet() }}</p>
+        } @else {
+          <p class="err-line">{{ 'valetDetail.pagamento.senzaIban' | translate }}</p>
+        }
+        <label class="fld"><span>{{ 'valetDetail.pagamento.tipo' | translate }}</span>
+          <select class="field" [(ngModel)]="tipoRichiesta" name="tipoRichiestaStip">
+            <option value="ADVANCE">{{ 'valetDetail.pagamento.tipoAnticipo' | translate }}</option>
+            <option value="PAYOUT">{{ 'valetDetail.pagamento.tipoExtra' | translate }}</option>
+          </select>
+        </label>
+        <label class="fld"><span>{{ 'valetDetail.pagamento.importo' | translate }}</span>
+          <input class="field" type="number" min="0.01" step="0.01" [(ngModel)]="importoRichiesta" name="importoRichiestaStip" />
+        </label>
+        <label class="fld"><span>{{ 'valetDetail.pagamento.causale' | translate }}</span>
+          <input class="field" type="text" maxlength="200" [(ngModel)]="causaleRichiesta" name="causaleRichiestaStip"
+                 [placeholder]="'valetDetail.pagamento.causalePh' | translate" />
+        </label>
+        <p class="muted piccolo">{{ 'valetDetail.pagamento.nota' | translate }}</p>
+        @if (esitoRichiesta(); as e) { <div class="esito-box" [class.ko]="!e.ok">{{ e.testo }}</div> }
+        <div class="dialog-foot">
+          <button type="button" class="btn btn-secondary" (click)="chiudiRichiesta()">{{ 'common.cancel' | translate }}</button>
+          <button type="button" class="btn btn-primary" [disabled]="!richiestaValida() || inviandoRichiesta()"
+                  (click)="inviaRichiesta(chi.id)">
+            {{ (inviandoRichiesta() ? 'valetDetail.pagamento.invio' : 'valetDetail.pagamento.invia') | translate }}
+          </button>
+        </div>
+      </div>
+    }
   `,
   styles: [
     `
@@ -689,6 +736,25 @@ const NEXT: Record<string, { next: string; key: string }> = {
       .dettaglio-storico > td { background: var(--bg-secondary, #f6f6f7); padding: 10px 14px 14px; }
       .dettaglio-storico .riga-periodo { margin: 0 0 8px; font-size: 13px; }
       .dettaglio-storico .table.sotto { font-size: 13px; }
+      /* ⭐ 11/09/2026: la finestra della richiesta di anticipo/extra (Libro UX&UI §9, come nella scheda valet). */
+      .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.28); z-index: 50; }
+      .dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 51;
+        width: min(440px, 92vw); max-height: min(92dvh, calc(100dvh - 40px)); overflow-y: auto; padding: 0 26px 22px; }
+      .dialog-head { position: sticky; top: 0; z-index: 2; background: var(--surface); display: flex; align-items: center;
+        justify-content: space-between; gap: 10px; padding: 20px 0 10px; margin: 0 0 6px; border-bottom: 1px solid var(--hairline); }
+      .dialog h2 { margin: 0; font-size: 18px; font-weight: 600; }
+      .modal-close { border: 0; background: transparent; font-size: 22px; line-height: 1; color: var(--text-tertiary);
+        cursor: pointer; padding: 2px 8px; border-radius: 999px; }
+      .modal-close:hover { background: var(--fill); color: var(--text); }
+      .dialog-foot { position: sticky; bottom: 0; background: var(--surface); display: flex; justify-content: flex-end;
+        gap: 10px; padding: 14px 0 0; margin-top: 16px; border-top: 1px solid var(--hairline); }
+      .dialog .fld { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; font-size: 13px; color: var(--text-secondary); }
+      .dialog .piccolo { font-size: 12px; margin-top: 10px; }
+      .dialog .mono { font-variant-numeric: tabular-nums; }
+      .err-line { color: var(--red, #d70015); font-size: 13px; margin: 6px 0 0; }
+      .esito-box { margin-top: 14px; padding: 10px 12px; border-radius: 10px; font-size: 13px;
+        background: rgba(36,138,61,0.10); color: var(--green, #248a3d); }
+      .esito-box.ko { background: rgba(215,0,21,0.08); color: var(--red, #d70015); }
       .scomposto-plus { display: block; font-size: 11.5px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
       .pill-si, .pill-no { display: inline-flex; border-radius: 980px; padding: 2px 9px; font-size: 11.5px; font-weight: 600; }
       .pill-si { background: rgba(36,138,61,.12); color: #1a7f37; }
@@ -751,6 +817,58 @@ export class SalariesListComponent {
 
   idStipendio(r: { salaryId?: string | null; salary?: { id: string } | null }): string | null {
     return r.salaryId ?? r.salary?.id ?? null;
+  }
+
+  /**
+   * ⭐ 11/09/2026 (regola utente): ANTICIPO O EXTRA anche da qui. Stessa rotta della scheda valet, e
+   * stesse due regole: l'importo sta fra 0,01 e 5.000 €, la causale è obbligatoria (dopo, guardando una
+   * riga di pagamento, nessuno saprebbe più dire perché), e senza IBAN non si chiede — quei soldi devono
+   * pur arrivare da qualche parte. L'IBAN si legge alla scheda del valet quando la finestra si apre.
+   */
+  readonly richiestaPer = signal<{ id: string; nome: string } | null>(null);
+  readonly ibanValet = signal<string | null>(null);
+  readonly inviandoRichiesta = signal(false);
+  readonly esitoRichiesta = signal<{ ok: boolean; testo: string } | null>(null);
+  tipoRichiesta: 'ADVANCE' | 'PAYOUT' = 'ADVANCE';
+  importoRichiesta: number | null = null;
+  causaleRichiesta = '';
+
+  apriRichiesta(valetId: string, nome: string): void {
+    this.richiestaPer.set({ id: valetId, nome });
+    this.ibanValet.set(null);
+    this.esitoRichiesta.set(null);
+    this.importoRichiesta = null;
+    this.causaleRichiesta = '';
+    this.tipoRichiesta = 'ADVANCE';
+    this.http.get<{ iban?: string | null }>(`${environment.apiUrl}/valets/${valetId}`).subscribe({
+      next: (v) => this.ibanValet.set(v?.iban ?? null),
+      error: () => this.ibanValet.set(null),
+    });
+  }
+  chiudiRichiesta(): void { this.richiestaPer.set(null); }
+  richiestaValida(): boolean {
+    const i = Number(this.importoRichiesta);
+    return Number.isFinite(i) && i > 0 && i <= 5000 && !!this.causaleRichiesta.trim() && !!this.ibanValet();
+  }
+  inviaRichiesta(valetId: string): void {
+    if (!this.richiestaValida() || this.inviandoRichiesta()) return;
+    this.inviandoRichiesta.set(true);
+    this.esitoRichiesta.set(null);
+    this.http.post<{ amount?: number }>(`${environment.apiUrl}/valets/${valetId}/richiesta-pagamento`,
+      { amount: Number(this.importoRichiesta), description: this.causaleRichiesta.trim(), type: this.tipoRichiesta },
+    ).subscribe({
+      next: (p) => {
+        this.inviandoRichiesta.set(false);
+        this.esitoRichiesta.set({ ok: true, testo: this.translate.instant('valetDetail.pagamento.inviata', { importo: (p?.amount ?? Number(this.importoRichiesta)).toFixed(2) }) });
+        // Partita: i campi si svuotano, così un secondo click distratto non chiede due volte lo stesso denaro.
+        this.importoRichiesta = null;
+        this.causaleRichiesta = '';
+      },
+      error: (err) => {
+        this.inviandoRichiesta.set(false);
+        this.esitoRichiesta.set({ ok: false, testo: err?.error?.message ?? this.translate.instant('valetDetail.pagamento.errore') });
+      },
+    });
   }
 
   /** ⭐ 11/09: i plus/minus di una riga di stipendio: quello scritto sulla consegna più quello della regola. */
