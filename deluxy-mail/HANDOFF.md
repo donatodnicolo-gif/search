@@ -23,6 +23,82 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 11/09 — «L'app manda da TUTTE le caselle configurate?» — censimento
+
+Domanda dell'utente. Due risposte diverse, e vanno tenute separate.
+
+**Per disegno: sì, ma solo le TUE.** `actions.ts:2195` (e i gemelli per risposta e nuova mail)
+costruisce la tendina «Da» con `db.account.findMany({ where: { utenteId, attivo: true } })` —
+tutte le caselle **attive dell'utente che scrive**, non tutte quelle dell'azienda. Nicolò ne ha
+quattro (`nicolo.donato@`, `amministrazione@`, `cs@`, `commerciale@`); gli altri una a testa.
+Oggi: **11 utenti, 15 `Account`, tutti attivi, su 13 indirizzi** (`amministrazione@` e `cs@` sono
+configurate da due persone ciascuna).
+
+**Nei fatti: 9 caselle su 13 hanno mandato almeno una volta dall'app, 4 MAI.** Come l'ho
+distinto: le mail partite dall'app hanno un `Message-ID` generato da MailComposer, cioè un UUID
+(`<8-4-4-4-12@dominio>`); quelle scaricate dalla cartella Inviata perché mandate da webmail o
+telefono hanno la forma del provider. Controprova sulla mail che l'utente ha mandato dall'app
+l'08/09: `<e3aef109-b3ed-b9af-03ae-f0e098682df6@deluxy.it>` ✓.
+
+| casella | utente/i | dall'app | ultima dall'app |
+|---|---|---|---|
+| amministrazione@ | Renato + Nicolò | **2.167** | 11/09 09:14 |
+| nicolo.donato@ | Nicolò | 178 | 11/09 09:15 |
+| cs@ | Nicolò + Customer Service | 47 | 11/09 09:14 |
+| commerciale@ | Nicolò | 22 | 24/08 10:59 |
+| renato.cassoli@ | Renato | 10 | 08/09 13:28 |
+| eva.ascenzi@ | Eva | 3 | 08/09 17:55 |
+| eleonora.mannini@ | Eleonora | 1 | 24/08 15:26 |
+| luca.salso@ | Luca | 1 | 10/09 09:38 |
+| michela.avantaggiato@ | Michela | 1 | 08/09 12:59 |
+| **martina.calia@** | Martina | **0** | mai (494 uscite, tutte da fuori; ultima 08/09) |
+| **edoardo.lupacchini@** | Edoardo | **0** | mai (290 uscite da fuori; ultima 29/07) |
+| **emma.gariboldi@** | Emma | **0** | mai (4 uscite da fuori; ultima 30/07) |
+| 🔴 **info@deluxyflowers.com** | Customer Service | **0** | mai — e **zero uscite in assoluto** |
+
+⚠️ **Quello che NON ho potuto verificare, e va detto**: non ho provato l'SMTP di nessuna casella.
+Le password stanno nel database cifrate con l'`APP_SECRET` di **produzione**, e quello del `.env`
+locale è un altro (`decifra` → «unable to authenticate data»): da qui non si decifrano e non si
+può fare nemmeno un `verify()` senza inviare. Quindi «non ha mai mandato dall'app» **non
+significa «non funziona»**: significa che nessuno l'ha mai provato. Per le quattro caselle in
+fondo alla tabella non esiste una prova né in un senso né nell'altro.
+
+🔴 **`info@deluxyflowers.com` è l'unica sospetta per davvero**: ha `ultimoErrore: "Command
+failed"` (lato IMAP) e **zero mail in uscita di qualunque origine**. Due indizi che puntano
+nella stessa direzione; l'SMTP però resta non provato. Da guardare: SMTP
+`authsmtp.securemail.pro` mentre il dominio è `deluxyflowers.com`, e quel dominio ha **due record
+SPF** (vedi la tappa del 09/09) — se l'invio da lì non funzionasse, l'SPF rotto sarebbe il primo
+indiziato.
+
+### 11/09 (09:10) — ✅ LA MISURA DOPO DEI PALLINI: −94% per chiamata
+
+A 21 ore dal deploy `akd6nj5bn`, letta su `pg_stat_statements` **stampando il testo di ogni
+query prima di attribuirla** (dopo i due falsi positivi di ieri):
+
+| voce | chiamate | totale | media |
+|---|---|---|---|
+| VECCHIA `_count` (Sidebar) | **5.304 — ferme** | 4.853.998 ms | 915,16 ms |
+| NUOVA `groupBy` (Sidebar) | 177 | 9.912 ms | **56,00 ms** |
+
+La vecchia ha **zero chiamate nuove** rispetto a quelle congelate ieri: è morta, come doveva.
+**915,16 → 56,00 ms per chiamata = −94%.** In tempo assoluto sulle stesse 21 ore: dai ~330
+secondi che il vecchio ritmo avrebbe bruciato ai **9,9 secondi** misurati, ~33 volte meno.
+La query nuova è riconoscibile dal `WHERE "utenteId" = $1` dentro l'aggregazione: è esattamente
+il difetto che è stato tolto.
+
+⚠️ Il mio script l'aveva etichettata «altra query» (avevo indovinato male l'ordine dei campi che
+Prisma genera): **l'ho riconosciuta solo perché il testo era stampato accanto ai numeri.** Terza
+conferma in due giorni che il filtro con cui cerchi è già un'accusa.
+
+Resta una **seconda** voce `_count` su `Sezione` — 309 chiamate, media 26,95 ms — che è quella di
+`/sezioni` e `/impostazioni`: non toccate perché si aprono di rado, costo trascurabile, si lascia.
+
+✅ **Pulizia HTML, quarto giorno**: 5.504 chiamate / 15.284.128 ms → **+2 chiamate e +9 ms in 22
+ore**. Tiene.
+
+Stato: nessun'altra sessione ha toccato `deluxy-mail`; worktree allineato e pulito; produzione
+`akd6nj5bn`, health ok.
+
 ### 10/09 (12:07) — IN PRODUZIONE `51e1202e` (deploy `deluxy-mail-akd6nj5bn`, build nel cloud)
 
 Su via libera dell'utente. Alias `deluxy-mail.vercel.app` → questo deployment (`vercel inspect`),
