@@ -4,6 +4,24 @@
 >
 > Come le tre app trattano il capogruppo all'11/09: **piattaforma** = entità Capogruppo (nome, P.IVA, CF, SDI, PEC, email) + «chi paga»/«paga da sé» sul partner, dati di fatturazione del partner copiati dal capogruppo e bloccati, pagina Capogruppi, ogni cambio comunicato al registro; **Anagrafiche** = fonte di verità (Capogruppo con anche IBAN, banca, condizioni, amministrazione; `leggiFatturazione` sostituisce i dati fiscali nella risposta API quando `pagaDaSe=false`); **Finance** = legge dal registro e ora intesta al capogruppo; il «fatturato per gruppo» somma le aziende agganciate.
 
+> 🔎 **11/09/2026 — «SU ANAGRAFICHE È STATO CREATO EDENIA FIORI, COME MAI TU
+> NON LO VEDI?» — LO VEDEVA, LO NASCONDEVA IL FILTRO.**
+> Verificato: in Finance la scheda **«Edenia Fiori»** (`cmtlnxbvv000bl204l9g7kpkb`)
+> esiste dal **03/09/2026 15:11**, `attivo`, agganciata all'anagrafica
+> `cmrovts5s012di6pcrx7ja1wo` (nel registro: «L'eden di Tesoro Andreas M.»,
+> P.IVA 05264130724, attivo). La catena registro → Finance ha funzionato.
+> 🔎 **Perché non si vedeva**: ha **0 fatture, 0 vendite, 0 saldi**, e l'elenco
+> `/partner` parte dal filtro «attivi-fatture» (chi ha una fattura O una vendita
+> nell'anno, regola dell'utente del 04/09). Nella stessa condizione ci sono
+> **36 partner attivi su 115**.
+> ❗ Il difetto vero: **anche cercando il nome** l'elenco rispondeva «nessun
+> partner», perché `q` e lo stato si sommavano. Un elenco che nega un nome che
+> esiste fa credere che il dato non sia arrivato — e la reazione naturale è
+> ricreare la scheda, cioè un doppione.
+> ✅ Ora `sp.q` **scavalca il filtro di stato** (`cercandoPerNome`), e sotto i
+> filtri compare quanti risultati erano nascosti e da quale filtro. Senza
+> ricerca l'avviso resta quello di prima.
+
 > 🏷️ **11/09/2026 — I PARTNER IL CUI NOME È SOLO PAROLE DEL MESTIERE NON
 > TROVAVANO I PROPRI MOVIMENTI.**
 > Segnalato su **FLOR (FLOWER MARKET)** (`cmro0406o00koi65cznpev8yb`): «non

@@ -188,7 +188,18 @@ export default async function PartnerList({
     }
   };
   const base = tutti.filter(passaAltriFiltri);
-  let filtered = base.filter(passaStato);
+  // ⭐ 11/09/2026 — CHI CERCA UN NOME LO DEVE TROVARE (segnalato dall'utente:
+  // «su Anagrafiche è stato creato Edenia Fiori, come mai tu non lo vedi?»).
+  // La scheda c'era — creata dal registro il 03/09 — ma non aveva ancora né una
+  // fattura né una vendita, e il filtro predefinito («con una fattura o una
+  // vendita dell'anno») la teneva fuori ANCHE quando si scriveva il suo nome
+  // nella ricerca. Un elenco che risponde «nessun partner» a un nome che esiste
+  // fa credere che il dato non sia arrivato, e la prima reazione è ricrearlo.
+  // Cercando per nome vince la ricerca; l'avviso sotto dice che il filtro è
+  // stato scavalcato, così non sembra che l'elenco menta.
+  const cercandoPerNome = Boolean(sp.q?.trim());
+  let filtered = cercandoPerNome ? base : base.filter(passaStato);
+  const trovatiFuoriFiltro = cercandoPerNome ? base.filter((t) => !passaStato(t)).length : 0;
   // quanti restano fuori per il solo stato, e quanti di quelli hanno comunque
   // lavorato nell'anno (vendite come vendor, senza fattura di servizio)
   const nascostiDalloStato = base.length - filtered.length;
@@ -380,7 +391,14 @@ export default async function PartnerList({
           <button className="btn secondary small" type="submit">Filtra</button>
           {filtroAttivo && <Link href="/partner" className="btn secondary small">Azzera</Link>}
         </form>
-        {stato !== "tutti" && nascostiDalloStato > 0 && (
+        {cercandoPerNome && trovatiFuoriFiltro > 0 && stato !== "tutti" && (
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
+            Stai cercando «<strong>{sp.q}</strong>»: in elenco anche <strong>{trovatiFuoriFiltro}</strong> partner
+            che nel {ANNO_CORRENTE} non hanno né una fattura né una vendita, e che il filtro
+            «{ETICHETTA_STATO[stato]}» normalmente nasconde.
+          </p>
+        )}
+        {!cercandoPerNome && stato !== "tutti" && nascostiDalloStato > 0 && (
           <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
             In elenco i <strong>{filtered.length}</strong> partner {ETICHETTA_STATO[stato]}.{" "}
             Nascosti <strong>{nascostiDalloStato}</strong>, che nel {ANNO_CORRENTE} non hanno né
