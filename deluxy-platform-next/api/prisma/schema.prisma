@@ -1389,6 +1389,11 @@ model Delivery {
   latitude           Float?
   longitude          Float?
   recipientIntercom  String? // citofono
+  /// ⭐ 11/09/2026 (regola utente) — IL LUOGO scelto cercando l'indirizzo: «Hotel Da Vinci Milano», «Ospedale
+  /// Niguarda», «Tribunale». Lo riempie da solo il modulo quando su Google si sceglie un POSTO e il suo nome
+  /// non è già dentro l'indirizzo. Non è un dato del cliente: è la differenza fra suonare a un citofono e
+  /// passare da una reception, e il valet deve saperlo prima di arrivare.
+  recipientPlace     String?
   recipientPhone     String?
   recipientEmail     String?
   // Mittente

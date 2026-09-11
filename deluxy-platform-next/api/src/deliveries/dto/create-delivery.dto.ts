@@ -207,6 +207,12 @@ export class CreateDeliveryDto {
   @IsString()
   recipientIntercom?: string;
 
+  /** ⭐ 11/09/2026: il nome del posto scelto su Google (hotel, ospedale, ufficio). Lo mette il modulo. */
+  @ApiPropertyOptional({ description: 'Luogo riconosciuto all\'indirizzo (hotel, ufficio, ospedale): lo riempie il modulo' })
+  @IsOptional()
+  @IsString()
+  recipientPlace?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

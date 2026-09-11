@@ -156,6 +156,12 @@ interface ProductRow {
               <div class="indirizzo-avviso">{{ 'deliveryForm.indirizzoNonValido' | translate }}</div>
             }
             @if (luogoScelto(); as n) { <span class="luogo-scelto">📍 <em>{{ n }}</em></span> }
+            <!-- ⭐ 11/09/2026 (regola utente): il LUOGO resta scritto sulla consegna. Si riempie da solo
+                 scegliendo il posto su Google; si può correggere a mano (una portineria si chiama come la
+                 conosce chi ci va, non come la chiama la mappa). -->
+            <label class="fld sotto-indirizzo"><span>{{ 'deliveryForm.fields.luogo' | translate }} <em>{{ 'deliveryForm.fields.luogoHint' | translate }}</em></span>
+              <input class="field" name="recipientPlace" [(ngModel)]="model.recipientPlace"
+                     [attr.placeholder]="'deliveryForm.fields.luogoPh' | translate" /></label>
             @if (addressProvince()) { <span class="slot-hint">{{ 'deliveryForm.hint.provinceDetected' | translate:{ code: addressProvince()?.code } }}</span> }
             <!-- Un indirizzo ESTERO non e' un errore di provincia: la provincia
                  semplicemente non si applica, e si dice con una nota, non con
@@ -1566,6 +1572,7 @@ export class DeliveryFormComponent implements AfterViewInit {
     recipientLastName: '',
     recipientFirstName: '',
     recipientIntercom: '',
+    recipientPlace: '',
     recipientPhone: '',
     recipientEmail: '',
     senderLastName: '',
@@ -2132,7 +2139,7 @@ export class DeliveryFormComponent implements AfterViewInit {
     for (const key of [
       'recipientAddress', 'partnerId', 'serviceTypeId', 'deliveryTimeFrom', 'deliveryTimeTo',
       'pickupAddress', 'pickupTimeFrom', 'pickupTimeTo', 'valetId', 'status', 'paymentStatus', 'customerId',
-      'recipientLastName', 'recipientFirstName', 'recipientIntercom', 'recipientPhone',
+      'recipientLastName', 'recipientFirstName', 'recipientIntercom', 'recipientPlace', 'recipientPhone',
       'recipientEmail', 'senderLastName', 'senderFirstName', 'senderPhone', 'valetServiceId',
       'smsPhoneNo', 'flexiblePrice', 'ddtNumber', 'ddtBrand', 'ddtFile', 'notes', 'personalizeSaleNotes',
       'internalNotes',
@@ -2523,6 +2530,8 @@ export class DeliveryFormComponent implements AfterViewInit {
   /** Il nome del POSTO scelto (hotel, negozio…), da mostrare in corsivo sotto
    *  l'indirizzo. Null se si è scelto un indirizzo semplice. */
   readonly luogoScelto = signal<string | null>(null);
+  /** ⭐ 11/09: l'ultimo luogo messo dal modulo: serve a non sovrascrivere quello scritto a mano. */
+  private ultimoLuogoAuto: string | null = null;
 
   /**
    * Un indirizzo dev'essere COMPLETO: via il Google Plus Code davanti (es.
@@ -2593,7 +2602,14 @@ export class DeliveryFormComponent implements AfterViewInit {
     // Se è un POSTO con un nome che non è già dentro l'indirizzo, lo si mostra
     // in corsivo come etichetta (non si sporca l'indirizzo con il nome).
     const nome = String(place.name ?? '').trim();
-    this.luogoScelto.set(nome && !address.toLowerCase().includes(nome.toLowerCase()) ? nome : null);
+    const luogo = nome && !address.toLowerCase().includes(nome.toLowerCase()) ? nome : null;
+    this.luogoScelto.set(luogo);
+    // ⭐ 11/09/2026: il nome del posto entra nel campo (e quindi nella consegna). Se chi compila l'aveva
+    // scritto a mano, non glielo si cancella: si riempie solo quando è vuoto o quando era il luogo di prima.
+    if (luogo && (!this.model.recipientPlace?.trim() || this.model.recipientPlace === this.ultimoLuogoAuto)) {
+      this.model.recipientPlace = luogo;
+      this.ultimoLuogoAuto = luogo;
+    }
     const comp = (place.address_components || []).find((c: any) =>
       (c.types || []).includes('administrative_area_level_2'),
     );
@@ -3096,7 +3112,7 @@ export class DeliveryFormComponent implements AfterViewInit {
     };
     for (const key of [
       'valetId', 'valetServiceId', 'status', 'customerId', 'pickupAddress',
-      'recipientIntercom', 'recipientPhone', 'recipientEmail',
+      'recipientIntercom', 'recipientPlace', 'recipientPhone', 'recipientEmail',
       'senderFirstName', 'senderLastName', 'senderPhone', 'smsPhoneNo', 'ddtNumber', 'ddtBrand', 'ddtFile',
       'flexiblePrice', 'notes', 'personalizeSaleNotes', 'internalNotes',
     ] as const) {

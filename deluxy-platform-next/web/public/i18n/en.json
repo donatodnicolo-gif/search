@@ -521,6 +521,7 @@
     }
   },
   "chat": {
+    "allega": "Attach an image",
     "titolo": "Chat with the office",
     "nessunFilo": "No conversations yet: when a valet or partner writes, it shows up here.",
     "vuota": "No messages yet. Write below: the office replies in app.",
@@ -2135,6 +2136,9 @@
       "notifications": "Notifications"
     },
     "fields": {
+      "luogo": "Place",
+      "luogoHint": "(hotel, office, hospital: filled automatically)",
+      "luogoPh": "E.g. Hotel Da Vinci Milano",
       "lastName": "Last name *",
       "firstName": "First name *",
       "email": "Email *",

@@ -57,6 +57,10 @@ type Filo = { id: string; controparte: string; tipo: string; lastMessageAt: stri
               <div class="msg" [class.mio]="eMio(m)">
                 @if (m.autore && !eMio(m)) { <span class="autore">{{ m.autore }}</span> }
                 <span class="testo">{{ m.testo }}</span>
+                <!-- ⭐ 11/09/2026: gli allegati si vedono, non si leggono come indirizzi. -->
+                @for (u of immaginiDi(m.testo); track u) {
+                  <a class="allegato" [href]="u" target="_blank" rel="noopener"><img [src]="u" alt="" loading="lazy" /></a>
+                }
                 <span class="quando">{{ m.createdAt | date: 'dd/MM HH:mm' }}</span>
               </div>
             }
@@ -64,6 +68,10 @@ type Filo = { id: string; controparte: string; tipo: string; lastMessageAt: stri
           <form class="composer" (ngSubmit)="invia()">
             <input class="field" name="bozza" [(ngModel)]="bozza" [placeholder]="'chat.scrivi' | translate"
                    autocomplete="off" maxlength="2000" />
+            <label class="graffetta" [title]="'chat.allega' | translate">
+              {{ caricandoAllegato() ? '…' : '📎' }}
+              <input type="file" accept="image/*,application/pdf" hidden (change)="allega($event)" [disabled]="caricandoAllegato()" />
+            </label>
             <button type="submit" class="btn btn-primary" [disabled]="inviando() || !bozza.trim()">
               {{ 'chat.invia' | translate }}
             </button>
@@ -80,6 +88,10 @@ type Filo = { id: string; controparte: string; tipo: string; lastMessageAt: stri
       .fab-badge { position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px;
         border-radius: 999px; background: #ffcc00; color: #1d1d1f; font-size: 11.5px; font-weight: 700;
         display: inline-flex; align-items: center; justify-content: center; }
+      .msg .allegato { display: block; margin-top: 6px; }
+      .msg .allegato img { max-width: 200px; max-height: 200px; border-radius: 10px; display: block; }
+      .graffetta { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px;
+        border-radius: 10px; border: 1px solid var(--hairline-strong); cursor: pointer; font-size: 16px; }
       .chat-velo { position: fixed; inset: 0; z-index: 940; background: rgba(0,0,0,0.18); }
       .chat-drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 950; width: min(400px, 96vw);
         background: var(--surface, #fff); border-left: 1px solid var(--hairline); display: flex;
@@ -150,7 +162,25 @@ export class ChatPanelComponent {
     return this.filoAperto()?.controparte ?? 'Chat';
   }
 
-  apri(): void { this.aperto.set(true); }
+  /**
+   * ⭐ 11/09/2026 (regola utente): «per ufficio quando un partner scrive in chat apri direttamente la chat
+   * con il partner». Aprendo il pannello si guarda chi ha scritto: se c'è UNA sola conversazione con
+   * messaggi da leggere, si entra lì. Con più conversazioni in attesa resta l'elenco — scegliere da chi
+   * partire è una decisione di chi lavora, non del programma.
+   */
+  apri(): void {
+    this.aperto.set(true);
+    if (!this.eUfficio() || this.filoAperto()) return;
+    this.http.get<Filo[]>(`${environment.apiUrl}/chat/fili`).subscribe({
+      next: (d) => {
+        const fili = d ?? [];
+        this.fili.set(fili);
+        const daLeggere = fili.filter((f) => (f.nonLetti ?? 0) > 0);
+        if (daLeggere.length === 1) this.apriFilo(daLeggere[0]);
+      },
+      error: () => undefined,
+    });
+  }
   chiudi(): void { this.aperto.set(false); }
   tornaAiFili(): void { this.filoAperto.set(null); this.messaggi.set([]); this.ricarica(); }
   apriFilo(f: Filo): void { this.filoAperto.set({ id: f.id, controparte: f.controparte }); this.ricarica(); }
@@ -175,6 +205,38 @@ export class ChatPanelComponent {
       next: (d) => { this.messaggi.set(d.messaggi ?? []); this.scrollGiu(); this.novita.aggiorna(); },
       error: () => undefined,
     });
+  }
+
+  /**
+   * ⭐ 11/09/2026 (regola utente): «consenti da chat di allegare dei file tipo immagine». Il file va su Drive
+   * e nel messaggio finisce il LINK: chi legge vede l'anteprima, e il link resta valido anche fuori dall'app.
+   */
+  readonly caricandoAllegato = signal(false);
+  allega(ev: Event): void {
+    const input = ev.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file || this.caricandoAllegato()) return;
+    this.caricandoAllegato.set(true);
+    const fd = new FormData();
+    fd.append('file', file);
+    this.http.post<{ url: string }>(`${environment.apiUrl}/chat/allegato`, fd).subscribe({
+      next: (r) => {
+        this.caricandoAllegato.set(false);
+        if (!r?.url) return;
+        // Il link entra nella bozza: chi scrive può aggiungere due parole prima di inviare.
+        this.bozza = this.bozza.trim() ? `${this.bozza.trim()} ${r.url}` : r.url;
+      },
+      error: (e) => {
+        this.caricandoAllegato.set(false);
+        this.bozza = this.bozza;
+        alert(e?.error?.message ?? 'Caricamento non riuscito.');
+      },
+    });
+  }
+  /** I link a un'immagine dentro un messaggio: si mostrano come immagine, non come indirizzo. */
+  immaginiDi(testo: string): string[] {
+    return (testo.match(/https?:\/\/\S+/g) ?? []).filter((u) => /\.(png|jpe?g|gif|webp|heic)(\?|$)/i.test(u) || /drive\.google\.com/.test(u));
   }
 
   invia(): void {

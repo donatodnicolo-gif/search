@@ -521,6 +521,7 @@
     }
   },
   "chat": {
+    "allega": "Allega un'immagine",
     "titolo": "Chat con l'ufficio",
     "nessunFilo": "Nessuna conversazione: quando un valet o un partner scrive, compare qui.",
     "vuota": "Nessun messaggio ancora. Scrivi qui sotto: l'ufficio risponde in app.",
@@ -2137,6 +2138,9 @@
       "notifications": "Notifiche"
     },
     "fields": {
+      "luogo": "Luogo",
+      "luogoHint": "(hotel, ufficio, ospedale: si riempie da solo)",
+      "luogoPh": "Es. Hotel Da Vinci Milano",
       "lastName": "Cognome *",
       "firstName": "Nome *",
       "email": "Email *",

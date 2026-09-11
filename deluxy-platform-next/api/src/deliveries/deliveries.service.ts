@@ -61,6 +61,8 @@ const DELIVERY_LIST_SELECT = {
   deliveryTimeFrom: true, deliveryTimeTo: true, deliveryFlexible: true,
   pickupTimeFrom: true, pickupTimeTo: true, pickupFlexible: true, pickupAddress: true,
   recipientFirstName: true, recipientLastName: true, recipientAddress: true,
+  // ⭐ 11/09/2026: il LUOGO (hotel, ufficio, ospedale) si legge anche in elenco e nell'estrazione.
+  recipientPlace: true,
   paymentOnDelivery: true, paymentAmount: true, price: true,
   // ⭐ 10/09/2026: il valore della merce, per il margine delle vendite in tabella (ufficio).
   productValue: true,
@@ -670,7 +672,7 @@ export class DeliveriesService {
     const righe: (string | number)[][] = [];
     let totale = 0;
     for (let pagina = 1; ; pagina++) {
-      const esito = (await this.findAll(user, { ...query, page: pagina, pageSize: PAGINA } as DeliveryListQueryDto)) as any;
+      const esito = (await this.findAll(user, { ...query, page: pagina, pageSize: PAGINA } as DeliveryListQueryDto, { leggero: true })) as any;
       const items: any[] = esito.items ?? [];
       totale = esito.total ?? items.length;
       for (const d of items) {
@@ -688,6 +690,7 @@ export class DeliveriesService {
           d.partner?.insegna ?? "",
           `${d.recipientFirstName ?? ""} ${d.recipientLastName ?? ""}`.trim(),
           d.recipientAddress ?? "",
+          d.recipientPlace ?? "",
           d.province?.code ?? "",
           d.pickupAddress ?? "",
           prodotti,
@@ -716,7 +719,7 @@ export class DeliveriesService {
     }
     const intestazioni = [
       "Consegna", "Data", "Orario consegna", "Orario ritiro", "Stato", "Servizio", "Partner",
-      "Destinatario", "Indirizzo", "Provincia", "Ritiro", "Prodotti", "DDT",
+      "Destinatario", "Indirizzo", "Luogo", "Provincia", "Ritiro", "Prodotti", "DDT",
       "Prezzo", "Plus/minus", "Fatturabile", "Fatturata",
     ];
     if (ufficio) intestazioni.push("Valet", "Paga valet", "Plus/minus valet", "Da pagare", "Margine €", "Margine %");
@@ -729,6 +732,12 @@ export class DeliveriesService {
   async findAll(
     user: JwtUser,
     query: DeliveryListQueryDto,
+    /**
+     * 🔴 11/09/2026 — MODALITÀ LEGGERA (la usa l'estrazione per Excel). Stessi filtri e stessi permessi,
+     * senza i calcoli che servono solo a schermo: l'aggancio delle vendite, la puntualità e i margini della
+     * Finanza. Con 72 righe l'estrazione restava appesa su «Preparo il file» per colpa di quelli.
+     */
+    opzioni: { leggero?: boolean } = {},
   ): Promise<PagedResult<unknown>> {
     const scope: any = { ...DeliveriesService.VIVE, ...(await this.filtroRuolo(user)) };
     if (query.status) scope.status = query.status;
@@ -876,7 +885,8 @@ export class DeliveriesService {
     const idVendita = (rows as any[])
       .filter((r) => r.serviceType?.pricingModel === 'VENDITA')
       .map((r) => r.id);
-    if (idVendita.length) {
+    // 🔴 11/09: in modalità leggera (estrazione) l'aggancio delle vendite non serve al foglio.
+    if (!opzioni.leggero && idVendita.length) {
       const vendite = await this.prisma.sale.findMany({
         where: { deliveryId: { in: idVendita } },
         select: { id: true, deliveryId: true, externalOrderNumber: true, brand: true, status: true, amount: true, externalOrderId: true, createdAt: true },
@@ -893,7 +903,7 @@ export class DeliveriesService {
       // 🔴 11/09/2026 (segnalazione utente: «questi margini son tutti sbagliati: copia da Finanza»): il
       // margine NON si calcola più qui. Lo dà la FINANZA, con lo stesso conto della sua pagina, in blocco
       // per tutta la pagina della lista (due letture, non quattro per riga). Solo per l'ufficio.
-      if (user.role === Role.ADMIN || user.role === Role.OPERATION) {
+      if (!opzioni.leggero && (user.role === Role.ADMIN || user.role === Role.OPERATION)) {
         const idsVendita = (rows as any[])
           .filter((r) => r.serviceType?.pricingModel === 'VENDITA')
           .map((r) => r.id as string);
@@ -914,6 +924,9 @@ export class DeliveriesService {
     // mostrano.
     // ⭐ 06/09/2026 (regola utente): ogni consegna porta l'attributo di PUNTUALITÀ,
     // per tutti i servizi, calcolato con la stessa regola delle Statistiche.
+    if (opzioni.leggero) {
+      return { items: rows.map((r) => this.soloIMieiSoldi(r as any, user)), total, page, pageSize };
+    }
     return { items: rows.map((r) => ({ ...this.soloIMieiSoldi(r as any, user), puntualita: puntualitaConsegna(r as any), linkConsegnata: (r as any).deliveredByPartner ? DeliveriesService.linkConsegnata((r as any).trackingToken) : null })), total, page, pageSize };
   }
 

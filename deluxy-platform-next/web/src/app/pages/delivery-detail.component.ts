@@ -116,6 +116,8 @@ interface DeliveryDetail {
   recipientLastName: string;
   recipientAddress: string;
   recipientIntercom?: string;
+  /** ⭐ 11/09/2026: il luogo riconosciuto all'indirizzo (hotel, ufficio, ospedale). */
+  recipientPlace?: string | null;
   recipientPhone?: string;
   recipientEmail?: string;
   senderFirstName?: string;
@@ -669,7 +671,11 @@ interface DeliveryDetail {
                DATI ANAGRAFICI (nome, tel, email, citofono) si scoprono solo da
                «in consegna» (31/08, precisazione utente). -->
           <dl>
-            <dt>{{ 'deliveries.col.address' | translate }}</dt><dd>{{ d.recipientAddress }}</dd>
+            <dt>{{ 'deliveries.col.address' | translate }}</dt>
+            <dd>{{ d.recipientAddress }}
+              <!-- ⭐ 11/09/2026: il luogo, quando c'è: cambia il modo di consegnare (reception, portineria, reparto). -->
+              @if (d.recipientPlace) { <span class="luogo">📍 {{ d.recipientPlace }}</span> }
+            </dd>
           </dl>
           @if (isValet() && !destinatarioVisibile(d)) {
             <p class="muted">🔒 {{ 'deliveries.recipientHidden' | translate }}</p>
@@ -1426,6 +1432,7 @@ interface DeliveryDetail {
       .avviso-codice { background: var(--fill, rgba(120,120,128,.12)); color: var(--text-secondary); font-size: 13px; }
       /* La riga senza fee si dichiara accanto al suo importo: la quota su di lei e zero. */
       .badge.nofee { margin-left: 8px; font-size: 11px; background: var(--fill, rgba(120,120,128,.12)); color: var(--text-secondary); }
+      .luogo { display: block; margin-top: 2px; font-size: 12.5px; color: var(--text-secondary); }
       .nota-conto { margin: 12px 0 0; font-size: 12.5px; color: var(--text-tertiary); }
       .margini-vendita dd.negativo { color: var(--danger, #d70015); }
       .mt { margin-top: 14px; }

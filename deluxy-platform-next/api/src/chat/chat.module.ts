@@ -8,12 +8,17 @@ import {
   Module,
   Param,
   Post,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { CurrentUser, JwtUser, Roles } from '../common/decorators';
 import { Role } from '../common/enums';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
+import { SettingsModule, SettingsService } from '../settings/settings.module';
 
 /**
  * CHAT IN APP (03/09/2026, regola utente): valet e partner scrivono
@@ -194,7 +199,7 @@ export class ChatService {
 @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER, Role.VALET)
 @Controller('chat')
 export class ChatController {
-  constructor(private readonly service: ChatService) {}
+  constructor(private readonly service: ChatService, private readonly settings: SettingsService) {}
 
   @Get('mia')
   @Roles(Role.PARTNER, Role.VALET)
@@ -217,6 +222,30 @@ export class ChatController {
     return this.service.filo(user, id);
   }
 
+  /**
+   * ⭐ 11/09/2026 (regola utente): SI ALLEGA UN'IMMAGINE ALLA CHAT. Il file va su Drive («File App», come le
+   * ricevute e le foto dei prodotti) e qui torna il LINK, che finisce nel testo del messaggio: così non serve
+   * una colonna nuova sul database condiviso, e il link resta leggibile anche da fuori.
+   *
+   * ⚠️ Solo immagini e PDF, 10 MB: la chat è per capirsi in fretta, non un archivio documenti.
+   */
+  @Post('allegato')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Carica un\'immagine (o un PDF) per la chat su Drive e torna il link' })
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } }))
+  async allegato(@UploadedFile() file?: { buffer: Buffer; originalname: string; mimetype: string }) {
+    if (!file) throw new BadRequestException('Nessun file caricato');
+    if (!/^(image\/|application\/pdf)/.test(file.mimetype || '')) {
+      throw new BadRequestException('In chat si allegano immagini o PDF.');
+    }
+    const nome = `chat-${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    const esito = await this.settings.caricaSuDrive(nome, file.buffer, file.mimetype);
+    if (!esito.ok || !esito.link) {
+      throw new BadRequestException(`Drive non ha accettato il file${esito.motivo ? ': ' + esito.motivo : ''}. Collega Drive in Impostazioni → File App.`);
+    }
+    return { url: esito.link, nome };
+  }
+
   @Post('messaggi')
   @ApiOperation({ summary: 'Scrive un messaggio (l\'ufficio indica il filo)' })
   scrivi(@CurrentUser() user: JwtUser, @Body() body: { threadId?: string; testo?: string }) {
@@ -231,7 +260,7 @@ export class ChatController {
 }
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, SettingsModule],
   controllers: [ChatController],
   providers: [ChatService],
 })
