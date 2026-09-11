@@ -1,8 +1,13 @@
 # Handoff — Deluxy Marketing
 
-> Stato al **07/09/2026**. Una finestra Claude nuova deve poter
+> Stato al **11/09/2026 sera**. Produzione: **`deluxy-marketing-mt9tochni`**
+> (dieci commit dell'11/09), locale e `origin/scout-ui` allineati. Una finestra Claude nuova deve poter
 > riprendere da qui senza altro contesto. Leggere prima il [README](../README.md)
 > per cosa fa l'app; questo documento dice **dove siamo** e **cosa manca**.
+>
+> ⚠️ Il blocco «ri-misurato l'11/09 mattina» qui sotto descrive la situazione
+> **prima** del lavoro di quel giorno: si legge come storia, non come stato.
+> Lo stato è il blocco che segue.
 >
 > ⏱️ **RI-MISURATO L'11/09/2026 mattina (sola lettura sul DB di produzione;
 > nessuna modifica al codice).** In due giorni nessuno ha toccato Marketing:
@@ -12,6 +17,73 @@
 > (11/09 07:47), Google stanotte su tutti i giri, **0 consegne non-ok dal
 > 04/09**. Cosa è cambiato:
 >
+> ✅ **11/09/2026 SERA — TUTTO PUBBLICATO (`mt9tochni`) E VERIFICATO DAL VIVO.**
+> Dieci commit in produzione, alias sano, `/api/health?meta=1` dice
+> `puoScrivere: true` con `ads_management`. La verifica l'ho fatta **dentro il
+> Chrome dell'utente**, dove l'app era già loggata: da fuori non era possibile,
+> e per tutto il giorno avevo dovuto scrivere «non verificato».
+>
+> 🔴🔴 **LA COSA PIÙ IMPORTANTE CHE NE È USCITA: LE INSERZIONI META NON HANNO
+> GLI UTM.** Su «Dolci Rientri - ATC» — **nessuna delle 6 inserzioni accese** ha
+> parametri URL, e la campagna ha speso **221 € in 30 giorni** con **zero ricavi
+> attribuiti** e «nessun ordine con l'UTM». Quindi il **ritorno Meta** basso
+> nelle tabelle nuove per categoria e per area **non è (solo) resa: è
+> tracciamento**. Senza utm il traffico arriva a Shopify come «diretto» o
+> «social», e Orders — che classifica da quello che Shopify gli dice — non può
+> attribuirlo. È coerente col conto di tutto il 2026: **16 ordini Meta su Gifts,
+> 19 su Flowers, 8 su Cake**.
+> ⚠️ **Lo deve fare l'utente a mano**, in Ads Manager → inserzione → «Parametri
+> URL»: questa app non scrive creatività, e non lo farà per sbaglio.
+>
+> ✅ **Verificato che funzionano, con numeri veri** (prima erano tutti «non
+> verificati» perché in locale il token non c'è):
+> · **diagnostica creativa** — 60,83 € · 3.844 impression · CTR link 1,59%, e la
+>   curva video **402 al 25% → 207 al 50% → 115 al 75% → 73 alla fine (se ne
+>   perde l'82%)**. I tre voti di pertinenza dicono «non giudicabile: troppe
+>   poche impression» e **non** sono colorati di rosso, come voluto.
+> · **finestra di attribuzione** — «conta: 7 giorni dal clic · 1 giorno dalla
+>   visualizzazione · evento add to cart».
+> · **vincoli del pubblico** — «luoghi: Florence +17 km, Milan +17 km, Rome
+>   +17 km · **età minima 25** · Advantage+ acceso».
+>
+> ⚠️ **E LA VERIFICA HA TROVATO TRE DIFETTI NUOVI, CORRETTI E RIPUBBLICATI.** Su
+> una campagna **Meta** l'app:
+> 1. proponeva «**Aggiungere snippet**» fra le prossime azioni. Gli snippet sono
+>    un'estensione di Google: la regola scattava perché il conteggio era zero, e
+>    su Meta è zero **per costruzione**. È la trappola del criterio che non può
+>    che essere vero — un'assenza strutturale letta come occasione persa — e una
+>    lista di cose da fare che contiene una cosa impossibile si smette di
+>    leggere tutta. (Stessa cosa per «far arrivare i gruppi», che proponeva il
+>    rimedio di Google a un problema che su Meta si risolve con la sync.)
+> 2. etichettava il budget «al giorno **su Google**». Il nome della piattaforma
+>    sbagliato accanto a un numero di denaro fa dubitare del numero.
+> 3. nel check VALORE vs NUMERO diceva «**lancia lo script di Google Ads**», che
+>    su Meta non esiste: là la strategia la legge l'app dalla Graph API.
+> Ricontrollato dopo il deploy: «Budget al giorno su **Meta**», snippet spariti,
+> e «su Meta la legge l'app dalla Graph API».
+> ⚠️ **Trappola pagata**: il primo controllo dopo il deploy leggeva ancora i
+> testi vecchi (alias/cache). Si riguarda con un `?v=2` prima di concludere che
+> la correzione non sia partita.
+>
+> 🔴 **RESTA ALL'UTENTE**: (a) mettere gli **utm** sulle inserzioni; (b)
+> eliminare a mano la **bozza** «Nuova campagna Vendite» (`120250620888590026`,
+> 250 €/g, non pubblicabile: due errori bloccanti) lasciata dall'agente che ha
+> mappato Ads Manager — «Elimina bozze» è massivo e cancellerebbe anche le 3
+> modifiche in sospeso già sue; (c) decidere del **quarto conto**
+> `1298043513875111`; (d) riprovare la **pausa annuncio Google** ancora fallita.
+>
+> 📘 **DALLA MAPPA DI ADS MANAGER, le regole da non dimenticare**: dopo la
+> pubblicazione **non** si cambiano più *obiettivo*, *tipo di acquisto* e **tipo
+> di budget** (giornaliero vs totale) — solo l'importo; con **Advantage+** età
+> massima, genere, interessi e pubblici inclusi sono **suggerimenti** che Meta
+> scavalca, mentre luoghi, età minima, lingue ed esclusioni sono vincoli duri; i
+> posizionamenti con Advantage+ sono in sola lettura. **Restano fuori,
+> dichiarati**: le metriche che non leggiamo (video al 25-100% in *storico*,
+> ThruPlay, tassi del funnel, inizi di acquisto, scomposizione eventi per
+> canale) perché servirebbero colonne nuove su un cluster condiviso con tredici
+> app; e il ciclo **bozza → «Controlla e pubblica»** con validazione preventiva,
+> che è il pezzo che eviterebbe incidenti come la `pausa_annuncio` fallita.
+
 > 🔴 **11/09/2026 — C'È UN QUARTO CONTO META, E NELL'APP NON C'È.**
 > Aprendo Ads Manager sul computer dell'utente, il conto proposto per primo era
 > **`1298043513875111`**. I conti Meta censiti in `AccountAdv` sono tre —
