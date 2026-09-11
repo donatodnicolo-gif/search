@@ -162,6 +162,27 @@ su `scout-ui` (pushato dall'altra sessione).
   scheda (`appAbilitate`); il CRM mostra nome e ruolo dal Hub. Da spiegare
   all'utente, nessun codice.
 
+**11/09 mattina — ricorrenze lette dal biglietto, «per chi» correggibile.**
+- Utente: «tutti gli ordini hanno ricorrenza Da precisare, è impossibile».
+  Causa: in Orders la lettura AI dei biglietti (`eventi-ai.ts`) va lanciata a
+  mano, 100 per volta, e nessuno l'aveva fatto: 9.473 «da precisare» su 9.506.
+  Fatto in Orders: **`src/lib/eventi-parole.ts`** (classificatore a parole,
+  it/en/es/fr, priorità condoglianze → nascita → matrimonio → anniversario →
+  compleanno → laurea → feste del calendario → ringraziamento; «auguri» da solo
+  non basta; salva prova e motivo, `tipoDa = "parole"`), script
+  `scripts/classifica-eventi-parole.ts` (prova a secco / `--applica`) **eseguito
+  in produzione: 3.846 riconosciute** (2.504 compleanni, 702 feste, 316
+  ringraziamenti, 180 anniversari, 57 lauree, 34 matrimoni, 33 condoglianze, 20
+  nascite), 1.158 senza alcun testo, ~4.470 con testo che non dice l'occasione
+  (per quelli resta l'AI: bottone in Orders → Eventi, serve OPENAI in Orders).
+  Agganciato a `rilevaEventi()`: le nuove ricorrenze si classificano da sole.
+- Orders: **`PATCH /api/v1/eventi-clienti/{id}`** (chiave di scrittura): tipo
+  → `tipoDa manuale`, `destinatario` (se esiste già la gemella si fondono),
+  titolo, note, stato. CRM: `aggiornaRicorrenza`, action `modificaRicorrenza`,
+  in scheda ogni ricorrenza ha «Precisa (occasione, per chi)» con select tipo +
+  per chi + nome; in Ricorrenze «· per <destinatario>» accanto alla data.
+  Il destinatario per ordine è già quello della spedizione (498/500 lo hanno).
+
 **NON fatto / da decidere**:
 - **Rubrica di deluxy.delivery@gmail.com** («come sono salvati in rubrica»):
   nessuna app espone i contatti Google; servirebbe People API (OAuth) — non
