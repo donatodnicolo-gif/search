@@ -56,6 +56,55 @@ export function soldi(v: number, valuta = 'EUR'): string {
   return v.toLocaleString('it-IT', { style: 'currency', currency: valuta || 'EUR' })
 }
 
+/**
+ * ⭐ 11/09/2026 — CHE COSA SI CONCRETIZZA (utente: «mostra in tabella l'azione
+ * che si concretizza», dopo aver dovuto chiedere che cosa facesse «Approva»).
+ *
+ * ⚠️⚠️ Le due azioni di questa pagina si somigliano e fanno cose opposte:
+ * **approvare** scrive una decisione e non muove un euro, **rimborsare su
+ * Shopify** fa uscire i soldi davvero. Chi guarda l'elenco deve leggere quale
+ * delle due sta per succedere SENZA aprire niente e senza chiederlo a
+ * qualcuno — che è esattamente com'è andata la prima volta.
+ *
+ * Torna due righe: l'azione chiesta (`cosa`) e che cosa fa il bottone che si
+ * vede adesso (`ora`).
+ */
+export function azioneRimborso(
+  r: { stato: string; tipo: string; importo: number; importoOrdine: number; valuta: string },
+  ruolo = 'operatore'
+): { cosa: string; ora: string } {
+  const quanto = soldi(r.importo, r.valuta)
+  const chiesto =
+    r.tipo === 'totale'
+      ? `Rendere ${quanto} al cliente (tutto l'ordine)`
+      : `Rendere ${quanto} dei ${soldi(r.importoOrdine, r.valuta)} pagati`
+  switch (r.stato) {
+    case 'richiesto':
+      return {
+        cosa: chiesto,
+        // ⚠️ Si dice che NON muove soldi: è la domanda che si fa chi ha il dito
+        // sul bottone, e la risposta non stava da nessuna parte.
+        ora: 'Approva registra la decisione: nessun soldo si muove',
+      }
+    case 'approvato':
+      return {
+        cosa: chiesto,
+        ora:
+          ruolo === 'admin'
+            ? `«Rimborsa su Shopify» rende ${quanto} sul metodo con cui ha pagato`
+            : 'Il rimborso vero lo fa un amministratore',
+      }
+    case 'eseguito':
+      return { cosa: `${quanto} resi al cliente`, ora: 'Niente da fare: i soldi sono usciti' }
+    case 'rifiutato':
+      return { cosa: 'Nessun rimborso: richiesta rifiutata', ora: '' }
+    case 'annullato':
+      return { cosa: 'Nessun rimborso: richiesta annullata', ora: '' }
+    default:
+      return { cosa: chiesto, ora: '' }
+  }
+}
+
 export type EsitoControllo = { ok: true } | { ok: false; errore: string }
 
 /**

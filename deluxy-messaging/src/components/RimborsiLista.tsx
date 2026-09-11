@@ -7,6 +7,7 @@ import type { Periodo } from '@/lib/periodo'
 import {
   STATI_RIMBORSO,
   avvisoPagamento,
+  azioneRimborso,
   coloreStatoRimborso,
   nomeStatoRimborso,
   soldi,
@@ -486,6 +487,9 @@ export function RimborsiLista({
                 <th className="num">Importo</th>
                 <th>Motivo</th>
                 <th>Stato</th>
+                {/* ⭐ Che cosa succede davvero: approvare e rimborsare si
+                    somigliano e fanno cose opposte (utente, 11/09/2026). */}
+                <th>Cosa si fa</th>
                 <th>Chiesto</th>
                 <th></th>
               </tr>
@@ -535,6 +539,17 @@ export function RimborsiLista({
                       {nomeStatoRimborso(r.stato)}
                     </span>
                     {r.decisoDa ? <div className="cella-sub">da {r.decisoDa}</div> : null}
+                  </td>
+                  <td style={{ maxWidth: 230 }}>
+                    {(() => {
+                      const a = azioneRimborso(r, ruolo)
+                      return (
+                        <>
+                          <div>{a.cosa}</div>
+                          {a.ora ? <div className="cella-sub">{a.ora}</div> : null}
+                        </>
+                      )
+                    })()}
                   </td>
                   <td className="cella-muta" style={{ whiteSpace: 'nowrap' }}>
                     {dataBreve(r.creatoIl)}
@@ -743,6 +758,19 @@ export function RimborsiLista({
                   </div>
                 ) : null}
               </div>
+
+              {/* ⭐ Che cosa si concretizza, scritto prima delle azioni: qui
+                  sotto ci sono due bottoni, e uno dei due non muove soldi. */}
+              {(() => {
+                const a = azioneRimborso(aperto, ruolo)
+                return (
+                  <>
+                    <h3 style={{ margin: '16px 0 4px', fontSize: 13.5 }}>Cosa si fa</h3>
+                    <p style={{ margin: 0 }}>{a.cosa}</p>
+                    {a.ora ? <p className="cella-sub" style={{ margin: '2px 0 0' }}>{a.ora}</p> : null}
+                  </>
+                )
+              })()}
 
               {/* ⚠️ Il motivo per INTERO e a capo dove è a capo: è il testo su
                   cui si decide, e in tabella se ne leggeva metà. */}
