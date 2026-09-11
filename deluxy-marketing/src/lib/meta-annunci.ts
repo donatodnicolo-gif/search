@@ -30,15 +30,35 @@ export type AnnuncioMeta = {
   descrizione: string | null;
   /** Per il carosello: quante schede. */
   schede: number | null;
+  /**
+   * ⚠️⚠️ I PARAMETRI URL: il ponte fra una spesa su Meta e un ordine su
+   * Shopify, e senza di loro quel ponte non c'è.
+   *
+   * Deluxy Orders classifica la provenienza di un ordine da quello che Shopify
+   * gli dice, e Shopify lo sa dall'`utm_source` nel link cliccato. Un'inserzione
+   * senza `url_tags` (e senza utm nel link) porta traffico che arriva come
+   * «diretto» o «social»: la spesa c'è, il ricavo non si riesce ad attribuire,
+   * e la tabella per categoria e per area — che quella attribuzione la usa —
+   * mostra un ritorno Meta più basso del vero.
+   *
+   * Misurato l'11/09/2026 sul nostro database: in tutto il 2026 gli ordini che
+   * Orders attribuisce a `meta-ads` sono **16 su Gifts, 19 su Flowers, 8 su
+   * Cake**. Con la spesa Meta che c'è, o le inserzioni non convertono, o non
+   * sono tracciate. Questo campo dice quale delle due.
+   */
+  utm: string | null;
+  /** Il link di destinazione, quando c'è: gli utm possono stare anche lì. */
+  destinazione: string | null;
 };
 
 type CreativaGrezza = {
   id?: string;
   thumbnail_url?: string;
   product_set_id?: string;
+  url_tags?: string;
   object_story_spec?: {
     link_data?: {
-      message?: string; name?: string; description?: string;
+      message?: string; name?: string; description?: string; link?: string;
       child_attachments?: unknown[];
     };
     video_data?: { message?: string; title?: string; link_description?: string };
@@ -53,7 +73,7 @@ export async function annunciMeta(
   if (!t) return { ok: false, errore: "META_ACCESS_TOKEN non impostato" };
   const campi =
     "id,name,status,effective_status,adset{name}," +
-    "creative{id,thumbnail_url,product_set_id,object_story_spec}";
+    "creative{id,thumbnail_url,product_set_id,object_story_spec,url_tags}";
   try {
     const r = await fetch(
       `${BASE}/${idCampagnaEsterno}/ads?fields=${encodeURIComponent(campi)}&thumbnail_width=320&thumbnail_height=320&limit=25&access_token=${encodeURIComponent(t)}`,
@@ -90,6 +110,12 @@ export async function annunciMeta(
         titolo: link?.name ?? video?.title ?? oss?.template_data?.name ?? null,
         descrizione: link?.description ?? video?.link_description ?? null,
         schede: link?.child_attachments?.length ?? null,
+        // ⚠️ Gli utm possono stare in DUE posti: nel campo `url_tags` della
+        // creatività (la via giusta, che Meta appende a ogni link) oppure
+        // scritti a mano dentro il link stesso. Guardare solo il primo avrebbe
+        // dichiarato «non tracciata» un'inserzione tracciata a mano.
+        utm: a.creative?.url_tags ?? (link?.link?.includes("utm_") ? link.link.split("?")[1] ?? null : null),
+        destinazione: link?.link ?? null,
       };
     });
     return { ok: true, annunci };

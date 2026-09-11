@@ -202,6 +202,25 @@ export async function AdSetMeta({
                         ottimizza: {ETICHETTA_OBIETTIVO[g.tipo] ?? g.tipo.toLowerCase()}
                       </div>
                     )}
+                    {/* ⚠️⚠️ LA FINESTRA DI ATTRIBUZIONE, scritta dove si
+                        guardano i numeri. «7 giorni dal clic · 1 giorno dalla
+                        visualizzazione» vuol dire che Meta si attribuisce un
+                        ordine arrivato sei giorni dopo il clic, e perfino uno
+                        di chi l'inserzione l'ha solo VISTA il giorno prima.
+                        Orders conta l'ordine il giorno in cui è stato pagato.
+                        Mettere i due numeri accanto senza dire la finestra è
+                        confrontare due cose diverse chiamandole uguali — ed è
+                        la ragione per cui il ROAS di piattaforma e il MER non
+                        torneranno mai identici. */}
+                    {v?.attribuzione && (
+                      <div
+                        className="cella-sub"
+                        title="È la finestra con cui META conta i risultati di questo ad set. Orders conta l'ordine il giorno del pagamento: i due numeri non possono coincidere, e sapere di quanto differiscono è metà del lavoro."
+                      >
+                        conta: {v.attribuzione}
+                        {v.eventoOttimizzato && ` · evento ${v.eventoOttimizzato.toLowerCase().replace(/_/g, " ")}`}
+                      </div>
+                    )}
                   </td>
                   <td>
                     <Badge
@@ -333,6 +352,21 @@ export async function AdSetMeta({
                               Budget
                             </button>
                           </form>
+                        ) : v?.budgetTotale != null ? (
+                          // ⚠️⚠️ BUDGET A DURATA, NON CBO. Fino a un momento
+                          // fa qui dicevo «budget sulla campagna (CBO)» a
+                          // qualunque ad set senza budget giornaliero: falso
+                          // per quelli a budget TOTALE, che un budget proprio
+                          // ce l'hanno. E il tipo di budget (giornaliero vs
+                          // totale) su Meta **non si cambia** dopo la
+                          // pubblicazione — si cambia solo l'importo — quindi
+                          // offrire un campo «€/g» qui sarebbe una promessa
+                          // che Meta rifiuta.
+                          <span className="cella-sub" style={{ whiteSpace: "normal" }}>
+                            budget a durata ({formattaEuro(v.budgetTotale)} totale): il tipo di budget
+                            non si cambia dopo la pubblicazione, e l&apos;importo totale si modifica
+                            in Ads Manager
+                          </span>
                         ) : v ? (
                           <span className="cella-sub" style={{ whiteSpace: "normal" }}>
                             budget sulla campagna (CBO): si cambia dal riquadro dei comandi qui sotto
@@ -407,9 +441,40 @@ export async function AdSetMeta({
                 <summary>
                   <b>{g.nome}</b>{" "}
                   <span className="cella-sub">
-                    {t ? t.riassunto.join(" · ") : `pubblico non letto (${letto?.errore ?? "non chiesto"})`}
+                    {t ? t.vincoli.join(" · ") : `pubblico non letto (${letto?.errore ?? "non chiesto"})`}
+                    {t?.advantageAcceso && " · Advantage+ acceso"}
                   </span>
                 </summary>
+
+                {/* ⚠️⚠️ I DUE STRATI, SEPARATI. Con Advantage+ acceso Meta
+                    chiama «Controlli» i limiti che non scavalca mai (luoghi,
+                    età minima, lingue, esclusioni) e «Suggerisci pubblico»
+                    tutto il resto — età massima, genere, interessi, pubblici
+                    inclusi — che scavalca quando le conviene. Elencarli
+                    insieme, come faceva questo riquadro fino a un'ora fa,
+                    dice una cosa FALSA sulla consegna: «età 27-60» sembra un
+                    filtro e non lo è. Chi legge decide su un perimetro che non
+                    esiste. */}
+                {t && (
+                  <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
+                    <div className="cella-sub" style={{ whiteSpace: "normal" }}>
+                      <b>Vincoli</b> (Meta non va oltre, nemmeno con Advantage+):{" "}
+                      {t.vincoli.length > 0 ? t.vincoli.join(" · ") : "nessuno"}
+                    </div>
+                    {t.advantageAcceso ? (
+                      <div className="cella-sub" style={{ whiteSpace: "normal", color: "var(--orange)" }}>
+                        <b>Suggeriti</b> — <b>Advantage+ è acceso</b>, quindi questi Meta li può
+                        scavalcare e l&apos;ad set può erogare anche fuori:{" "}
+                        {t.suggerimenti.length > 0 ? t.suggerimenti.join(" · ") : "nessuno"}
+                      </div>
+                    ) : (
+                      <div className="cella-sub" style={{ whiteSpace: "normal" }}>
+                        Advantage+ è <b>spento</b>: tutto quello che c&apos;è qui sopra è un vincolo,
+                        niente viene allargato da Meta.
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {inCoda ? (
                   <p className="cella-sub" style={{ whiteSpace: "normal", marginTop: 10, color: "var(--orange)" }}>
@@ -422,6 +487,15 @@ export async function AdSetMeta({
                     <input type="hidden" name="gruppoId" value={g.id} />
                     <input type="hidden" name="ritorno" value={`${ritorno}#adset`} />
 
+                    {t?.advantageAcceso && (
+                      <p className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 8, color: "var(--orange)" }}>
+                        ⚠️ Su questo ad set <b>Advantage+ è acceso</b>: età (il tetto), genere e
+                        pubblici sono <b>suggerimenti</b> — cambiarli indirizza Meta, non la
+                        vincola. I limiti che tiene davvero sono i <b>luoghi</b>, l&apos;<b>età
+                        minima</b> e le <b>esclusioni</b>. Se serve un perimetro duro, si cambia uno
+                        di quelli (o si spegne Advantage+ in Ads Manager).
+                      </p>
+                    )}
                     <p className="cella-sub" style={{ whiteSpace: "normal", marginBottom: 8 }}>
                       <b>Quello che lasci vuoto non si tocca.</b> Età e genere sono un <b>L2</b>;
                       luoghi e pubblici sono un <b>L3</b>, perché cambiano il mercato e non la

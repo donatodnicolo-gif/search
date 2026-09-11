@@ -5857,6 +5857,21 @@ export async function creaOperazioneTargeting(fd: FormData) {
     ? letto.targeting.riassunto.join(" · ")
     : `pubblico di adesso NON LETTO (${letto.errore ?? "motivo sconosciuto"}): l'esecutore rilegge e si rifiuta di scrivere alla cieca`;
 
+  // ⚠️⚠️ ADVANTAGE+ CAMBIA IL SIGNIFICATO DI QUESTA MODIFICA, e chi approva
+  // deve saperlo prima di approvarla. Con `advantage_audience = 1` Meta tratta
+  // età (il tetto), genere e pubblici inclusi come SUGGERIMENTI: li scavalca
+  // quando le conviene. Approvare «da 25 anni in su» credendo di aver chiuso
+  // il pubblico, e poi vedere la spesa su un'altra fascia, è il modo di
+  // perdere fiducia nei numeri — non nell'algoritmo.
+  const morbidi = cambi.etaMax != null || cambi.genere != null || cambi.pubblici != null;
+  if (letto.targeting?.advantageAcceso && morbidi) {
+    esito.avvisi.push(
+      "Advantage+ è ACCESO su questo ad set: età (il tetto), genere e pubblici sono suggerimenti, " +
+        "non filtri — Meta li scavalca quando le conviene, e la consegna può restare fuori da " +
+        "quello che stai scrivendo. I limiti duri sono i luoghi, l'età minima e le esclusioni."
+    );
+  }
+
   const op = await accodaOperazione({
     data: {
       tipo: "targeting",

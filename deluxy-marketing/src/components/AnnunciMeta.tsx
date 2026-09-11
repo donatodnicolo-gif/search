@@ -62,6 +62,16 @@ export async function AnnunciMeta({
     }
   }
 
+  // ⚠️ Quanti annunci ACCESI non sono tracciati. È un conto, non una stima:
+  // la spesa di un'inserzione senza utm arriva a Shopify come «diretto», e il
+  // ritorno Meta delle tabelle per categoria e per area risulta più basso del
+  // vero. Si contano solo gli accesi: un'inserzione in pausa senza utm non sta
+  // producendo traffico non attribuito.
+  const senzaUtm = esito.ok
+    ? esito.annunci.filter((a) => a.stato === "ACTIVE" && !a.utm).length
+    : 0;
+  const accesiTotali = esito.ok ? esito.annunci.filter((a) => a.stato === "ACTIVE").length : 0;
+
   // Quanti annunci ACCESI ha ciascun ad set, contati sulla lettura viva appena
   // fatta: serve all'avviso «fermando questo, l'ad set non eroga più niente».
   //
@@ -157,6 +167,21 @@ export async function AnnunciMeta({
                       </div>
                     )}
                     {a.gruppo && <div className="cella-sub" style={{ marginTop: 3 }}>ad set: {a.gruppo}</div>}
+                    {/* ⚠️ TRACCIATA O NO: è la differenza fra una spesa che si
+                        ritrova negli ordini e una che si perde. Si dice su
+                        ogni riga, non solo nel totale, perché la si corregge
+                        una inserzione per volta. */}
+                    <div
+                      className="cella-sub"
+                      style={{ marginTop: 3, color: a.utm ? undefined : "var(--orange)" }}
+                      title={
+                        a.utm
+                          ? `Parametri appesi a ogni link: ${a.utm}`
+                          : "Senza utm il traffico arriva a Shopify come «diretto» o «social»: la spesa c'è, il ricavo non si attribuisce, e il ritorno Meta risulta più basso del vero."
+                      }
+                    >
+                      {a.utm ? `tracciata: ${a.utm.slice(0, 60)}${a.utm.length > 60 ? "…" : ""}` : "⚠️ nessun parametro utm"}
+                    </div>
                     {bloccatoDaSopra && (
                       <div
                         className="cella-sub"
@@ -216,6 +241,23 @@ export async function AnnunciMeta({
               );
             })}
           </div>
+          {senzaUtm > 0 && (
+            <p className="cella-sub" style={{ marginTop: 10, whiteSpace: "normal", color: "var(--orange)" }}>
+              <b>
+                {senzaUtm === accesiTotali
+                  ? senzaUtm === 1
+                    ? "L'unica inserzione accesa non ha parametri utm"
+                    : `Nessuna delle ${accesiTotali} inserzioni accese ha parametri utm`
+                  : `${senzaUtm} inserzioni accese su ${accesiTotali} non hanno parametri utm`}
+                .
+              </b>{" "}
+              Il loro traffico arriva a Shopify come «diretto» o «social»: la spesa la vediamo, il
+              ricavo non si riesce ad attribuire a Meta. È per questo che il <b>ritorno Meta</b>
+              nelle tabelle per categoria e per area risulta più basso del vero — in tutto il 2026
+              gli ordini che Orders attribuisce a Meta sono 16 su Gifts, 19 su Flowers, 8 su Cake.
+              Gli utm si mettono in Ads Manager, sull&apos;inserzione, nel campo «Parametri URL».
+            </p>
+          )}
           <p className="cella-sub" style={{ marginTop: 10, whiteSpace: "normal" }}>
             Letti adesso dalla Graph API, miniature comprese. ⚠️ Le «bozze» di Ads Manager mai
             pubblicate non sono nell&apos;API: qui compaiono gli annunci reali in ogni stato — anche

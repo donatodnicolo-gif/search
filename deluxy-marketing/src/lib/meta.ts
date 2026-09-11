@@ -412,7 +412,39 @@ export type AdSetMeta = {
   obiettivoOttimizzazione: string | null;
   inizio: string | null;
   fine: string | null;
+  /**
+   * ⚠️ CON QUALE FINESTRA META CONTA I RISULTATI: «7 giorni dal clic, 1 giorno
+   * dalla visualizzazione» è il default, ma si cambia per ad set.
+   *
+   * Senza questo numero i risultati di Meta e quelli di Orders **non sono
+   * confrontabili**, e non per un errore di qualcuno: Meta attribuisce a
+   * un'inserzione anche un ordine arrivato sei giorni dopo il clic, e perfino
+   * uno di chi l'ha solo VISTA il giorno prima. Orders conta l'ordine il
+   * giorno in cui è stato pagato. Mettere i due numeri accanto senza dire la
+   * finestra è confrontare due cose diverse chiamandole uguali.
+   */
+  attribuzione: string | null;
+  /** L'evento che compra l'asta (`ACQUISTO`, `AGGIUNTA_AL_CARRELLO`…) e il pixel su cui lo legge. */
+  eventoOttimizzato: string | null;
+  pixel: string | null;
 };
+
+// Le finestre di attribuzione, dette in italiano. Meta le manda come coppie
+// (`event_type`, `window_days`), e lasciarle in inglese in pagina vorrebbe
+// dire far tradurre a mente una cosa che decide come si leggono i numeri.
+function raccontaAttribuzione(spec: unknown): string | null {
+  if (!Array.isArray(spec) || spec.length === 0) return null;
+  const pezzi: string[] = [];
+  for (const v of spec as Array<Record<string, unknown>>) {
+    const tipo = String(v.event_type ?? "");
+    const giorni = Number(v.window_days ?? 0);
+    if (!tipo || !giorni) continue;
+    const come =
+      tipo === "CLICK_THROUGH" ? "dal clic" : tipo === "VIEW_THROUGH" ? "dalla visualizzazione" : tipo;
+    pezzi.push(`${giorni} ${giorni === 1 ? "giorno" : "giorni"} ${come}`);
+  }
+  return pezzi.length > 0 ? pezzi.join(" · ") : null;
+}
 
 export async function leggiAdSetMeta(
   idAccount: string
@@ -474,6 +506,14 @@ export async function leggiAdSetMeta(
           budgetGiorno: cent(r.daily_budget),
           budgetTotale: cent(r.lifetime_budget),
           obiettivoOttimizzazione: r.optimization_goal ? String(r.optimization_goal) : null,
+          // ⚠️ La sync NON chiede attribuzione, evento e pixel: sono tre campi
+          // in più per 437 ad set a ogni giro, e nessuno li salva (non hanno
+          // una colonna). Li legge la pagina, sul nodo della campagna, dove
+          // gli ad set sono due o tre. `null` qui vuol dire «non chiesto», e
+          // chi legge la sync non deve confonderlo con «non impostato».
+          attribuzione: null,
+          eventoOttimizzato: null,
+          pixel: null,
           inizio: r.start_time ? String(r.start_time) : null,
           fine: r.end_time ? String(r.end_time) : null,
         });
@@ -584,7 +624,11 @@ export async function leggiAdSetDiCampagnaMeta(
   if (!t) return { adset: [], errore: "META_ACCESS_TOKEN non impostato" };
   const q = new URLSearchParams({
     fields:
-      "id,name,campaign_id,status,effective_status,daily_budget,lifetime_budget,optimization_goal,start_time,end_time",
+      "id,name,campaign_id,status,effective_status,daily_budget,lifetime_budget,optimization_goal," +
+      // ⚠️ Questi tre non sono decorazione: la finestra di attribuzione decide
+      // COME Meta conta i risultati che poi confrontiamo con Orders, e
+      // l'evento ottimizzato dice che cosa l'asta sta comprando davvero.
+      "attribution_spec,promoted_object,start_time,end_time",
     limit: "100",
     access_token: t,
   });
@@ -606,6 +650,15 @@ export async function leggiAdSetDiCampagnaMeta(
       obiettivoOttimizzazione: r.optimization_goal ? String(r.optimization_goal) : null,
       inizio: r.start_time ? String(r.start_time) : null,
       fine: r.end_time ? String(r.end_time) : null,
+      attribuzione: raccontaAttribuzione(r.attribution_spec),
+      eventoOttimizzato: (() => {
+        const po = (r.promoted_object ?? {}) as Record<string, unknown>;
+        return po.custom_event_type ? String(po.custom_event_type) : null;
+      })(),
+      pixel: (() => {
+        const po = (r.promoted_object ?? {}) as Record<string, unknown>;
+        return po.pixel_id ? String(po.pixel_id) : null;
+      })(),
     }));
     return { adset, errore: null };
   } catch (e) {
@@ -688,6 +741,28 @@ export type TargetingAdSet = {
   /** Lo spec INTERO, così come arriva: serve a chi lo riscrive, che deve rimandarlo tutto. */
   grezzo: Record<string, unknown>;
   riassunto: string[];
+  /**
+   * ⚠️⚠️ I DUE STRATI DEL PUBBLICO, e non sono un dettaglio di presentazione.
+   *
+   * Con **Advantage+ audience acceso** (`targeting_automation.advantage_audience = 1`)
+   * Meta divide il targeting in due cose diverse, e lo scrive a schermo in
+   * Ads Manager:
+   *  · **Controlli** — «Non raggiungeremo le persone al di là di queste
+   *    impostazioni, nemmeno con Advantage+ attivo»: luoghi, **età minima**,
+   *    lingue, esclusioni di pubblico. Sono vincoli duri.
+   *  · **Suggerisci pubblico** — età (il tetto), genere, interessi e pubblici
+   *    personalizzati INCLUSI: sono indicazioni che Meta **scavalca** quando le
+   *    conviene.
+   *
+   * Mostrare «età 27-60» come se fosse un filtro è una frase FALSA sulla
+   * consegna reale: quell'ad set può erogare a un trentenne fuori da quel
+   * pubblico e a un settantenne. Con Advantage+ spento, invece, tutto è
+   * vincolo. Tenere i due elenchi separati è l'unico modo di non far prendere
+   * decisioni su un perimetro che non esiste.
+   */
+  vincoli: string[];
+  suggerimenti: string[];
+  advantageAcceso: boolean;
   eta: { min: number | null; max: number | null };
   genere: "tutti" | "uomini" | "donne" | "altro";
   paesi: string[];
@@ -766,24 +841,59 @@ export function leggiSpecTargeting(spec: Record<string, unknown>): TargetingAdSe
   const pubblici = pubblico(spec.custom_audiences);
   const pubbliciEsclusi = pubblico(spec.excluded_custom_audiences);
 
-  const riassunto: string[] = [];
-  riassunto.push(
-    eta.min == null && eta.max == null ? "età: come Meta decide" : `età ${eta.min ?? "?"}-${eta.max ?? "?"}`
-  );
-  if (genere !== "tutti") riassunto.push(`solo ${genere}`);
   const luoghi = [
     ...paesi.map((p) => p),
     ...citta.map((c) => (c.raggioKm ? `${c.nome} +${c.raggioKm} km` : c.nome)),
     ...regioni,
   ];
-  riassunto.push(luoghi.length > 0 ? `luoghi: ${luoghi.join(", ")}` : "nessun luogo nello spec");
-  if (pubblici.length > 0) riassunto.push(`pubblici: ${pubblici.map((p) => p.nome ?? p.id).join(", ")}`);
-  if (pubbliciEsclusi.length > 0)
-    riassunto.push(`esclusi: ${pubbliciEsclusi.map((p) => p.nome ?? p.id).join(", ")}`);
-  if (posizionamenti.length > 0) riassunto.push(`solo su ${posizionamenti.join(", ")}`);
-  if (advantage === true) riassunto.push("Advantage+ acceso (Meta può allargare il pubblico)");
+  const lingue = Array.isArray(spec.locales) ? (spec.locales as unknown[]).length : 0;
+  const advantageAcceso = advantage === true;
 
-  return { grezzo: spec, riassunto, eta, genere, paesi, citta, regioni, pubblici, pubbliciEsclusi, advantage, posizionamenti };
+  // I VINCOLI: valgono sempre, Advantage+ acceso o spento.
+  const vincoli: string[] = [];
+  vincoli.push(luoghi.length > 0 ? `luoghi: ${luoghi.join(", ")}` : "nessun luogo nello spec");
+  if (eta.min != null) vincoli.push(`età minima ${eta.min}`);
+  if (lingue > 0) vincoli.push(`${lingue} lingue`);
+  if (pubbliciEsclusi.length > 0)
+    vincoli.push(`esclusi: ${pubbliciEsclusi.map((p) => p.nome ?? p.id).join(", ")}`);
+
+  // I SUGGERIMENTI: con Advantage+ acceso Meta li scavalca. Con Advantage+
+  // spento sono vincoli come gli altri, e infatti finiscono nella stessa lista.
+  const morbidi: string[] = [];
+  if (eta.max != null) morbidi.push(`fino a ${eta.max} anni`);
+  if (genere !== "tutti") morbidi.push(`solo ${genere}`);
+  if (pubblici.length > 0) morbidi.push(`pubblici: ${pubblici.map((p) => p.nome ?? p.id).join(", ")}`);
+  if (Array.isArray(spec.flexible_spec) && spec.flexible_spec.length > 0) {
+    morbidi.push("targetizzazione dettagliata (interessi/comportamenti)");
+  }
+  const suggerimenti = advantageAcceso ? morbidi : [];
+  if (!advantageAcceso) vincoli.push(...morbidi);
+  if (posizionamenti.length > 0) vincoli.push(`solo su ${posizionamenti.join(", ")}`);
+
+  // Il riassunto di una riga resta, per chi ha poco spazio: ma dice a quale
+  // dei due strati appartiene ogni cosa, invece di elencarle tutte uguali.
+  const riassunto: string[] = [...vincoli];
+  if (suggerimenti.length > 0) {
+    riassunto.push(`suggeriti (Meta può scavalcarli): ${suggerimenti.join(", ")}`);
+  }
+  if (advantageAcceso) riassunto.push("Advantage+ acceso");
+
+  return {
+    grezzo: spec,
+    riassunto,
+    vincoli,
+    suggerimenti,
+    advantageAcceso,
+    eta,
+    genere,
+    paesi,
+    citta,
+    regioni,
+    pubblici,
+    pubbliciEsclusi,
+    advantage,
+    posizionamenti,
+  };
 }
 
 /**
