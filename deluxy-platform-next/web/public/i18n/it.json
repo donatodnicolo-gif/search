@@ -3731,7 +3731,7 @@
     "tuttiIDetentori": "← Tutti",
     "aMagazzino": "A magazzino Deluxy",
     "daStabilire": "Destinazione da stabilire",
-    "suConsegne": "su {{n}} consegne",
+    "suConsegne": "su {{n}} consegne · ultimi {{g}} giorni",
     "nessuno": "Nessuno ha merce in questo momento.",
     "nessunProdotto": "Nessuna merce da mostrare.",
     "nessunaConsegna": "Nessuna consegna in questa fase.",
@@ -3760,6 +3760,7 @@
       "keptInCar": "tenuta dal valet",
       "deluxyWareHouse": "a magazzino Deluxy",
       "daStabilire": "da stabilire"
-    }
+    },
+    "nessunoConRicerca": "Nessun risultato per «{{q}}»."
   }
 }

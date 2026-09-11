@@ -3729,7 +3729,7 @@
     "tuttiIDetentori": "← All",
     "aMagazzino": "In the Deluxy warehouse",
     "daStabilire": "Destination to be decided",
-    "suConsegne": "across {{n}} deliveries",
+    "suConsegne": "across {{n}} deliveries · last {{g}} days",
     "nessuno": "Nobody is holding goods right now.",
     "nessunProdotto": "No goods to show.",
     "nessunaConsegna": "No delivery in this phase.",
@@ -3758,6 +3758,7 @@
       "keptInCar": "kept by the valet",
       "deluxyWareHouse": "in the Deluxy warehouse",
       "daStabilire": "to be decided"
-    }
+    },
+    "nessunoConRicerca": "No result for “{{q}}”."
   }
 }

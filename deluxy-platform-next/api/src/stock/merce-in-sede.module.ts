@@ -49,6 +49,33 @@ export const DESTINAZIONI = ['returnToBoutique', 'keptInCar', 'deluxyWareHouse']
 
 type Filtri = { da?: string; a?: string; q?: string; partnerId?: string; valetId?: string };
 
+/**
+ * ⚠️⚠️ CHI HA IN MANO LA MERCE: UNA REGOLA SOLA, per il livello 1 e per il livello 2.
+ *
+ * Prima il livello 1 attribuiva col criterio giusto (il partner ha ciò che è sul suo bancone o che gli è
+ * tornato indietro; il valet ciò che porta o che si è tenuto) e il livello 2 contava invece TUTTO ciò che
+ * passava da quel partner. Risultato: la boutique diceva «in sospeso 3», ci entravi e i prodotti ne
+ * sommavano quaranta. Un elenco che non fa il numero da cui sei partito toglie fiducia a tutta la pagina.
+ */
+function attribuzione(tipo: 'partner' | 'valet' | null): Prisma.Sql {
+  if (tipo === 'partner') {
+    return Prisma.sql`(
+      d."status" IN (${Prisma.join(FASI.daRitirare.map((x) => Prisma.sql`${x}`), ', ')})
+      OR (d."status" = 'in_delivery' AND COALESCE(d."deliveredByPartner", false))
+      OR (d."status" = 'not_delivered' AND d."productManagement" = 'returnToBoutique')
+      OR d."status" IN (${Prisma.join(FASI.consegnati.map((x) => Prisma.sql`${x}`), ', ')})
+    )`;
+  }
+  if (tipo === 'valet') {
+    return Prisma.sql`(
+      (d."status" = 'in_delivery' AND NOT COALESCE(d."deliveredByPartner", false))
+      OR (d."status" = 'not_delivered' AND d."productManagement" = 'keptInCar')
+      OR d."status" IN (${Prisma.join(FASI.consegnati.map((x) => Prisma.sql`${x}`), ', ')})
+    )`;
+  }
+  return Prisma.sql`TRUE`;
+}
+
 @Injectable()
 export class MerceInSedeService {
   constructor(private readonly prisma: PrismaService) {}
@@ -69,6 +96,15 @@ export class MerceInSedeService {
    * ⚠️ Non si accetta `partnerId`/`valetId` da chi non è ufficio: cambiare un parametro nell'indirizzo
    * aprirebbe la merce di un concorrente.
    */
+  /** Di che tipo è il detentore che stiamo guardando: decide la regola di attribuzione. */
+  private tipoDetentore(user: JwtUser, f: Filtri): 'partner' | 'valet' | null {
+    if (user.role === Role.PARTNER) return 'partner';
+    if (user.role === Role.VALET) return 'valet';
+    if (f.partnerId) return 'partner';
+    if (f.valetId) return 'valet';
+    return null;
+  }
+
   private perimetro(user: JwtUser, f: Filtri): Prisma.Sql {
     if (user.role === Role.PARTNER) {
       if (!user.partnerId) throw new ForbiddenException('Nessun partner collegato a questo utente');
@@ -103,7 +139,7 @@ export class MerceInSedeService {
    * avrebbe senso fisico. Il soggetto della riga è il DETENTORE.
    */
   async perDetentore(user: JwtUser, f: Filtri) {
-    if (user.role === Role.PARTNER || user.role === Role.VALET) {
+    if (user.role !== Role.ADMIN && user.role !== Role.OPERATION) {
       throw new ForbiddenException('Questa vista è dell’ufficio: tu vedi la tua merce');
     }
     const p = this.periodo(f);
@@ -131,7 +167,9 @@ export class MerceInSedeService {
         AND ${this.perimetro(user, f)}
         ${f.q ? Prisma.sql`AND COALESCE(dp."productName", '') ILIKE ${'%' + f.q + '%'}` : Prisma.empty}
       GROUP BY 1
-      HAVING SUM(CASE WHEN d."status" IN (${inLista([...FASI.daRitirare, ...FASI.inSospeso])}) THEN dp."quantity" ELSE 0 END) > 0
+      HAVING SUM(CASE WHEN d."status" IN (${inLista(FASI.daRitirare)}) THEN dp."quantity" ELSE 0 END) > 0
+          OR SUM(CASE WHEN d."status" IN (${inLista(FASI.inConsegna)}) AND d."deliveredByPartner" THEN dp."quantity" ELSE 0 END) > 0
+          OR SUM(CASE WHEN d."status" IN (${inLista(FASI.inSospeso)}) AND d."productManagement" = 'returnToBoutique' THEN dp."quantity" ELSE 0 END) > 0
       ORDER BY 3 DESC
       LIMIT 200
     `);
@@ -162,6 +200,8 @@ export class MerceInSedeService {
       JOIN platform."Delivery" d ON d."id" = dp."deliveryId"
       WHERE d."deletedAt" IS NULL AND dp."deletedAt" IS NULL
         AND d."status" IN (${inLista(FASI.inSospeso)}) AND d."productManagement" = 'deluxyWareHouse'
+        AND ${this.perimetro(user, f)}
+        ${f.q ? Prisma.sql`AND COALESCE(dp."productName", '') ILIKE ${'%' + f.q + '%'}` : Prisma.empty}
     `);
 
     // La merce non consegnata di cui NESSUNO ha detto che fine ha fatto: è lavoro, non un buco.
@@ -173,11 +213,18 @@ export class MerceInSedeService {
         AND d."status" IN (${inLista(FASI.inSospeso)})
         AND COALESCE(NULLIF(d."productManagement", ''), 'none') = 'none'
         AND ${this.perimetro(user, f)}
+        ${f.q ? Prisma.sql`AND COALESCE(dp."productName", '') ILIKE ${'%' + f.q + '%'}` : Prisma.empty}
+        -- ⚠️ IL CONTATORE NON CONTA L'ARCHIVIO. Delle 1.750 non consegnate solo 14 sono degli ultimi
+        -- trenta giorni: un numero che comprende il 2019 non scenderà mai, e un allarme che non scende
+        -- si impara a ignorare. Qui si contano le ultime novanta giornate, e la pagina lo scrive.
+        AND d."date" >= ${new Date(Date.now() - 90 * 86400000)}
     `);
 
     const num = (v: unknown) => Number(v ?? 0);
     return {
       periodo: p.etichetta,
+      // La copertura del contatore, scritta: chi legge deve sapere di cosa sta guardando il totale.
+      daStabilireGiorni: 90,
       righe: [
         ...partner.map((r) => ({ tipo: 'partner' as const, id: r.id, nome: r.nome ?? '—',
           daRitirare: num(r.daritirare), inConsegna: num(r.inconsegna), inSospeso: num(r.insospeso), consegnati: num(r.consegnati) })),
@@ -218,6 +265,7 @@ export class MerceInSedeService {
       WHERE d."deletedAt" IS NULL AND dp."deletedAt" IS NULL
         AND d."status" IN (${Prisma.join(TUTTE.map((x) => Prisma.sql`${x}`), ', ')})
         AND ${this.perimetro(user, f)}
+        AND ${attribuzione(this.tipoDetentore(user, f))}
         ${f.q ? Prisma.sql`AND COALESCE(dp."productName", '') ILIKE ${'%' + f.q + '%'}` : Prisma.empty}
         AND (d."status" NOT IN (${Prisma.join(FASI.consegnati.map((x) => Prisma.sql`${x}`), ', ')})
              OR (d."date" >= ${p.da} AND d."date" <= ${p.a}))
@@ -245,7 +293,7 @@ export class MerceInSedeService {
    * LIVELLO 3: le consegne dietro a un numero. Nessuna cifra senza l'elenco che la genera — se no è un
    * totale che nessuno può verificare.
    */
-  async consegneDiProdotto(user: JwtUser, nome: string, fase: keyof typeof FASI, f: Filtri) {
+  async consegneDiProdotto(user: JwtUser, nome: string, fase: keyof typeof FASI, f: Filtri, variante?: string | null) {
     const stati = FASI[fase] ?? FASI.daRitirare;
     const p = this.periodo(f);
     const righe = await this.prisma.$queryRaw<{
@@ -265,8 +313,12 @@ export class MerceInSedeService {
       LEFT JOIN platform."Valet" v ON v."id" = d."valetId"
       WHERE d."deletedAt" IS NULL AND dp."deletedAt" IS NULL
         AND COALESCE(NULLIF(dp."productName", ''), 'senza nome') = ${nome}
+        -- ⚠️ La variante fa parte della chiave anche qui: «Rosa rossa / stelo lungo» e «Rosa rossa /
+        -- stelo corto» sono due righe diverse in tabella e devono restare due elenchi diversi.
+        AND NULLIF(dp."variantName", '') IS NOT DISTINCT FROM ${variante ?? null}
         AND d."status" IN (${Prisma.join(stati.map((x) => Prisma.sql`${x}`), ', ')})
         AND ${this.perimetro(user, f)}
+        AND ${attribuzione(this.tipoDetentore(user, f))}
         ${stati === FASI.consegnati ? Prisma.sql`AND d."date" >= ${p.da} AND d."date" <= ${p.a}` : Prisma.empty}
       ORDER BY d."date" DESC
       LIMIT 100
@@ -277,7 +329,8 @@ export class MerceInSedeService {
 
 @ApiTags('stock')
 @ApiBearerAuth()
-@Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER, Role.PARTNER, Role.VALET)
+// ⚠️ Niente PROJECT_MANAGER: non accede alle consegne, e questa pagina è fatta di link alle consegne.
+@Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER, Role.VALET)
 @Controller('merce-in-sede')
 export class MerceInSedeController {
   constructor(private readonly service: MerceInSedeService) {}
@@ -309,8 +362,9 @@ export class MerceInSedeController {
     @Query('fase') fase: 'daRitirare' | 'inConsegna' | 'inSospeso' | 'consegnati',
     @Query('da') da?: string, @Query('a') a?: string,
     @Query('partnerId') partnerId?: string, @Query('valetId') valetId?: string,
+    @Query('variante') variante?: string,
   ) {
-    return this.service.consegneDiProdotto(user, prodotto, fase, { da, a, partnerId, valetId });
+    return this.service.consegneDiProdotto(user, prodotto, fase, { da, a, partnerId, valetId }, variante || null);
   }
 }
 

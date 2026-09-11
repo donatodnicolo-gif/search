@@ -1390,7 +1390,8 @@ interface DeliveryDetail {
         background: #fff; border-radius: 12px; padding: 12px 14px; cursor: pointer; min-height: 64px; }
       .scelta strong { display: block; font-size: 14.5px; }
       .scelta small { display: block; margin-top: 2px; color: var(--text-secondary); font-size: 12.5px; }
-      .scelta.on { border-color: #111; box-shadow: inset 0 0 0 1px #111; }
+      .scelta.on { border-color: var(--ink, #111); box-shadow: inset 0 0 0 1px var(--ink, #111); }
+      .scelta.on strong::before { content: '✓ '; }
       .chips.colonna { flex-direction: column; align-items: stretch; }
       .chip { border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px;
               padding: 10px 14px; font: inherit; font-size: 14px; cursor: pointer; text-align: left; }
@@ -1783,6 +1784,10 @@ export class DeliveryDetailComponent {
     this.nomeRicevente = '';
     this.motivo = '';
     this.motivoDettaglio = '';
+    // ⚠️ 11/09/2026 (rilievo del custode): senza questa riga la destinazione restava quella della
+    // consegna precedente, e il controllo «obbligatoria» passava su una scelta che nessuno aveva fatto.
+    // Da lì in poi la pagina Merce in sede contava pezzi nel posto sbagliato.
+    this.destinazione = '';
     this.ddtFoto.set(null);
     this.firmaFatta.set(false);
     this.firmaCtx = null;

@@ -131,7 +131,9 @@ export const routes: Routes = [
         // significati per la stessa parola sono un bug che si paga in fraintendimenti (custode UX&UI).
         path: 'merce-in-sede',
         canActivate: [roleGuard],
-        data: { roles: ['ADMIN', 'OPERATION', 'PROJECT_MANAGER', 'PARTNER', 'VALET'], title: 'Merce in sede' },
+        // ⚠️ Niente PROJECT_MANAGER: non ha accesso all'elenco consegne, e ogni numero di questa pagina
+        // porta lì. Una sezione le cui uscite sono tutte vietate è peggio di una sezione assente.
+        data: { roles: ['ADMIN', 'OPERATION', 'PARTNER', 'VALET'], title: 'Merce in sede' },
         loadComponent: () => import('./pages/merce-in-sede.component').then((m) => m.MerceInSedeComponent),
       },
       {

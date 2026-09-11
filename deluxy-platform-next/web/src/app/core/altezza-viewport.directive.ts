@@ -48,7 +48,6 @@ export class AltezzaViewportDirective implements AfterViewInit, OnDestroy {
     this.zone.runOutsideAngular(() => {
       this.applica();
       window.addEventListener('resize', this.ricalcola, { passive: true });
-      window.addEventListener('scroll', this.ricalcola, { passive: true });
       // I filtri che si aprono cambiano l'altezza di ciò che sta sopra senza nessun evento di finestra.
       if (typeof ResizeObserver !== 'undefined' && this.el.nativeElement.parentElement) {
         this.osservatore = new ResizeObserver(() => this.applica());
@@ -59,7 +58,6 @@ export class AltezzaViewportDirective implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     window.removeEventListener('resize', this.ricalcola);
-    window.removeEventListener('scroll', this.ricalcola);
     this.osservatore?.disconnect();
     this.osservatore = null;
   }
@@ -71,10 +69,19 @@ export class AltezzaViewportDirective implements AfterViewInit, OnDestroy {
       nodo.style.removeProperty('max-height');
       return;
     }
-    const alto = nodo.getBoundingClientRect().top;
-    // Sotto una certa soglia il riquadro diventa una feritoia illeggibile: meglio lasciarlo crescere e
-    // far scorrere la pagina, come faceva prima.
-    const altezza = window.innerHeight - alto - this.margineSotto();
-    nodo.style.maxHeight = altezza >= 260 ? `${Math.round(altezza)}px` : '';
+    /**
+     * ⚠️⚠️ 11/09/2026 (rilievo del custode) — SI MISURA RISPETTO AL DOCUMENTO, NON ALLO SCHERMO.
+     *
+     * Prima si usava `rect.top`, che cambia mentre si scorre, e si riascoltava lo scroll: il fondo del
+     * riquadro finiva sempre a un'altezza di schermo, quindi il DOCUMENTO cresceva di tanto quanto avevi
+     * scorso e la pagina non finiva mai. Il top rispetto al documento è stabile e non serve riascoltare.
+     *
+     * ⚠️ E sotto la soglia non ci si arrende più: se lo spazio è poco, il riquadro prende comunque un
+     * pavimento di 260px. Rinunciare riportava il difetto originale — la barra orizzontale sotto il bordo
+     * dello schermo — proprio sui portatili bassi, che sono il caso da cui questa direttiva è nata.
+     */
+    const topDocumento = nodo.getBoundingClientRect().top + window.scrollY;
+    const disponibile = window.innerHeight - (topDocumento - window.scrollY) - this.margineSotto();
+    nodo.style.maxHeight = `${Math.max(260, Math.round(disponibile))}px`;
   }
 }
