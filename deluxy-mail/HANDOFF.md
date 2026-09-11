@@ -23,6 +23,35 @@ Client di posta aziendale **AI-first** per Deluxy (consegne di fiori di lusso a 
 - **DB di prima (28/07 → 19/08):** `feleldlsreurqpdhstla` («cs@deluxy.it's», eu-west-1, piano **Free**), dove AI Mail divideva il progetto con la **piattaforma consegne** (schema `public`) ed era arrivata a **566 MB contro un tetto di 500**: se fosse scattata la sola lettura si sarebbero fermate **entrambe le app**. È la ragione del trasloco. Resta **intatto come rete di sicurezza** insieme a `sxovckndpmdbqfrfkxhl` (Free, finito in sola lettura a 1,57 GB). ⚠️ È un **secondo abbonamento Supabase**, su un account diverso: spenti i due progetti, va valutato se chiuderlo. ⚠️ Il progetto è **fragile** (Free oltre il tetto): interrogandolo chiude la connessione a metà, quindi query strette e ritentativi.
 - **Porta locale:** 3070.
 
+### 11/09 (09:10) — ✅ LA MISURA DOPO DEI PALLINI: −94% per chiamata
+
+A 21 ore dal deploy `akd6nj5bn`, letta su `pg_stat_statements` **stampando il testo di ogni
+query prima di attribuirla** (dopo i due falsi positivi di ieri):
+
+| voce | chiamate | totale | media |
+|---|---|---|---|
+| VECCHIA `_count` (Sidebar) | **5.304 — ferme** | 4.853.998 ms | 915,16 ms |
+| NUOVA `groupBy` (Sidebar) | 177 | 9.912 ms | **56,00 ms** |
+
+La vecchia ha **zero chiamate nuove** rispetto a quelle congelate ieri: è morta, come doveva.
+**915,16 → 56,00 ms per chiamata = −94%.** In tempo assoluto sulle stesse 21 ore: dai ~330
+secondi che il vecchio ritmo avrebbe bruciato ai **9,9 secondi** misurati, ~33 volte meno.
+La query nuova è riconoscibile dal `WHERE "utenteId" = $1` dentro l'aggregazione: è esattamente
+il difetto che è stato tolto.
+
+⚠️ Il mio script l'aveva etichettata «altra query» (avevo indovinato male l'ordine dei campi che
+Prisma genera): **l'ho riconosciuta solo perché il testo era stampato accanto ai numeri.** Terza
+conferma in due giorni che il filtro con cui cerchi è già un'accusa.
+
+Resta una **seconda** voce `_count` su `Sezione` — 309 chiamate, media 26,95 ms — che è quella di
+`/sezioni` e `/impostazioni`: non toccate perché si aprono di rado, costo trascurabile, si lascia.
+
+✅ **Pulizia HTML, quarto giorno**: 5.504 chiamate / 15.284.128 ms → **+2 chiamate e +9 ms in 22
+ore**. Tiene.
+
+Stato: nessun'altra sessione ha toccato `deluxy-mail`; worktree allineato e pulito; produzione
+`akd6nj5bn`, health ok.
+
 ### 10/09 (12:07) — IN PRODUZIONE `51e1202e` (deploy `deluxy-mail-akd6nj5bn`, build nel cloud)
 
 Su via libera dell'utente. Alias `deluxy-mail.vercel.app` → questo deployment (`vercel inspect`),
