@@ -281,6 +281,12 @@ tr.riga-cliccabile:hover, li.riga-cliccabile:hover { background: var(--fill); cu
 }
 .campo-modulo input:focus, .campo-modulo select:focus, .campo-modulo textarea:focus { background: var(--surface); border-color: var(--hairline-strong); }
 .azioni-modulo { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+/* 11/09/2026: avviso neutro (es. fase scelta dal tasto rapido, prima del salvataggio). */
+.avviso-info {
+  padding: 10px 14px; margin-bottom: 14px;
+  background: rgba(0, 113, 227, 0.07); color: var(--text);
+  border-radius: var(--radius-m); font-size: 13.5px;
+}
 .avviso-errore {
   padding: 10px 14px; margin-bottom: 14px;
   background: rgba(215, 0, 21, 0.07); color: var(--red);

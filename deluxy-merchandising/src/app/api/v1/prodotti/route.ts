@@ -147,6 +147,14 @@ export async function POST(req: NextRequest) {
     origine: testo(body.origine) ?? "esterna",
     idEsterno: testo(body.idEsterno),
   };
+  // ⭐ 11/09/2026 (regola utente): un prodotto NATO DAL PARTNER arriva dalla piattaforma col suo
+  // nome anche come «nome partner» e con la fase «prototipo» (da approvare). Il nome partner si
+  // scrive solo se viene mandato: un aggiornamento senza non cancella quello che c'è.
+  const nomePartner = testo(body.nomePartner);
+  const conNomePartner = nomePartner
+    ? { nomePartner, nomePartnerAttivo: typeof body.nomePartnerAttivo === "boolean" ? body.nomePartnerAttivo : true }
+    : {};
+  const noteSviluppo = testo(body.noteSviluppo);
 
   const esistente = await prisma.prodotto.findUnique({ where: { codice } });
   if (esistente) {
@@ -155,7 +163,7 @@ export async function POST(req: NextRequest) {
     // «in vendita» dopo che qualcuno l'aveva archiviato.
     const aggiornato = await prisma.prodotto.update({
       where: { codice },
-      data: comuni,
+      data: { ...comuni, ...conNomePartner },
       select: CAMPI,
     });
     return NextResponse.json({ creato: false, prodotto: aggiornato });
@@ -165,6 +173,8 @@ export async function POST(req: NextRequest) {
     data: {
       codice,
       ...comuni,
+      ...conNomePartner,
+      ...(noteSviluppo ? { noteSviluppo } : {}),
       fase: testo(body.fase) ?? "in_vendita",
       // Fuori dalle analisi finché non lo decide una persona: vedi la nota in
       // testa al file.

@@ -122,6 +122,13 @@ function dataDa(iso: string | null): Date | null {
 export async function cambiaFase(id: string, nuovaFase: string) {
   const p = await prisma.prodotto.findUnique({ where: { id } });
   if (!p || p.fase === nuovaFase) return;
+  // ⭐ 11/09/2026 (regola utente: «se viene approvato finisce su Shopify»). Approvato e Pubblico
+  // creano la scheda sul negozio (09/09: approvato = bozza), ma la creazione ha bisogno del
+  // modulo completo (negozio, prezzi, foto, campi): il tasto rapido porta al modulo con la
+  // fase già scelta; salvando, il prodotto va su Shopify. Chi è già sul negozio cambia solo fase.
+  if (!p.shopifyId && (nuovaFase === "approvato" || nuovaFase === "in_vendita")) {
+    redirect(`/prodotti/${id}/modifica?fase=${nuovaFase}`);
+  }
   await prisma.$transaction([
     prisma.prodotto.update({ where: { id }, data: { fase: nuovaFase } }),
     prisma.tappaSviluppo.create({ data: { prodottoId: id, da: p.fase, a: nuovaFase, origine: "ui" } }),

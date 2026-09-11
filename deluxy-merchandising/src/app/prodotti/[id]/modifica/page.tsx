@@ -18,7 +18,7 @@ export default async function ModificaProdottoPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ errore?: string }>;
+  searchParams: Promise<{ errore?: string; fase?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -53,13 +53,20 @@ export default async function ModificaProdottoPage({
           </div>
         </div>
         {sp.errore && <div className="avviso-errore">{sp.errore}</div>}
+        {/* ⭐ 11/09/2026: arrivati qui dal tasto «Approvato»/«Pubblico» di un prodotto non ancora sul negozio. */}
+        {sp.fase && !p.shopifyId && (
+          <div className="avviso-info">
+            Fase scelta: <b>{sp.fase === "in_vendita" ? "Pubblico" : "Approvato"}</b>. Controlla negozio, prezzi, foto e campi, poi salva: il prodotto va su Shopify
+            {sp.fase === "in_vendita" ? " visibile al pubblico." : " in bozza."}
+          </div>
+        )}
         {p.fase === "archiviato" && (
           <div className="nota-info">
             <span className="nota-icona">◆</span>
             <span>Il prodotto è archiviato: salvando torna alla fase scelta qui sotto.</span>
           </div>
         )}
-        <FormProdottoNuovo {...dati} iniziale={iniziale} azione={aggiornaProdottoCompleto.bind(null, p.id)} />
+        <FormProdottoNuovo {...dati} iniziale={sp.fase && !p.shopifyId ? { ...iniziale, fase: sp.fase } : iniziale} azione={aggiornaProdottoCompleto.bind(null, p.id)} />
       </main>
     </div>
   );
