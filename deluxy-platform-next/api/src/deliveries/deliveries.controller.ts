@@ -72,6 +72,13 @@ export class DeliveriesController {
 
   // NB: dichiarate PRIMA di :id, altrimenti verrebbero catturate dalla route param.
 
+  @Autenticato()
+  @Get('resi-da-accettare')
+  @ApiOperation({ summary: 'I resi che aspettano di essere accettati, col numero di giorni di attesa' })
+  resiDaAccettare(@CurrentUser() user: JwtUser) {
+    return this.deliveriesService.resiDaAccettare(user);
+  }
+
   /**
    * ⭐ 08/09/2026 (regola utente) — IL CATALOGO DELLA RICERCA AVANZATA: campi
    * interrogabili, loro tipo e operatori ammessi. Il pop-up si costruisce da qui invece
@@ -196,6 +203,17 @@ export class DeliveriesController {
    * ⭐ 05/09/2026 (regola utente): il PARTNER verifica il codice del valet al
    * ritiro. Anche l'ufficio. Corpo: { codice }.
    */
+  /**
+   * ⭐ 11/09/2026 (regola utente): la boutique ACCETTA IL RESO della merce che le è stata riportata.
+   * L'ufficio può farlo al posto suo — succede al telefono, e un flusso che aspetta per sempre è un difetto.
+   */
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
+  @Post(':id/reso/accetta')
+  @ApiOperation({ summary: 'Il partner accetta il reso di una consegna non consegnata riportata in boutique' })
+  accettaReso(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.deliveriesService.accettaReso(id, user);
+  }
+
   @Roles(Role.ADMIN, Role.OPERATION, Role.PARTNER)
   @Post(':id/ritiro/verifica')
   @ApiOperation({ summary: 'Il partner inserisce il codice del valet al ritiro: se combacia, il valet può partire' })

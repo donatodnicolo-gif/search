@@ -1,7 +1,8 @@
 import { ConfermaComponent } from '../shared/conferma.component';
+import { AltezzaViewportDirective } from '../core/altezza-viewport.directive';
 import { RiconsegnaDialogComponent } from '../shared/riconsegna-dialog.component';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { DatePipe } from '@angular/common';
+import { DecimalPipe, DatePipe } from '@angular/common';
 import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { avviaAutoAggiornamento } from '../core/auto-aggiornamento';
 import { FormsModule } from '@angular/forms';
@@ -90,7 +91,7 @@ interface PropostaVendita {
 @Component({
   selector: 'app-deliveries-list',
   standalone: true,
-  imports: [FormsModule, DatePipe, RouterLink, TranslatePipe, DeliveryMapComponent, ConfermaComponent, RiconsegnaDialogComponent],
+  imports: [FormsModule, DatePipe, DecimalPipe, RouterLink, TranslatePipe, DeliveryMapComponent, ConfermaComponent, RiconsegnaDialogComponent, AltezzaViewportDirective],
   template: `
     <div class="page-header">
       <div>
@@ -360,6 +361,36 @@ interface PropostaVendita {
       </section>
     }
 
+    <!-- ⭐ 11/09/2026: L'ORDINE DIETRO AL DDT, senza lasciare l'elenco. -->
+    @if (ordineAperto(); as o) {
+      <div class="velo" (click)="ordineAperto.set(null)">
+        <div class="foglio" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+          <header>
+            <h2>{{ 'deliveries.ordine.titolo' | translate }} {{ o.numero }}</h2>
+            <button type="button" class="chiudi" (click)="ordineAperto.set(null)" aria-label="Chiudi">✕</button>
+          </header>
+          @if (o.caricando) {
+            <p class="muted">{{ 'common.loading' | translate }}</p>
+          } @else if (o.errore) {
+            <p class="avviso errore">{{ o.errore }}</p>
+          } @else {
+            <dl class="scheda">
+              @if (o.brand) { <dt>{{ 'deliveries.ordine.negozio' | translate }}</dt><dd>{{ o.brand }}</dd> }
+              @if (o.stato) { <dt>{{ 'deliveries.ordine.stato' | translate }}</dt><dd>{{ o.stato }}</dd> }
+              @if (o.importo != null) { <dt>{{ 'deliveries.ordine.importo' | translate }}</dt><dd class="strong">{{ o.importo | number: '1.2-2' }} €</dd> }
+              @if (o.cliente) { <dt>{{ 'deliveries.ordine.cliente' | translate }}</dt><dd>{{ o.cliente }}</dd> }
+              @if (o.prodotto) { <dt>{{ 'deliveries.ordine.prodotto' | translate }}</dt><dd>{{ o.prodotto }}</dd> }
+              @if (o.note) { <dt>{{ 'deliveries.ordine.note' | translate }}</dt><dd>{{ o.note }}</dd> }
+            </dl>
+          }
+          <footer>
+            <a class="btn btn-secondary" [routerLink]="['/sales']" [queryParams]="{ q: o.numero }">{{ 'deliveries.ordine.vaiAVendite' | translate }}</a>
+            <button type="button" class="btn btn-primary" (click)="ordineAperto.set(null)">{{ 'common.close' | translate }}</button>
+          </footer>
+        </div>
+      </div>
+    }
+
     <!-- Errore di un'azione di riga (es. cambio stato del valet rifiutato):
          senza un posto suo finirebbe solo dentro i pop-up, cioè nel nulla. -->
     @if (actionError() && !assignFor() && !additionalFor()) {
@@ -414,7 +445,10 @@ interface PropostaVendita {
       @if (esitoDiMassa()) { <div class="card ok-card">{{ esitoDiMassa() }}</div> }
 
       <p class="conto-record">{{ 'comune.record' | translate: { n: total() } }}</p>
-      <div class="card table-wrap">
+      <!-- ⭐ 11/09/2026 (segnalazione utente): l'altezza si MISURA, non si indovina. Con un numero
+           fisso il fondo del riquadro finiva sotto il bordo dello schermo, e con lui la barra per
+           scorrere a destra: per trovarla si scendeva, e la prima consegna spariva. -->
+      <div class="card table-wrap" appAltezzaViewport>
         <table>
           <thead>
             <tr>
@@ -542,9 +576,13 @@ interface PropostaVendita {
                        Se la vendita è collegata il DDT è un link a lei. -->
                   @if (d.ddtNumber || d.vendita?.ordine) {
                     @if (d.vendita?.ordine; as ordine) {
-                      <a class="rif-vendita" [routerLink]="['/sales']" [queryParams]="{ q: ordine }"
-                         (click)="$event.stopPropagation()"
-                         [title]="'deliveries.saleRef' | translate">DDT {{ d.ddtNumber ?? ordine }}@if (d.ddtBrand) { · {{ d.ddtBrand }} }</a>
+                      <!-- ⭐ 11/09/2026 (regola utente): «quando clicco su ddt vendita mi porta alla pagina
+                           vendita, mostra invece il pop-up con l'ordine». Chi sta guardando l'elenco sta
+                           lavorando lì: per sapere cosa c'era in quell'ordine non deve perdere la riga,
+                           i filtri e la posizione nella pagina. -->
+                      <button type="button" class="rif-vendita come-link"
+                              (click)="$event.stopPropagation(); apriOrdine(d)"
+                              [title]="'deliveries.ordine.apri' | translate">DDT {{ d.ddtNumber ?? ordine }}@if (d.ddtBrand) { · {{ d.ddtBrand }} }</button>
                     } @else {
                       <span class="rif-vendita">DDT {{ d.ddtNumber }}@if (d.ddtBrand) { · {{ d.ddtBrand }} }</span>
                     }
@@ -1624,6 +1662,19 @@ interface PropostaVendita {
          sono strette; su telefono e' l'unica cosa che si legge, quindi cresce. */
       td.servizio { white-space: nowrap; }
       /* ⭐ 11/09/2026: il luogo sotto l'indirizzo — stessa cella, seconda riga, più piccolo. */
+      .rif-vendita.come-link { border: 0; background: none; padding: 0; cursor: pointer; font: inherit;
+        color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+      .velo { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.32); display: flex;
+        align-items: center; justify-content: center; z-index: 60; padding: 16px; }
+      .foglio { background: #fff; border-radius: 16px; padding: 18px; width: min(520px, 100%);
+        max-height: min(88dvh, 720px); overflow: auto; }
+      .foglio header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+      .foglio h2 { margin: 0; font-size: 18px; letter-spacing: -0.01em; }
+      .foglio .chiudi { border: 0; background: none; font-size: 18px; cursor: pointer; padding: 4px 8px; }
+      .foglio .scheda { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 14px 0 18px; }
+      .foglio .scheda dt { color: var(--text-secondary); font-size: 13px; }
+      .foglio .scheda dd { margin: 0; font-size: 14px; }
+      .foglio footer { display: flex; justify-content: flex-end; gap: 10px; }
       .luogo-riga { display: block; margin-top: 2px; font-size: 12.5px; color: var(--text-secondary); }
       .svc-nome { display: none; margin-left: 6px; font-size: 12.5px; color: var(--text-secondary); vertical-align: middle; }
       @media (max-width: 800px) {
@@ -2657,6 +2708,41 @@ export class DeliveriesListComponent {
    * ⭐ 11/09/2026 (regola utente): scarica TUTTE le consegne dei filtri attivi, in un CSV che Excel apre
    * con un doppio click. I filtri sono quelli della pagina: quello che si vede è quello che si scarica.
    */
+  /**
+   * ⭐ 11/09/2026 (regola utente): l'ordine dietro al DDT si guarda da qui, in un foglio sopra l'elenco.
+   * Si mostra subito quello che la riga sa già (numero, negozio, stato) e si completa con la chiamata:
+   * così il foglio non resta vuoto mentre la rete lavora.
+   */
+  readonly ordineAperto = signal<{
+    numero: string; brand?: string | null; stato?: string | null;
+    importo?: number | null; cliente?: string | null; prodotto?: string | null; note?: string | null;
+    caricando: boolean; errore?: string | null;
+  } | null>(null);
+
+  apriOrdine(d: Delivery): void {
+    const v = (d as unknown as { vendita?: { id?: string; ordine?: string; brand?: string; stato?: string } }).vendita;
+    if (!v?.ordine) return;
+    this.ordineAperto.set({ numero: v.ordine, brand: v.brand ?? d.ddtBrand ?? null, stato: v.stato ?? null, caricando: !!v.id });
+    if (!v.id) return;
+    this.http.get<Record<string, unknown>>(`${environment.apiUrl}/sales/${v.id}`).subscribe({
+      next: (s) => {
+        const nome = [s['recipientFirstName'], s['recipientLastName']].filter(Boolean).join(' ').trim();
+        this.ordineAperto.set({
+          numero: (s['externalOrderNumber'] as string) ?? v.ordine!,
+          brand: (s['brand'] as string) ?? null,
+          stato: (s['status'] as string) ?? null,
+          importo: (s['amount'] as number) ?? null,
+          cliente: nome || null,
+          prodotto: (s['productName'] as string) ?? null,
+          note: (s['notes'] as string) ?? null,
+          caricando: false,
+        });
+      },
+      // Un foglio che non riesce a leggere lo dice: meglio di uno che resta a metà senza spiegare.
+      error: () => this.ordineAperto.update((o) => (o ? { ...o, caricando: false, errore: this.translate.instant('deliveries.ordine.errore') } : o)),
+    });
+  }
+
   readonly esportando = signal(false);
   esporta(): void {
     if (this.esportando()) return;

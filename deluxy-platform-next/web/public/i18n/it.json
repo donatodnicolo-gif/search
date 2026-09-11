@@ -839,6 +839,7 @@
     }
   },
   "deliveries": {
+    "ordine": { "apri": "Vedi l’ordine", "titolo": "Ordine", "negozio": "Negozio", "stato": "Stato", "importo": "Importo", "cliente": "Cliente", "prodotto": "Prodotto", "note": "Note", "vaiAVendite": "Apri in Vendite", "errore": "Ordine non leggibile: riprova." },
     "export": { "bottone": "Esporta per Excel", "vuoto": "Nessuna consegna da estrarre con questi filtri.", "corso": "Preparo il file…", "troncato": "Estrazione fermata a 20.000 righe: restringi il periodo per averle tutte.", "errore": "Estrazione non riuscita: riprova." },
     "ordina": { "label": "Ordina per", "asc": "Crescente ↑", "desc": "Decrescente ↓" },
     "margine": { "titolo": "Margine Deluxy {{pct}} % ({{euro}} €): sotto il 5 %" },

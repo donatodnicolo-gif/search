@@ -753,16 +753,54 @@ export class FinanceService {
       }
     }
     const numeri = [...new Set(rows.map((r) => r.realOrderNumber).filter(Boolean))] as string[];
-    if (!numeri.length) return new Map<string, ClientePagato>();
-    const righe = await this.prisma.ordineCliente.findMany({
+    // ⚠️ 11/09/2026: QUI c'era un'uscita anticipata («niente numeri d'ordine → mappa vuota»), e si
+    // portava via anche il ripiego sulla vendita, che serve proprio alle consegne SENZA numero d'ordine:
+    // quelle inserite dal Customer Service. Ora si prosegue con l'elenco vuoto.
+    const righe = numeri.length ? await this.prisma.ordineCliente.findMany({
       where: { orderId: { in: numeri } },
       select: { orderId: true, ordersId: true, brand: true, numero: true, prodotti: true, consegna: true, totale: true, commissioneIncassi: true, commissioneDa: true },
-    });
-    return new Map<string, ClientePagato>(righe.map((r) => [r.orderId, {
+    }) : [];
+    const mappa = new Map<string, ClientePagato>(righe.map((r) => [r.orderId, {
       prodotti: r.prodotti, consegna: r.consegna, totale: r.totale,
       ordersId: r.ordersId, brand: r.brand, numero: r.numero,
       commissioneIncassi: r.commissioneIncassi, commissioneDa: r.commissioneDa,
     }]));
+
+    /**
+     * ⭐⭐ 11/09/2026 (segnalazione utente sulla consegna #101361, ordine 2910: «il valore della vendita
+     * ci risulta di 150 e non di 250 che è quanto ha pagato il cliente») — ULTIMO RIPIEGO: LA VENDITA.
+     *
+     * Le consegne che arrivano dal Customer Service portano sulla riga il prezzo concordato col FORNITORE
+     * (150 €), non quello pagato dal cliente. Il totale del cliente è su `Sale.amount` (250 €), ma finché
+     * quella vendita non è agganciata a un ordine di Orders — e le vendite inserite a mano non lo sono —
+     * la ricerca qui sopra non trovava niente, il venduto ripiegava sulle righe e il margine usciva ZERO.
+     *
+     * ⚠️ È un ripiego, non una fonte migliore: si usa SOLO dove Orders non sa rispondere, e non sovrascrive
+     * mai un ordine vero. Sull'ordine vero ci sono prodotti e consegna separati, qui c'è un totale solo:
+     * lo si mette tutto sui prodotti e la consegna resta a zero, perché inventarne la ripartizione
+     * sarebbe peggio che dichiararla mancante.
+     */
+    const senzaOrdine = rows.filter((r) => !r.realOrderNumber || !mappa.has(r.realOrderNumber));
+    if (senzaOrdine.length) {
+      const vendite = await this.prisma.sale.findMany({
+        where: { deliveryId: { in: senzaOrdine.map((r) => r.deliveryId) }, amount: { gt: 0 } },
+        select: { deliveryId: true, amount: true, externalOrderNumber: true, brand: true },
+      });
+      for (const v of vendite) {
+        const riga = senzaOrdine.find((r) => r.deliveryId === v.deliveryId);
+        if (!riga) continue;
+        // La chiave è quella della consegna: serve solo a far ritrovare il valore qui sotto.
+        const chiave = `vendita:${v.deliveryId}`;
+        riga.realOrderNumber = chiave;
+        mappa.set(chiave, {
+          prodotti: v.amount, consegna: 0, totale: v.amount,
+          ordersId: null, brand: v.brand ?? null, numero: v.externalOrderNumber ?? null,
+          // Nessuna commissione d'incasso: quella la conosce solo Orders, e qui Orders non c'è.
+          commissioneIncassi: 0, commissioneDa: '',
+        } as unknown as ClientePagato);
+      }
+    }
+    return mappa;
   }
 
   /** L'indirizzo pubblico di Deluxy Orders (Impostazioni), per i link alle sue pagine. */

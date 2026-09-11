@@ -838,6 +838,7 @@
     }
   },
   "deliveries": {
+    "ordine": { "apri": "View the order", "titolo": "Order", "negozio": "Store", "stato": "Status", "importo": "Amount", "cliente": "Customer", "prodotto": "Product", "note": "Notes", "vaiAVendite": "Open in Sales", "errore": "Order unavailable: please try again." },
     "export": { "bottone": "Export to Excel", "vuoto": "No deliveries to export with these filters.", "corso": "Preparing the file…", "troncato": "Export stopped at 20,000 rows: narrow the period to get them all.", "errore": "Export failed: try again." },
     "ordina": { "label": "Sort by", "asc": "Ascending ↑", "desc": "Descending ↓" },
     "margine": { "titolo": "Deluxy margin {{pct}} % ({{euro}} €): below 5 %" },

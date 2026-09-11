@@ -3062,6 +3062,8 @@ export class DeliveriesService {
       receiverSign?: string;
       ddtFile?: string;
       notDeliveredReason?: string;
+      /** ⭐ 11/09 (regola utente): dove finisce la merce di una non consegnata. */
+      destinazioneMerce?: string;
       /** ⭐ 04/09 (regola utente): ore dichiarate dal valet sui servizi a ora. */
       oreDalle?: string;
       oreAlle?: string;
@@ -3242,6 +3244,18 @@ export class DeliveriesService {
       racconto.push(`ore dichiarate dal valet: ${dalle}–${alle}, in attesa del partner`);
     }
 
+    if (status === DeliveryStatus.NOT_DELIVERED && dettagli?.destinazioneMerce) {
+      // ⭐ 11/09/2026: dove finisce la merce. Stesso campo che il vecchio sistema già usava
+      // (`productManagement`), rimasto muto fin qui: 132 consegne «tenute in auto» e 56 a magazzino
+      // nell'archivio, e nessuna strada per scriverlo dall'app.
+      extra['productManagement'] = dettagli.destinazioneMerce;
+      const dove: Record<string, string> = {
+        returnToBoutique: 'merce riportata in boutique (il partner deve accettare il reso)',
+        keptInCar: 'merce tenuta dal valet',
+        deluxyWareHouse: 'merce portata a magazzino Deluxy',
+      };
+      racconto.push(dove[dettagli.destinazioneMerce] ?? dettagli.destinazioneMerce);
+    }
     if (status === DeliveryStatus.NOT_DELIVERED && dettagli?.notDeliveredReason) {
       extra['notDeliveredReason'] = dettagli.notDeliveredReason;
       racconto.push(`motivo: ${dettagli.notDeliveredReason}`);
@@ -3276,10 +3290,26 @@ export class DeliveriesService {
 
     // In Storico → le attività della consegna si chiudono da sole (02/09).
     await this.chiudiAttivitaSeStorico(delivery.id, status);
-    // ⭐ 06/09/2026: annullata, non accettata, invalidata o NON consegnata = la
-    // merce torna in magazzino (solo se la consegna l'aveva scalata).
-    if ([DeliveryStatus.CANCELLED, DeliveryStatus.INVALIDATED, DeliveryStatus.NOT_ACCEPTED, DeliveryStatus.NOT_DELIVERED].includes(statoFinale as DeliveryStatus)) {
+    /**
+     * ⭐ 06/09/2026: annullata, non accettata o invalidata = la merce torna in magazzino (solo se la
+     * consegna l'aveva scalata).
+     *
+     * ⚠️⚠️ 11/09/2026 — LA «NON CONSEGNATA» NON RIENTRA PIÙ QUI (segnalazione del custode UX&UI,
+     * verificata nel codice). Fin qui bastava dichiarare il fallimento perché la giacenza tornasse su e
+     * `stockReturned` andasse a true. Ma se il valet la merce se la tiene in auto, o la lascia in
+     * boutique, quei pezzi FISICAMENTE non sono a magazzino: il saldo dichiarava roba che non c'era. E
+     * siccome `rientra()` esce a zero quando `stockReturned` è già vero, il rientro VERO — quello del
+     * giorno in cui la merce torna davvero — non sarebbe mai stato scritto.
+     *
+     * Ora il rientro sulla non consegnata avviene quando la merce torna dove si conta: destinazione
+     * «magazzino Deluxy» subito, «riportata in boutique» quando il partner accetta il reso. Se la tiene
+     * il valet, non rientra niente — ed è giusto: non c'è.
+     */
+    if ([DeliveryStatus.CANCELLED, DeliveryStatus.INVALIDATED, DeliveryStatus.NOT_ACCEPTED].includes(statoFinale as DeliveryStatus)) {
       await this.stock.rientra(delivery.id, String(statoFinale), user.sub);
+    }
+    if (statoFinale === DeliveryStatus.NOT_DELIVERED && dettagli?.destinazioneMerce === 'deluxyWareHouse') {
+      await this.stock.rientra(delivery.id, 'magazzino', user.sub);
     }
     await this.notifyStatusChange(updated, statoFinale, user);
     // Il partner deve SAPERE che ci sono ore da approvare: senza l'avviso,
@@ -3636,6 +3666,92 @@ export class DeliveriesService {
    * ⚠️ Una consegna già annullata non si riannulla: si risponde di sì e basta, così il bottone premuto
    * due volte non genera due righe di registro.
    */
+  /**
+   * ⭐ 11/09/2026 (regola utente): «per quella non consegnata la boutique avrà un bottone: accetta reso».
+   *
+   * Il reso si accetta PER CONSEGNA, non per prodotto: quello che rientra è un pacco, col suo DDT e il
+   * suo destinatario mancato. Chi accetta è il partner di quella consegna, o l'ufficio.
+   *
+   * ⚠️ NESSUNA COLONNA NUOVA sul database condiviso. L'accettazione è un FATTO, e i fatti sulla merce
+   * hanno già la loro casa: `StockMovement`. Una riga con `reason: 'custodia:reso-accettato'` dice chi,
+   * quando e su quale consegna — e il saldo si può sempre rifare dai movimenti. Aggiungere un campo
+   * booleano avrebbe raccontato la stessa cosa in un posto in meno affidabile.
+   *
+   * ⚠️ QUI rientra la giacenza, non alla dichiarazione di «non consegnata»: è adesso che la merce è
+   * tornata davvero sul bancone di qualcuno.
+   */
+  async accettaReso(id: string, user: JwtUser) {
+    const d = await this.findOne(id, user);
+    const consegna = d as { id: string; status?: string; productManagement?: string | null; partnerId?: string | null };
+    if (consegna.status !== DeliveryStatus.NOT_DELIVERED) {
+      throw new BadRequestException('Il reso si accetta solo su una consegna non consegnata');
+    }
+    if (consegna.productManagement !== 'returnToBoutique') {
+      throw new BadRequestException('Questa merce non è stata riportata in boutique: non c’è nessun reso da accettare');
+    }
+    if (user.role === Role.PARTNER && user.partnerId !== consegna.partnerId) {
+      throw new ForbiddenException('Non è una tua consegna');
+    }
+    const gia = await this.prisma.stockMovement.findFirst({
+      where: { deliveryId: id, reason: 'custodia:reso-accettato' },
+      select: { id: true, createdAt: true },
+    });
+    if (gia) return { ok: true, giaAccettato: true, quando: gia.createdAt };
+
+    await this.prisma.stockMovement.create({
+      data: {
+        productId: 'reso', deliveryId: id, quantity: 0,
+        reason: 'custodia:reso-accettato', userId: user.sub ?? null,
+        note: `Reso accettato da ${user.email ?? user.sub ?? 'utente'}`,
+      },
+    });
+    // La merce è tornata: ora il saldo può risalire (se la consegna l'aveva scalato).
+    await this.stock.rientra(id, 'reso-accettato', user.sub);
+    await this.prisma.deliveryLog.create({
+      data: {
+        deliveryId: id, type: 'note', userId: user.sub ?? null,
+        message: 'Reso accettato: la merce è rientrata in boutique.',
+      },
+    });
+    return { ok: true, giaAccettato: false };
+  }
+
+  /**
+   * I RESI CHE ASPETTANO. Un flusso che aspetta il gesto di un terzo deve avere un posto dove si vede,
+   * con l'ETÀ scritta: se no resta appeso per sempre e nessuno se ne accorge (regola del custode UX&UI).
+   */
+  async resiDaAccettare(user: JwtUser) {
+    const scope = await this.filtroRuolo(user);
+    const righe = await this.prisma.delivery.findMany({
+      where: {
+        ...DeliveriesService.VIVE, ...scope,
+        status: DeliveryStatus.NOT_DELIVERED,
+        productManagement: 'returnToBoutique',
+      },
+      select: {
+        id: true, code: true, date: true, updatedAt: true,
+        partner: { select: { insegna: true } },
+        products: { select: { productName: true, quantity: true } },
+      },
+      orderBy: { updatedAt: 'asc' },
+      take: 200,
+    });
+    const accettati = await this.prisma.stockMovement.findMany({
+      where: { deliveryId: { in: righe.map((r) => r.id) }, reason: 'custodia:reso-accettato' },
+      select: { deliveryId: true },
+    });
+    const fatti = new Set(accettati.map((a) => a.deliveryId));
+    const giorni = (d: Date) => Math.floor((Date.now() - new Date(d).getTime()) / 86_400_000);
+    return righe
+      .filter((r) => !fatti.has(r.id))
+      .map((r) => ({
+        id: r.id, code: r.code, data: r.date, partner: r.partner?.insegna ?? null,
+        prodotti: r.products.map((p) => `${p.productName ?? '—'}${(p.quantity ?? 1) > 1 ? ' ×' + p.quantity : ''}`),
+        // L'età è il motivo per cui questa lista esiste: un reso di quattro giorni fa non è come uno di stamattina.
+        daGiorni: giorni(r.updatedAt),
+      }));
+  }
+
   async remove(id: string, user: JwtUser) {
     const delivery = await this.findOne(id, user);
     if ((delivery as { status?: string }).status === DeliveryStatus.INVALIDATED) {

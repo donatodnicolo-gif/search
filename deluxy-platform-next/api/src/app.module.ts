@@ -35,6 +35,7 @@ import { AvailabilityModule } from './availability/availability.module';
 import { InvoicesModule } from './invoices/invoices.module';
 import { SalesModule } from './sales/sales.module';
 import { StockModule } from './stock/stock.module';
+import { MerceInSedeModule } from './stock/merce-in-sede.module';
 import { MestieriModule } from './mestieri/mestieri.module';
 import { AreeModule } from './aree/aree.module';
 import { ListinoModule } from './listino/listino.module';
@@ -73,6 +74,7 @@ import { WoocommerceModule } from './woocommerce/woocommerce.module';
     CustomersModule,
     SalesModule,
     StockModule,
+    MerceInSedeModule,
     MestieriModule,
     AreeModule,
     ListinoModule,

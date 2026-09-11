@@ -26,6 +26,22 @@ export class UpdateDeliveryStatusDto {
   // Su «consegnata»: a chi (tipo + nome), firma raccolta dall'app, DDT firmato.
   // Su «non consegnata»: il motivo. Tutti facoltativi: il service li scrive
   // solo con lo stato giusto, così un client non riempie campi fuori contesto.
+  /**
+   * ⭐ 11/09/2026 (regola utente): SU «NON CONSEGNATA», DOVE FINISCE LA MERCE.
+   *
+   * Tre destinazioni, gli stessi valori che il sistema precedente scriveva in `productManagement`:
+   * `returnToBoutique` (riportata al partner, che dovrà accettare il reso), `keptInCar` (la tiene il
+   * valet), `deluxyWareHouse` (depositata a magazzino Deluxy).
+   *
+   * ⚠️ Viaggia nella STESSA chiamata dello stato: due chiamate separate vorrebbero dire che una linea
+   * caduta lascia una consegna non consegnata senza sapere dove sia finita la merce — cioè il fantasma
+   * che questa richiesta voleva eliminare.
+   */
+  @ApiProperty({ required: false, enum: ['returnToBoutique', 'keptInCar', 'deluxyWareHouse'] })
+  @IsOptional()
+  @IsIn(['returnToBoutique', 'keptInCar', 'deluxyWareHouse'])
+  destinazioneMerce?: string;
+
   /** Chi ha ritirato: gli stessi valori del legacy (5.994 «concierge» reali). */
   @ApiProperty({ required: false, enum: ['recipient', 'concierge', 'other'] })
   @IsOptional()
