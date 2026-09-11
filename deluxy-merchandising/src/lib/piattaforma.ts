@@ -107,6 +107,8 @@ export type VarianteDallaPiattaforma = {
   sku: string;
   prezzo: number | null;
   prezzoPubblico: number | null;
+  /** ⭐ 11/09/2026: i giorni di preparazione della TAGLIA (`ProductVariant.prepDays` di là). Facoltativo finché la rotta non lo manda. */
+  giorniPreparazione?: number | null;
 };
 
 export type ProdottoLettoDallaPiattaforma = {
@@ -120,6 +122,15 @@ export type ProdottoLettoDallaPiattaforma = {
   varianti: VarianteDallaPiattaforma[];
   partnerId: string;
   partner: string;
+  /**
+   * ⭐ 11/09/2026 (utente: «idem minimo orario» e «giorni/data di preparazione
+   * per prodotto e varianti»). Nel loro schema esistono — `Product.prepDays`,
+   * `ProductVariant.prepDays`, e l'ora minima che il cron già calcola dal
+   * calendario del partner — è la rotta del canale app che non li manda.
+   * Facoltativi apposta: il giorno in cui li aggiungono entrano da soli.
+   */
+  giorniPreparazione?: number | null;
+  minimoOrario?: number | null;
 };
 
 /**

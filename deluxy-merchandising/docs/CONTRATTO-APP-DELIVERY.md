@@ -232,10 +232,36 @@ Restano, con gli stessi nomi veri:
    della disponibilità scrive su Shopify.
 3. **`prepDays`** dentro `/app/prodotti` (e sulle varianti, dove c'è).
 
-⚠️ Una volta che arrivano, **non si mappano a occhio su un campo del negozio**:
-si fa come per le province, guardando che cosa i siti scrivono davvero sulle
-schede vive. Inventare il valore di un metafield vuol dire scrivere sul sito una
-cosa che il tema non sa leggere.
+### Dove finiscono, coi nomi veri dei campi del negozio (misurati)
+
+Il mappaggio **non è stato deciso a tavolino**: è contato sulle 1.276 schede
+attive, e sta in `src/lib/giorni-consegna.ts`.
+
+| Cosa manda la piattaforma | Campo del negozio | Forma vera |
+|---|---|---|
+| ora minima (dal calendario del partner) | `custom.minimo_orario` | un'ora piena come stringa — 1.147/1.276 schede, 7 valori: 7, 8, 9, 10, 12, 14, 19 |
+| `Product.prepDays` | **`prodotto.consegna`** ⚠️ namespace `prodotto`, non `custom` | un intero come stringa — 1.229/1.276, valori 0 (595), 1 (280), 3 (194), 2 (126), poi 4-14 |
+| — dedotto dai giorni — | `custom.data` | la parola: 0 → `["Oggi","Domani"]`, 1 → `["Domani"]`, 2 → `48 ore`, 3 → `72 ore`, oltre → `["Su Prenotazione"]` |
+| — dedotto dall'ora minima — | `custom.orario_consegna` | già in `orario-consegna.ts` dall'11/09 |
+
+⚠️ L'incrocio dei due campi veri dice anche che **lo storico è sporco**: «1
+giorno → Oggi e Domani» compare 76 volte, ed è una contraddizione. Si prende il
+valore dominante per i prodotti **nuovi**; lo storico non si tocca.
+
+⚠️ `48 ore` e `72 ore` sembrano fuori posto accanto a delle liste JSON, ma sono
+esattamente quello che i siti scrivono per 2 e 3 giorni: non si «migliorano» in
+`["Fra 2 giorni"]`, che sarebbe una voce mai vista dal tema.
+
+**`ProductVariant.prepDays`**: su Shopify i campi del negozio stanno sul
+**prodotto**, non sulla variante. Finché non si decide dove farli vivere là
+(serve un metafield di variante, e una misura di che cosa i temi leggono), il
+numero non si butta: finisce nella **nota della taglia**, che il cliente già
+legge. È una scelta dichiarata, non una dimenticanza.
+
+⚠️ Una volta che arrivano gli altri, **non si mappano a occhio su un campo del
+negozio**: si fa come per le province e come qui sopra, guardando che cosa i
+siti scrivono davvero sulle schede vive. Inventare il valore di un metafield
+vuol dire scrivere sul sito una cosa che il tema non sa leggere.
 
 ## 3. Che cosa manca DALLA PARTE DELLA PIATTAFORMA
 

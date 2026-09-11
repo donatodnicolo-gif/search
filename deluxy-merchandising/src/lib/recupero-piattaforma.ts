@@ -11,6 +11,7 @@
 
 import { prisma } from "./db";
 import { orarioConsegnaDaOraMinima } from "./orario-consegna";
+import { dataDaGiorniMinimi, giorniMinimiPerIlNegozio, oraMinimaPerIlNegozio } from "./giorni-consegna";
 import { leggiPartnerDallaPiattaforma, leggiProdottoDallaPiattaforma } from "./piattaforma";
 import { componiProvince, vociPerSigla } from "./province-negozio";
 import { allineaVarianti } from "./varianti-piattaforma";
@@ -106,7 +107,11 @@ export async function recuperaUnProdotto(id: string): Promise<EsitoRecupero> {
       sku: (v.sku ?? "").trim() || null,
       prezzo: v.prezzoPubblico,
       prezzoPartner: v.prezzo,
-      note: null,
+      // ⭐ 11/09/2026: i giorni della TAGLIA. Su Shopify i campi del negozio
+      // stanno sul PRODOTTO, non sulla variante: finché non si decide dove
+      // farli vivere là, il numero non si butta — si scrive nella nota della
+      // taglia, che è il posto che il cliente già legge («Medio: 10-15 fiori»).
+      note: v.giorniPreparazione != null ? `Pronto in ${v.giorniPreparazione} giorni` : null,
       giacenza: 0,
     })),
     base,
@@ -120,6 +125,24 @@ export async function recuperaUnProdotto(id: string): Promise<EsitoRecupero> {
       : {};
   const daPartner = await campiDelPartner(mfAttuali, (dati.partnerPiattaformaId as string) ?? p.partnerPiattaformaId);
   const mfNuovi = { ...mfAttuali, ...daPartner.scritti };
+  // ⭐ 11/09/2026 — i due campi che la piattaforma ha in casa e (per ora) non
+  // manda: quando arriveranno entreranno da qui, coi nomi veri che i siti
+  // usano e nella forma che scrivono davvero (vedi `giorni-consegna.ts`, dove
+  // la regola è contata sulle schede vive).
+  const oraMinima = oraMinimaPerIlNegozio(d.minimoOrario);
+  if (oraMinima && !mfNuovi["custom.minimo_orario"]) {
+    daPartner.scritti["custom.minimo_orario"] = mfNuovi["custom.minimo_orario"] = oraMinima;
+  }
+  const giorni = giorniMinimiPerIlNegozio(d.giorniPreparazione);
+  if (giorni && !mfNuovi["prodotto.consegna"]) {
+    daPartner.scritti["prodotto.consegna"] = mfNuovi["prodotto.consegna"] = giorni;
+  }
+  // «Oggi/Domani/48 ore…»: si deduce dai giorni, come chiesto, e solo se il
+  // campo è vuoto — una parola scritta da una persona non si sovrascrive.
+  if (!mfNuovi["custom.data"] && mfNuovi["prodotto.consegna"]) {
+    const parola = dataDaGiorniMinimi(mfNuovi["prodotto.consegna"]);
+    if (parola) daPartner.scritti["custom.data"] = mfNuovi["custom.data"] = parola;
+  }
   if (!mfNuovi["custom.orario_consegna"] && mfNuovi["custom.minimo_orario"]) {
     const dedotto = orarioConsegnaDaOraMinima(mfNuovi["custom.minimo_orario"]);
     if (dedotto) daPartner.scritti["custom.orario_consegna"] = mfNuovi["custom.orario_consegna"] = dedotto;
