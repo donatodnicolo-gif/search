@@ -28,6 +28,18 @@ export function perimetroProdottiPartner(user: Pick<JwtUser, 'partnerId'>) {
       // Prima `visibleToOtherPartners: true` da sola apriva il prodotto a
       // TUTTI i partner (misurato: 1 prodotto su 40 viaggiava così).
       { partnerLinks: { some: { partnerId: user.partnerId ?? '-' } } },
+      /**
+       * ⭐⭐ 11/09/2026 (regola utente): «i prodotti di servizio assegnati ai partner li deve vedere
+       * anche nella sua scheda prodotti». Se una boutique ha cento biglietti in cassetto, quei
+       * biglietti sono roba sua: deve poterli trovare dove cerca tutto il resto, non solo in Merce in
+       * sede. Entrano SOLO se gliene è stato assegnato qualcosa — il flag da solo non basta, se no
+       * ogni partner vedrebbe il materiale di tutti.
+       *
+       * ⚠️ Li vede e basta: non li modifica, non li archivia, non ci chiede una consegna. Il perimetro
+       * apre la LETTURA; il divieto di scrittura sta in `ProductsService` (vedi `soloLetturaPerPartner`),
+       * perché questo stesso perimetro governa anche le righe di consegna.
+       */
+      { servizio: true, giacenzePartner: { some: { partnerId: user.partnerId ?? '-' } } },
     ],
   };
 }

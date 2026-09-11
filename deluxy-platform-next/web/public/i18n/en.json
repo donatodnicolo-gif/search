@@ -1275,7 +1275,9 @@
     },
     "creaOrdine": "Create order",
     "senzaFoto": "no photo",
-    "nessuno": "No product."
+    "nessuno": "No product.",
+    "diServizio": "Service material",
+    "servizio": "Service"
   },
   "aree": {
     "title": "Areas",
@@ -3845,7 +3847,8 @@
       "nessuna": "Nothing assigned",
       "nessunProdotto": "No product carries the «service» flag: set it on the product page.",
       "nonPiuServizio": "the product no longer carries the service flag",
-      "confermaTogli": "Remove «{{prodotto}}» from {{partner}} stock?"
+      "confermaTogli": "Remove «{{prodotto}}» from {{partner}} stock?",
+      "soloDotazione": "Service goods assigned: {{n}} items. These do not come from a delivery, so there is no list below."
     }
   }
 }

@@ -337,10 +337,19 @@ export class MerchandisingSyncService {
     shortDesc?: string | null; note?: string | null; prepDays?: number | null;
     notPhysical?: boolean | null; alternateName?: string | null; useAlternateName?: boolean | null;
     images?: string | null; tipologiaVendita?: string | null; type?: string | null;
-    partnerId?: string | null;
+    partnerId?: string | null; servizio?: boolean | null; prodottoApp?: boolean | null;
     variants?: { name: string; sku?: string | null; price?: number | null; publicPrice?: number | null; note?: string | null; stock?: number | null }[] | null;
   }, extra?: { partner?: string | null }): void {
     if (product.createdFrom === DA_MERCHANDISING) return;
+    /**
+     * ⭐⭐ 11/09/2026 (segnalazione utente: «non doveva passare, ha flag per non farlo passare su
+     * merchandising»). Il MATERIALE DI SERVIZIO non esce da qui: biglietti, buste e nastri non si
+     * vendono, non hanno un prezzo pubblico e non finiscono su Shopify. Mandarli di là riempie il
+     * catalogo di righe «in attesa di approvazione» che nessuno approverà mai — ed è esattamente
+     * quello che è successo al prodotto Biglietti (DXY-23291), da cancellare a mano di là.
+     * Vale la stessa regola del PRODOTTO APP: vive solo nella piattaforma consegne.
+     */
+    if (product.servizio || product.prodottoApp) return;
     void this.inviaOra(product, extra).catch((err) =>
       this.logger.warn(`Prodotto ${product.id} non inviato a Merchandising: ${(err as Error).message}`),
     );
@@ -360,10 +369,13 @@ export class MerchandisingSyncService {
     shortDesc?: string | null; note?: string | null; prepDays?: number | null;
     notPhysical?: boolean | null; alternateName?: string | null; useAlternateName?: boolean | null;
     images?: string | null; tipologiaVendita?: string | null; type?: string | null;
-    partnerId?: string | null;
+    partnerId?: string | null; servizio?: boolean | null; prodottoApp?: boolean | null;
     variants?: { name: string; sku?: string | null; price?: number | null; publicPrice?: number | null; note?: string | null; stock?: number | null }[] | null;
   }, extra?: { partner?: string | null }) {
     const { url, chiave } = await this.config();
+    // ⚠️ Anche per chi chiama direttamente: la guardia non deve stare solo nella scorciatoia.
+    if (product.servizio) return { ok: false, messaggio: "Materiale di servizio: non si manda a Merchandising." };
+    if (product.prodottoApp) return { ok: false, messaggio: "Prodotto app: vive solo nella piattaforma consegne." };
     if (!url || !chiave) return { ok: false, messaggio: 'Merchandising non configurato.' };
     if (!product.sku) return { ok: false, messaggio: 'Il prodotto non ha SKU: Merchandising lo riconosce da quello.' };
 

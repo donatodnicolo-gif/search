@@ -244,6 +244,16 @@ export class ProductsService {
     if (user.role === Role.PARTNER && product.partnerId !== user.partnerId) {
       throw new ForbiddenException('Puoi modificare solo i tuoi prodotti');
     }
+    /**
+     * ⭐⭐ 11/09/2026 (regola utente): «i prodotti di servizio assegnati ai partner li deve vedere anche
+     * nella sua scheda prodotti: sono prodotti NON MODIFICABILI e non posso chiedere una consegna o
+     * archiviare». Il materiale di servizio lo governa l ufficio: il partner lo vede perché è roba che
+     * ha in casa, ma non ne cambia nome né prezzo e non lo fa sparire dal proprio elenco — sparirebbe
+     * anche dall inventario di chi glielo ha dato.
+     */
+    if (user.role === Role.PARTNER && (product as { servizio?: boolean }).servizio) {
+      throw new ForbiddenException('Questo è materiale di servizio: lo gestisce l ufficio.');
+    }
     // ⚠️ 02/09 (regola utente): un prodotto col flag «NON MODIFICABILE» il
     // partner non lo tocca — e non può nemmeno TOGLIERSI il flag da solo (il
     // dto lo dichiara: whitelist ≠ difesa). Il flag lo governa l'ufficio.
@@ -356,6 +366,16 @@ export class ProductsService {
     const product = await this.findOne(id);
     if (user.role === Role.PARTNER && product.partnerId !== user.partnerId) {
       throw new ForbiddenException('Puoi archiviare solo i tuoi prodotti');
+    }
+    /**
+     * ⭐⭐ 11/09/2026 (regola utente): «i prodotti di servizio assegnati ai partner li deve vedere anche
+     * nella sua scheda prodotti: sono prodotti NON MODIFICABILI e non posso chiedere una consegna o
+     * archiviare». Il materiale di servizio lo governa l ufficio: il partner lo vede perché è roba che
+     * ha in casa, ma non ne cambia nome né prezzo e non lo fa sparire dal proprio elenco — sparirebbe
+     * anche dall inventario di chi glielo ha dato.
+     */
+    if (user.role === Role.PARTNER && (product as { servizio?: boolean }).servizio) {
+      throw new ForbiddenException('Questo è materiale di servizio: lo gestisce l ufficio.');
     }
     return this.prisma.product.update({
       where: { id },

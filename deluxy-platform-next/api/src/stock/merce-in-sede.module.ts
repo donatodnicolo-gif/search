@@ -474,20 +474,65 @@ export class MerceInSedeService {
       LIMIT 300
     `);
     const contatori = await this.contatori(user, f);
-    return {
-      periodo: p.etichetta,
-      ...contatori,
-      righe: righe.map((r) => ({
-        nome: r.nome,
-        variante: r.variante,
-        daRitirare: Number(r.daritirare ?? 0),
-        inConsegna: Number(r.inconsegna ?? 0),
-        inSospeso: Number(r.insospeso ?? 0),
-        consegnati: Number(r.consegnati ?? 0),
-        // La giacenza si mostra SOLO dove è davvero governata: un flag senza numero non è una giacenza.
-        giacenza: r.controllata && r.giacenza != null ? Number(r.giacenza) : null,
-      })),
-    };
+
+    const elenco = righe.map((r) => ({
+      nome: r.nome,
+      variante: r.variante,
+      daRitirare: Number(r.daritirare ?? 0),
+      inConsegna: Number(r.inconsegna ?? 0),
+      inSospeso: Number(r.insospeso ?? 0),
+      consegnati: Number(r.consegnati ?? 0),
+      inDotazione: 0,
+      // La giacenza si mostra SOLO dove è davvero governata: un flag senza numero non è una giacenza.
+      giacenza: r.controllata && r.giacenza != null ? Number(r.giacenza) : null,
+    }));
+
+    /**
+     * ⭐⭐ 11/09/2026 (segnalazione utente: «ho cliccato su Chanel Test e in merce non mi fa vedere i
+     * 100 biglietti dentro il dettaglio») — LA DOTAZIONE ENTRA ANCHE NEL DETTAGLIO.
+     *
+     * Il livello 1 diceva «in dotazione 100» e il livello 2 non conteneva quella riga: entravi nel
+     * partner e i biglietti sparivano. È il difetto che questa pagina ha già avuto una volta — un
+     * elenco che non fa il numero da cui sei partito toglie fiducia a tutta la pagina — e vale anche
+     * al contrario: un numero senza il suo elenco non si può controllare.
+     *
+     * ⚠️ Solo su «da fare»: nello storico si guarda che cosa è successo, e una giacenza ferma non è
+     * successa in nessun giorno particolare.
+     */
+    if ((f.vista ?? 'daFare') !== 'storico') {
+      for (const d of await this.righeDotazione(user, f)) {
+        const gia = elenco.find((r) => r.nome === d.prodotto && (r.variante ?? '') === (d.variante ?? ''));
+        if (gia) gia.inDotazione += d.quantita;
+        else elenco.push({
+          nome: d.prodotto, variante: d.variante,
+          daRitirare: 0, inConsegna: 0, inSospeso: 0, consegnati: 0,
+          inDotazione: d.quantita, giacenza: null,
+        });
+      }
+      elenco.sort((a, b) =>
+        (b.daRitirare + b.inConsegna + b.inDotazione) - (a.daRitirare + a.inConsegna + a.inDotazione)
+        || a.nome.localeCompare(b.nome));
+    }
+
+    return { periodo: p.etichetta, ...contatori, righe: elenco };
+  }
+
+  /** Le righe di dotazione già filtrate col perimetro di chi guarda: le usano il dettaglio e l'elenco. */
+  private async righeDotazione(user: JwtUser, f: Filtri) {
+    if (user.role === Role.VALET || f.valetId) return [];
+    const dove: Record<string, unknown> = { quantity: { gt: 0 } };
+    if (user.role === Role.PARTNER) {
+      if (!user.partnerId) throw new ForbiddenException('Nessun partner collegato a questo utente');
+      dove['partnerId'] = user.partnerId;
+    } else if (f.partnerId) dove['partnerId'] = f.partnerId;
+    else return []; // Senza un partner scelto il dettaglio non esiste: il livello 1 ha già la colonna.
+    if (f.q) dove['product'] = { name: { contains: f.q, mode: 'insensitive' } };
+    const righe = await this.prisma.partnerProductStock.findMany({
+      where: dove,
+      select: { quantity: true, productVariantId: true, product: { select: { name: true } } },
+      take: 300,
+    });
+    return righe.map((r) => ({ prodotto: r.product?.name ?? 'senza nome', variante: r.productVariantId || null, quantita: r.quantity }));
   }
 
   /**

@@ -1,0 +1,386 @@
+[
+ {
+  "id": "cmt608vd90344i6g8xuzr3spl",
+  "nome": "WFJ",
+  "sku": "",
+  "tipo": "NON_UNICO",
+  "partner": "Chanel Roma Piazza Di Spagna",
+  "creato": "2023-07-19"
+ },
+ {
+  "id": "cmt608vcx033bi6g83gql8xcy",
+  "nome": "WFJ",
+  "sku": "",
+  "tipo": "NON_UNICO",
+  "partner": "Chanel Firenze Deluxy",
+  "creato": "2023-07-19"
+ },
+ {
+  "id": "cmt608vd3033pi6g854yc7epf",
+  "nome": "WFJ",
+  "sku": "",
+  "tipo": "NON_UNICO",
+  "partner": "Chanel Roma Babuino",
+  "creato": "2023-07-19"
+ },
+ {
+  "id": "cmt608vv703eti6g8mlwhx8pt",
+  "nome": "Servizio a Ora Chanel Milano",
+  "sku": "",
+  "tipo": "NON_UNICO",
+  "partner": "Chanel Milano Sant'Andrea",
+  "creato": "2023-10-31"
+ },
+ {
+  "id": "cmt609f6b0grxi6g8ooubtt5l",
+  "nome": "Rose Rosa e Praline d'Autore (Champagne Rosé) - Premium / Gilli (Firenze)",
+  "sku": "XQXDCB-2eFI",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-08-05"
+ },
+ {
+  "id": "cmt609emm0gj8i6g8m82vuwi5",
+  "nome": "Gelato Artigianale e Rose Rosse - 12",
+  "sku": "GEF50011MI",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-27"
+ },
+ {
+  "id": "cmt609emn0gjai6g8xzxauz5j",
+  "nome": "Cappelliera Henri-Edmond Cross - The Pink Cloud",
+  "sku": "EVSMWM",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy Flowers",
+  "creato": "2026-07-27"
+ },
+ {
+  "id": "cmt609emr0gjpi6g8fqc1b8iv",
+  "nome": "Cappelliera Botticelli- Nascita di Venere",
+  "sku": "BJJWCQ",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy Flowers",
+  "creato": "2026-07-27"
+ },
+ {
+  "id": "cmt609emv0gjzi6g8dk6x6h17",
+  "nome": "Cappelliera Munch - L'Urlo",
+  "sku": "MMXOHI",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy Flowers",
+  "creato": "2026-07-27"
+ },
+ {
+  "id": "cmt609enb0glri6g8jl6g2rs0",
+  "nome": "MAXI Bouquet Dalie Rosa",
+  "sku": "NRHESU",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy Flowers",
+  "creato": "2026-07-28"
+ },
+ {
+  "id": "cmt609eng0gm9i6g8gkfqmmlp",
+  "nome": "Botticelli - Bouquet e Polaroid",
+  "sku": "CNZVNY",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-28"
+ },
+ {
+  "id": "cmt609eni0gmji6g81tnz4lr4",
+  "nome": "Van Gogh - Bouquet e Polaroid",
+  "sku": "KYSCLM",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-28"
+ },
+ {
+  "id": "cmt609f5h0gp8i6g8it9tmjoh",
+  "nome": "I'm Back Cake",
+  "sku": "DNXPOJ",
+  "tipo": "NON_UNICO",
+  "partner": "Cakedesignme",
+  "creato": "2026-07-30"
+ },
+ {
+  "id": "cmt609f580go9i6g8gtyorhw3",
+  "nome": "Bouquet Alba e Palloncino con Polaroid",
+  "sku": "SASTJN",
+  "tipo": "NON_UNICO",
+  "partner": "—",
+  "creato": "2026-07-30"
+ },
+ {
+  "id": "cmt609en80glbi6g89ytxxm7c",
+  "nome": "Cappelliera Love Memories - Pink",
+  "sku": "GAQWVF",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-28"
+ },
+ {
+  "id": "cmt609en60gl6i6g8nuw06nd3",
+  "nome": "Cappelliera Love Memories - White",
+  "sku": "CHRRST",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-28"
+ },
+ {
+  "id": "cmt609en90glgi6g886nf59nl",
+  "nome": "Cappelliera Cuore Rose Rosse e Polaroid",
+  "sku": "LLCJUD",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-28"
+ },
+ {
+  "id": "cmt609ena0glmi6g8w58eyarc",
+  "nome": "Cappelliera Rose Rosa e Polaroid",
+  "sku": "MNZHOQ",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-28"
+ },
+ {
+  "id": "cmt609enh0gmei6g82is56oq4",
+  "nome": "Monet - Bouquet e Polaroid",
+  "sku": "WFYHES",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-28"
+ },
+ {
+  "id": "cmt609enj0gmoi6g8zfyrch13",
+  "nome": "Cross - Bouquet e Polaroid",
+  "sku": "FYKMTM",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-28"
+ },
+ {
+  "id": "cmt609f4x0gn8i6g85h6uh5a0",
+  "nome": "Trio Love Memories",
+  "sku": "XLMFVM",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-28"
+ },
+ {
+  "id": "cmt609f560go4i6g8mtn83s36",
+  "nome": "Bouquet Purezza e Palloncino con Polaroid",
+  "sku": "RKYMCS",
+  "tipo": "NON_UNICO",
+  "partner": "—",
+  "creato": "2026-07-30"
+ },
+ {
+  "id": "cmt6096ap0b3ri6g8gi83nj9i",
+  "nome": "Regina di Cuori - RED",
+  "sku": "TWAJUL",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2025-10-29"
+ },
+ {
+  "id": "cmt609ene0gm4i6g89ao1usvy",
+  "nome": "Cappelliera Fiori, Champagne, Macarons e Polaroid",
+  "sku": "IDVOXV",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-28"
+ },
+ {
+  "id": "cmt609f5c0gooi6g88k8cnlym",
+  "nome": "Cappelliera Hawaii",
+  "sku": "MJEXJX",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-30"
+ },
+ {
+  "id": "cmt609f5g0gp5i6g8enxawxkk",
+  "nome": "Lady Liberty cake",
+  "sku": "ZXTNJN",
+  "tipo": "NON_UNICO",
+  "partner": "Cakedesignme",
+  "creato": "2026-07-30"
+ },
+ {
+  "id": "cmt608vd90343i6g8z7vb3vbx",
+  "nome": "WFJ",
+  "sku": "",
+  "tipo": "NON_UNICO",
+  "partner": "Chanel Roma Piazza Di Spagna",
+  "creato": "2023-07-19"
+ },
+ {
+  "id": "cmt609emz0gkii6g8tsz1897g",
+  "nome": "MAXI Cesto Rose Rosse e Polaroid",
+  "sku": "UIRTXP",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy Flowers",
+  "creato": "2026-07-27"
+ },
+ {
+  "id": "cmt60928p08evi6g8ofw9l30f",
+  "nome": "Torta Tre Cioccolati",
+  "sku": "PCBFYS",
+  "tipo": "NON_UNICO",
+  "partner": "Cakedesignme",
+  "creato": "2025-05-16"
+ },
+ {
+  "id": "cmt609f5d0goti6g8p1y5pn9t",
+  "nome": "Cappelliera Parigi",
+  "sku": "OICLWN",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-30"
+ },
+ {
+  "id": "cmt609f5a0goji6g82lua690c",
+  "nome": "Maxi Palloncino con Polaroid",
+  "sku": "GHOBZD",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-30"
+ },
+ {
+  "id": "cmt609f5g0gp4i6g8z1pkule3",
+  "nome": "Kimono cake",
+  "sku": "EXQTZC",
+  "tipo": "NON_UNICO",
+  "partner": "Cakedesignme",
+  "creato": "2026-07-30"
+ },
+ {
+  "id": "cmt609emy0gkci6g8x2yxk8hc",
+  "nome": "MAXI Cesto Rose Bianche e Polaroid",
+  "sku": "JHPNKO",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy Flowers",
+  "creato": "2026-07-27"
+ },
+ {
+  "id": "cmt609emp0gjji6g882uz8od7",
+  "nome": "Regina di Cuori - Dalie Rosa e Polaroid",
+  "sku": "MNRHQE",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-27"
+ },
+ {
+  "id": "cmt609emx0gk8i6g8k7ymw91v",
+  "nome": "Palloncini Cuore e Polaroid",
+  "sku": "RSBPPL",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-27"
+ },
+ {
+  "id": "cmt609en50gl1i6g8b7zyur3i",
+  "nome": "Cappelliera Love Memories - Red",
+  "sku": "HOWEDM",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-28"
+ },
+ {
+  "id": "cmt609en00gkoi6g8xntms88j",
+  "nome": "MAXI Cesto Rose Rosa e Polaroid",
+  "sku": "TDBNGD",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy Flowers",
+  "creato": "2026-07-27"
+ },
+ {
+  "id": "cmt609enc0glyi6g8btwq4nsy",
+  "nome": "MAXI Bouquet Dalie Rosa - Polaroid",
+  "sku": "JPMAYK",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy Flowers",
+  "creato": "2026-07-28"
+ },
+ {
+  "id": "cmt609f4w0gn2i6g8kfrjdp7g",
+  "nome": "Mini Cappelliera Dolci Ricordi",
+  "sku": "XBQIAI",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-28"
+ },
+ {
+  "id": "cmt609f5f0goyi6g8lmlu0zgm",
+  "nome": "Cappelliera Saint Moritz",
+  "sku": "ZYYSTD",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-30"
+ },
+ {
+  "id": "cmt609f5g0gp3i6g8ndjhrg3k",
+  "nome": "Skyline cake",
+  "sku": "CFEDMQ",
+  "tipo": "NON_UNICO",
+  "partner": "Cakedesignme",
+  "creato": "2026-07-30"
+ },
+ {
+  "id": "cmt609f5h0gp6i6g8cjfwsfdo",
+  "nome": "Photo Memories Cake",
+  "sku": "LCKWNN",
+  "tipo": "NON_UNICO",
+  "partner": "Cakedesignme",
+  "creato": "2026-07-30"
+ },
+ {
+  "id": "cmt609f5i0gpbi6g8ymogtw7d",
+  "nome": "Holiday Memories Dinner",
+  "sku": "PVKRZP",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-30"
+ },
+ {
+  "id": "cmt609f5l0gpki6g8ywrs93in",
+  "nome": "Ricordi d'Amore - Foto Quadro e Bouquet",
+  "sku": "ZEFAZD",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-31"
+ },
+ {
+  "id": "cmt609f5m0gppi6g8t8qq5mxx",
+  "nome": "Deluxy Love Celebration",
+  "sku": "LGXQMF",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-31"
+ },
+ {
+  "id": "cmt609f5o0gpui6g8t6jrh9ut",
+  "nome": "Ritratto d'amore - Quadro e 100 rose rosse",
+  "sku": "TGABLO",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-31"
+ },
+ {
+  "id": "cmt609f5q0gq2i6g8etu5dgl2",
+  "nome": "Back to Office Breakfast",
+  "sku": "EETVNY",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-31"
+ },
+ {
+  "id": "cmt609f5r0gq3i6g895zue9h5",
+  "nome": "Back to Office Aperitif",
+  "sku": "CRURSV",
+  "tipo": "NON_UNICO",
+  "partner": "Deluxy",
+  "creato": "2026-07-31"
+ }
+]

@@ -1277,7 +1277,9 @@
     },
     "creaOrdine": "Crea ordine",
     "senzaFoto": "nessuna foto",
-    "nessuno": "Nessun prodotto."
+    "nessuno": "Nessun prodotto.",
+    "diServizio": "Materiale di servizio",
+    "servizio": "Servizio"
   },
   "aree": {
     "title": "Aree",
@@ -3847,7 +3849,8 @@
       "nessuna": "Nessuna assegnazione",
       "nessunProdotto": "Nessun prodotto ha il flag «servizio»: si mette dalla scheda del prodotto.",
       "nonPiuServizio": "il prodotto non ha più il flag servizio",
-      "confermaTogli": "Togliere «{{prodotto}}» dalla dotazione di {{partner}}?"
+      "confermaTogli": "Togliere «{{prodotto}}» dalla dotazione di {{partner}}?",
+      "soloDotazione": "Merce di servizio assegnata: {{n}} pezzi. Non nasce da una consegna, quindi qui sotto non c'è nessun elenco."
     }
   }
 }

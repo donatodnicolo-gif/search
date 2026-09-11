@@ -136,6 +136,11 @@ import { SavedViewsComponent } from '../core/saved-views.component';
                 @if (p.partner?.insegna) { <span class="sotto">{{ p.partner?.insegna }}</span> }
                 <div class="riga-prezzo">
                   <strong>{{ p.price != null ? (p.price + ' €') : '—' }}</strong>
+                  <!-- ⭐ 11/09/2026 (regola utente): «segnali come prodotti di servizio con un'etichetta».
+                       Un prodotto che non si vende e non si modifica deve dirlo da solo: senza etichetta, chi
+                       non trova Modifica pensa a un guasto dei permessi invece che a una regola. -->
+                  @if (p.servizio) { <span class="pill servizio">{{ 'products.servizio' | translate }}</span> }
+
                   @if (p.active === false) { <span class="pill pill-neutral">{{ 'common.inactive' | translate }}</span> }
                   @else if (p.approved) { <span class="pill s-ok">{{ 'products.approved' | translate }}</span> }
                   @else { <span class="pill s-wait">{{ 'products.pending' | translate }}</span> }
@@ -145,9 +150,13 @@ import { SavedViewsComponent } from '../core/saved-views.component';
                      offre meno costringe a cambiare vista per lavorare, cioè non è una vista, è una
                      vetrina. -->
                 <div class="azioni">
-                  <a class="act" [routerLink]="['/deliveries/new']" [queryParams]="{ prodotto: p.id }">
-                    {{ 'products.creaOrdine' | translate }}
-                  </a>
+                  @if (puoOrdinare(p)) {
+                    <a class="act" [routerLink]="['/deliveries/new']" [queryParams]="{ prodotto: p.id }">
+                      {{ 'products.creaOrdine' | translate }}
+                    </a>
+                  } @else {
+                    <span class="act di-servizio">{{ 'products.diServizio' | translate }}</span>
+                  }
                   @if (puoToccare(p)) {
                     <a class="act" [routerLink]="['/products', p.id, 'edit']">{{ 'common.edit' | translate }}</a>
                     @if (archived()) {
@@ -187,8 +196,10 @@ import { SavedViewsComponent } from '../core/saved-views.component';
                   <td class="sel" (click)="$event.stopPropagation()">
                     <!-- ⭐ 11/09/2026 (regola utente): da un prodotto si crea l'ordine. Sta anche qui, non
                        solo nella griglia: un comando che vive in una vista sola si trova per caso. -->
-                  <a class="act" [routerLink]="['/deliveries/new']" [queryParams]="{ prodotto: p.id }"
-                     (click)="$event.stopPropagation()">{{ 'products.creaOrdine' | translate }}</a>
+                  @if (puoOrdinare(p)) {
+                    <a class="act" [routerLink]="['/deliveries/new']" [queryParams]="{ prodotto: p.id }"
+                       (click)="$event.stopPropagation()">{{ 'products.creaOrdine' | translate }}</a>
+                  }
                   @if (puoToccare(p)) {
                       <input type="checkbox" [checked]="scelti().has(p.id)" (change)="scegli(p.id)" />
                     }
@@ -203,6 +214,7 @@ import { SavedViewsComponent } from '../core/saved-views.component';
                 <!-- ⭐ 06/09/2026: la GIACENZA, solo per chi ha «Controlla stock». Zero o sotto = rosso. -->
                 <td class="num" [class.stock-ko]="p.controlStock && (p.stock ?? 0) <= 0">{{ p.controlStock ? (p.stock ?? 0) : '—' }}</td>
                 <td>
+                  @if (p.servizio) { <span class="pill servizio">{{ 'products.servizio' | translate }}</span> }
                   @if (p.active === false) { <span class="pill pill-neutral">{{ 'common.inactive' | translate }}</span> }
                   @else if (p.approved) { <span class="pill s-ok"><span class="dot"></span>{{ 'products.approved' | translate }}</span> }
                   @else { <span class="pill s-wait"><span class="dot"></span>{{ 'products.pending' | translate }}</span> }
@@ -247,7 +259,19 @@ import { SavedViewsComponent } from '../core/saved-views.component';
       .head-actions .field { flex: 1 1 180px; min-width: 0; }
       .head-actions .btn { text-decoration: none; }
       .table-wrap { overflow-x: auto; }
+      /**
+       * ⚠️ Le pillole Tabella/Griglia vanno VESTITE anche qui. Il foglio globale definisce solo il
+       * comportamento in larghezza di «.quick-tabs»; l'aspetto (pillola bianca, nera quando attiva) sta
+       * nei singoli componenti, e senza queste righe uscivano due bottoni grigi di sistema — come nella
+       * segnalazione dell'11/09. Sono le stesse misure di Consegne e Merce in sede: le schede devono
+       * essere identiche in tutte le pagine, o non si riconoscono più come lo stesso comando.
+       */
+      .quick-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+      .quick-tab { border: 1px solid var(--hairline-strong); background: #fff; border-radius: 999px;
+        padding: 6px 13px; cursor: pointer; font-size: 13.5px; color: var(--text); }
+      .quick-tab.active { background: var(--ink); color: #fff; border-color: var(--ink); }
       .vista-scelta { margin-bottom: 12px; }
+      .di-servizio { color: var(--text-tertiary); cursor: default; }
       .griglia-prodotti { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
       .scheda-prodotto { background: #fff; border: 1px solid var(--hairline); border-radius: 14px; overflow: hidden;
         display: flex; flex-direction: column; }
@@ -273,6 +297,8 @@ import { SavedViewsComponent } from '../core/saved-views.component';
       .pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 980px; padding: 3px 10px; font-size: 12px; font-weight: 550; }
       .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.85; }
       .pill-neutral { background: var(--fill); color: var(--text-secondary); }
+      /* L oro è l accento della casa: qui dice «questo non è merce da vendere, è materiale nostro». */
+      .pill.servizio { background: var(--surface-warm, #fffaf0); color: var(--gold, #b8963e); border: 1px solid var(--gold, #b8963e); }
       .s-ok { background: rgba(36,138,61,0.12); color: var(--green); }
       .s-wait { background: rgba(255,149,0,0.12); color: #b25000; }
       .stock-ko { color: var(--red); font-weight: 600; }
@@ -413,8 +439,20 @@ export class ProductsListComponent {
    */
   puoToccare(p: ProductRef): boolean {
     const u = this.auth.user();
+    /**
+     * ⭐⭐ 11/09/2026 (regola utente): «i prodotti di servizio assegnati ai partner … sono prodotti non
+     * modificabili e non posso chiedere una consegna o archiviare». Il partner li vede perché sono roba
+     * che ha in casa, ma il materiale di servizio lo governa l'ufficio: niente Modifica, niente
+     * Archivia, niente spunta per le azioni di gruppo. L'ufficio invece li tocca come ogni altro.
+     */
+    if (u?.role === 'PARTNER' && p.servizio) return false;
     if (u?.role !== 'PARTNER') return this.puoAgire();
     return !!p.partner && p.partner.id === u.partnerId && !p.notEditable;
+  }
+
+  /** Del materiale di servizio non si chiede una consegna: non è merce da portare a un cliente. */
+  puoOrdinare(p: ProductRef): boolean {
+    return !p.servizio;
   }
 
   scegli(id: string): void {

@@ -163,6 +163,8 @@ export interface ProductRef {
   platforms?: string | null;
   /** Gestito dall'ufficio: il partner lo vede a catalogo ma non lo tocca. */
   notEditable?: boolean;
+  /** ⭐ 11/09/2026: materiale di SERVIZIO (biglietti e simili). Il partner lo vede ma non lo tocca. */
+  servizio?: boolean;
   /** ⭐ 06/09/2026: stock gestito in piattaforma (solo se controlStock). */
   controlStock?: boolean;
   stock?: number | null;

@@ -189,6 +189,12 @@ import { AltezzaViewportDirective } from '../core/altezza-viewport.directive';
               @if (sezione() === 'daFare') {
                 <th class="num"><button type="button" class="th-ordina" (click)="ordinaPer('daRitirare')">{{ 'merce.col.daRitirare' | translate }}{{ freccia('daRitirare') }}</button></th>
                 <th class="num"><button type="button" class="th-ordina" (click)="ordinaPer('inConsegna')">{{ 'merce.col.inConsegna' | translate }}{{ freccia('inConsegna') }}</button></th>
+                <!-- ⭐ 11/09/2026 (segnalazione utente): la dotazione si vede anche QUI. Il livello 1
+                     diceva «in dotazione 100» e qui dentro i biglietti sparivano: un numero senza il
+                     suo elenco non si può controllare. -->
+                @if (mostraDotazione()) {
+                  <th class="num"><button type="button" class="th-ordina" (click)="ordinaPer('inDotazione')">{{ 'merce.col.inDotazione' | translate }}{{ freccia('inDotazione') }}</button></th>
+                }
               } @else {
                 <th class="num"><button type="button" class="th-ordina" (click)="ordinaPer('consegnati')">{{ 'merce.col.consegnati' | translate }}{{ freccia('consegnati') }}</button></th>
                 <th class="num"><button type="button" class="th-ordina" (click)="ordinaPer('inSospeso')">{{ 'merce.col.inSospeso' | translate }}{{ freccia('inSospeso') }}</button></th>
@@ -204,6 +210,7 @@ import { AltezzaViewportDirective } from '../core/altezza-viewport.directive';
                 @if (sezione() === 'daFare') {
                   <td class="num">{{ r.daRitirare || '—' }}</td>
                   <td class="num">{{ r.inConsegna || '—' }}</td>
+                  @if (mostraDotazione()) { <td class="num dotazione">{{ r.inDotazione || '—' }}</td> }
                 } @else {
                   <td class="num muted">{{ r.consegnati || '—' }}</td>
                   <td class="num" [class.attenzione]="r.inSospeso > 0">{{ r.inSospeso || '—' }}</td>
@@ -213,7 +220,12 @@ import { AltezzaViewportDirective } from '../core/altezza-viewport.directive';
               </tr>
               @if (rigaAperta() === r.nome + (r.variante ?? '')) {
                 <tr class="dettaglio">
-                  <td [attr.colspan]="mostraGiacenza() ? 6 : 5">
+                  <td [attr.colspan]="4 + (mostraGiacenza() ? 1 : 0) + (mostraDotazione() ? 1 : 0)">
+                    <!-- ⚠️ La merce di SERVIZIO non nasce da consegne: aprire la riga e trovare un
+                         elenco vuoto farebbe pensare a un guasto. Si dice che cos'è. -->
+                    @if (r.inDotazione && !r.daRitirare && !r.inConsegna && !r.inSospeso && !r.consegnati) {
+                      <p class="muted solo-dotazione">{{ 'merce.dotazione.soloDotazione' | translate: { n: r.inDotazione } }}</p>
+                    }
                     <!-- ⚠️ Nessun numero senza l'elenco che lo genera: un totale che nessuno può
                          verificare è un totale di cui nessuno si fida. -->
                     <div class="fasi">
@@ -470,6 +482,12 @@ export class MerceInSedeComponent {
   readonly etichettaPeriodo = computed(() => this.translate.instant('merce.periodo.' + this.periodo()));
   /** La giacenza è governata su 7 prodotti in tutto: una colonna vuota al 99% è spazio tolto ai dati. */
   readonly mostraGiacenza = computed(() => this.prodotti().some((r) => r.giacenza != null));
+  /**
+   * ⚠️ La colonna «in dotazione» nel dettaglio compare solo se quel partner ne ha: su un fioraio che
+   * di biglietti non ne ha mai avuti sarebbe una colonna di trattini, e una colonna sempre vuota
+   * insegna a non guardarla.
+   */
+  readonly mostraDotazione = computed(() => this.prodotti().some((r) => (r.inDotazione ?? 0) > 0));
 
   da = '';
   a = '';
@@ -663,8 +681,13 @@ export class MerceInSedeComponent {
     };
   }
 
-  apriDetentore(d: Detentore): void { this.detentore.set(d); this.carica(); }
-  tornaAiDetentori(): void { this.detentore.set(null); this.prodotti.set([]); this.carica(); }
+  /**
+   * ⚠️ Entrando e uscendo si ricarica ANCHE la dotazione: il pannello in fondo deve parlare del
+   * partner che si sta guardando, non di tutti. Prima si caricava solo all'apertura della pagina, e
+   * scendendo su una boutique il pannello continuava a mostrare la dotazione di chiunque.
+   */
+  apriDetentore(d: Detentore): void { this.detentore.set(d); this.carica(); this.caricaDotazione(); }
+  tornaAiDetentori(): void { this.detentore.set(null); this.prodotti.set([]); this.carica(); this.caricaDotazione(); }
 
   apriRiga(r: RigaProdotto): void {
     const chiave = r.nome + (r.variante ?? '');
@@ -701,6 +724,6 @@ interface Contatori {
 }
 
 interface Detentore { tipo: 'partner' | 'valet'; id: string; nome: string; daRitirare: number; inConsegna: number; inSospeso: number; consegnati: number; inDotazione: number }
-interface RigaProdotto { nome: string; variante: string | null; daRitirare: number; inConsegna: number; inSospeso: number; consegnati: number; giacenza: number | null }
+interface RigaProdotto { nome: string; variante: string | null; daRitirare: number; inConsegna: number; inSospeso: number; consegnati: number; inDotazione: number; giacenza: number | null }
 interface RigaDotazione { id: string; partnerId: string; partner: string; productId: string; prodotto: string; sku: string; variante: string | null; quantita: number; note: string; nonPiuDiServizio: boolean }
 interface ConsegnaMerce { code: number; data: string; stato: string; quantita: number; partner: string | null; valet: string | null; luogo: string | null; destinazione: string | null }

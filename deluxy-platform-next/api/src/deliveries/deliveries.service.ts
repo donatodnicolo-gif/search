@@ -1697,12 +1697,18 @@ export class DeliveriesService {
     // partner metteva in consegna il prodotto di un altro. Stessa regola
     // della lista prodotti (common/perimetro-prodotti.ts).
     if (user?.role === Role.PARTNER) {
+      /**
+       * ⚠️ 11/09/2026 (regola utente: «sono prodotti non modificabili e non posso chiedere una
+       * consegna»): i prodotti di SERVIZIO stanno nel perimetro perché il partner li deve VEDERE fra i
+       * suoi, ma non si consegnano. Sono materiale che l'azienda gli ha dato — biglietti, buste — non
+       * merce da portare a un cliente, e nessuno ne ha mai fissato un prezzo di vendita.
+       */
       const ammessi = await this.prisma.product.count({
-        where: { id: { in: righe.map((r) => r.productId) }, ...perimetroProdottiPartner(user) },
+        where: { id: { in: righe.map((r) => r.productId) }, servizio: false, ...perimetroProdottiPartner(user) },
       });
       const idUnici = new Set(righe.map((r) => r.productId)).size;
       if (ammessi < idUnici) {
-        throw new BadRequestException('Uno dei prodotti non è nel tuo catalogo.');
+        throw new BadRequestException('Uno dei prodotti non è nel tuo catalogo, oppure è materiale di servizio e non si può consegnare.');
       }
     }
     const prodotti = new Map(
