@@ -53,7 +53,8 @@ Richieste dell'utente dopo il deploy delle ricorrenze lette dal biglietto:
 **Trappola pagata oggi — dare a un'app il token della cassaforte la può
 rallentare.** Appena il CRM ha avuto `HUB_KEYS_TOKEN` (per l'API utenti del
 Hub), ogni pagina ha cominciato a chiamare `GET /api/chiavi` del Hub, che
-**ci mette 12–20 s** (misurati; `/api/health` dello stesso Hub: 0,12 s): col
+**ci mette 12–20 s a FREDDO** (tre misure; a caldo 0,13 s — la prima diagnosi
+«non è cold start» era mia ed era sbagliata, corretta nel registro): col
 timeout a 4 s, ogni pagina buttava 4 s — 8 se chiedeva due chiavi insieme,
 perché partivano due chiamate parallele e la cache si scrive solo dopo la
 risposta. Corretto in `src/lib/chiavi-app.ts`: **una sola chiamata in volo** e
