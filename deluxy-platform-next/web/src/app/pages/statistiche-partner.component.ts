@@ -58,6 +58,24 @@ import { AuthService } from '../core/auth.service';
           </select></label>
         <button type="button" class="btn btn-secondary" (click)="carica()">{{ 'common.refresh' | translate }}</button>
       </div>
+      <!-- ⭐ 11/09/2026 (regola utente): «la scelta della tipologia di confronto va messa nei filtri». -->
+      <div class="date confronto-scelta">
+        <label class="fld"><span>{{ 'statPartner.confronto' | translate }}</span>
+          <select class="field" [(ngModel)]="confronto" (change)="carica()">
+            @for (c of CONFRONTI; track c) {
+              <option [value]="c">{{ 'statPartner.confronti.' + c | translate }}</option>
+            }
+          </select></label>
+        @if (confronto === 'personalizzato') {
+          <label class="fld"><span>{{ 'statPartner.confrontoDal' | translate }}</span>
+            <input class="field" type="date" [(ngModel)]="confrontoDa" (change)="carica()" /></label>
+          <label class="fld"><span>{{ 'statPartner.confrontoAl' | translate }}</span>
+            <input class="field" type="date" [(ngModel)]="confrontoA" (change)="carica()" /></label>
+        }
+        @if (dati()?.confronto?.periodo; as pr) {
+          <span class="con-cosa">{{ 'statPartner.control' | translate }} {{ pr.da }} → {{ pr.a }}</span>
+        }
+      </div>
     </section>
 
     @if (errore()) { <div class="avviso errore">{{ errore() }}</div> }
@@ -80,16 +98,20 @@ import { AuthService } from '../core/auth.service';
             <span class="venduto">{{ d.confronto.venduto | number: '1.0-0' }} €</span>
           }
         </div>
-        @if (d.confronto.precedente || d.confronto.annoPrima) {
+        @if (d.confronto.periodo; as pr) {
           <div class="paragoni">
-            @for (c of paragoni(); track c.etichetta) {
+            <div class="paragone">
+              <span class="etichetta">{{ 'statPartner.confronti.' + d.confronto.tipo | translate }}</span>
+              <span class="numero">{{ d.confronto.totale }}</span>
+              <span class="delta" [class.su]="variazione() > 0" [class.giu]="variazione() < 0">
+                {{ variazione() > 0 ? '+' : '' }}{{ variazione() }}%
+              </span>
+              <span class="date">{{ pr.da }} → {{ pr.a }}</span>
+            </div>
+            @if (d.mostra.vendita && d.confronto.vendutoPrima !== null) {
               <div class="paragone">
-                <span class="etichetta">{{ c.etichetta | translate }}</span>
-                <span class="numero">{{ c.totale }}</span>
-                <span class="delta" [class.su]="c.delta > 0" [class.giu]="c.delta < 0">
-                  {{ c.delta > 0 ? '+' : '' }}{{ c.delta }}%
-                </span>
-                <span class="date">{{ c.da }} → {{ c.a }}</span>
+                <span class="etichetta">{{ 'statPartner.vendutoPrima' | translate }}</span>
+                <span class="numero">{{ d.confronto.vendutoPrima | number: '1.0-0' }} €</span>
               </div>
             }
           </div>
@@ -165,9 +187,17 @@ import { AuthService } from '../core/auth.service';
         <ul class="classifica">
           @for (r of righe; track r.nome) {
             <li>
-              <span class="nome" [title]="r.nome">{{ r.nome }}@if (r.nota) { <small class="nota">{{ r.nota }}</small> }</span>
+              <span class="nome" [title]="r.nome">{{ r.nome }}</span>
               <span class="barra"><i [style.width.%]="r.quota"></i></span>
               <span class="n">{{ r.quantita }}@if (unita) { <small> {{ unita }}</small> }</span>
+              <!-- ⭐ 11/09/2026 (regola utente): il confronto anche QUI, riga per riga. «Prima 40, ora 4»
+                   è la cosa che si vuole sapere guardando una classifica, non il solo numero di oggi. -->
+              @if (r.prima !== null && r.prima !== undefined) {
+                <span class="prima" [class.su]="r.variazione > 0" [class.giu]="r.variazione < 0"
+                      [title]="('statPartner.prima' | translate) + ': ' + r.prima">
+                  {{ r.prima }}@if (r.variazione !== null) { <small>{{ r.variazione > 0 ? ' +' : ' ' }}{{ r.variazione }}%</small> }
+                </span>
+              }
             </li>
           }
         </ul>
@@ -209,7 +239,11 @@ import { AuthService } from '../core/auth.service';
       .riquadro .hint { margin: -6px 0 10px; font-size: 12.5px; color: var(--text-secondary); }
       .largo { grid-column: 1 / -1; }
       .classifica { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
-      .classifica li { display: grid; grid-template-columns: minmax(0, 1fr) 90px 62px; align-items: center; gap: 10px; font-size: 14px; }
+      .classifica li { display: grid; grid-template-columns: minmax(0, 1fr) 80px 54px 84px; align-items: center; gap: 10px; font-size: 14px; }
+      .classifica .prima { text-align: right; font-size: 12.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+      .classifica .prima.su { color: #1c7c4a; }
+      .classifica .prima.giu { color: #b03a3a; }
+      .confronto-scelta .con-cosa { font-size: 12.5px; color: var(--text-secondary); padding-bottom: 10px; }
       .classifica .nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .classifica .barra { background: var(--hairline); border-radius: 999px; height: 7px; overflow: hidden; }
       .classifica .barra i { display: block; height: 100%; background: #b8963e; border-radius: 999px; }
@@ -222,7 +256,7 @@ import { AuthService } from '../core/auth.service';
       .mese .valore { font-size: 12px; font-variant-numeric: tabular-nums; }
       .avviso.errore { background: #fff3f3; border: 1px solid #f3c9c9; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
       @media (max-width: 680px) {
-        .classifica li { grid-template-columns: minmax(0, 1fr) 56px 52px; }
+        .classifica li { grid-template-columns: minmax(0, 1fr) 46px 44px 68px; }
       }
     `,
   ],
@@ -244,6 +278,10 @@ export class StatistichePartnerComponent {
   da = '';
   a = '';
   pricingModel = '';
+  readonly CONFRONTI = ['precedente', 'anno', 'personalizzato', 'nessuno'] as const;
+  confronto: string = 'precedente';
+  confrontoDa = '';
+  confrontoA = '';
   readonly caricando = signal(false);
   readonly errore = signal<string | null>(null);
   readonly dati = signal<Statistiche | null>(null);
@@ -275,6 +313,10 @@ export class StatistichePartnerComponent {
     if (this.da) params = params.set('da', this.da);
     if (this.a) params = params.set('a', this.a);
     if (this.pricingModel) params = params.set('pricingModel', this.pricingModel);
+    params = params.set('confronto', this.confronto);
+    if (this.confronto === 'personalizzato' && this.confrontoDa && this.confrontoA) {
+      params = params.set('confrontoDa', this.confrontoDa).set('confrontoA', this.confrontoA);
+    }
     // ⚠️ Per un PARTNER questo parametro non serve e il server lo ignora: l'id lo prende dal token.
     // Serve all'ufficio, che apre queste stesse statistiche dalla scheda del partner.
     const altrui = this.route.snapshot.queryParamMap.get('partnerId');
@@ -288,46 +330,39 @@ export class StatistichePartnerComponent {
     });
   }
 
-  /** La barra è in proporzione al PRIMO della classifica: un confronto fra pari, non una fetta di torta. */
-  private conQuota<T extends { nome: string; quantita: number }>(righe: T[]) {
+  /**
+   * La barra è in proporzione al PRIMO della classifica: un confronto fra pari, non una fetta di torta.
+   * E ogni riga porta la sua variazione rispetto al periodo di confronto.
+   *
+   * ⚠️ Se prima era ZERO la percentuale non esiste (non si divide per zero, e «+∞%» non è un dato): si
+   * mostra solo il numero di prima, che in quel caso è già tutto quello che c'è da dire.
+   */
+  private conQuota<T extends { nome: string; quantita: number; prima?: number | null }>(righe: T[]) {
     const massimo = righe.reduce((m, r) => Math.max(m, r.quantita), 0) || 1;
-    return righe.map((r) => ({ ...r, quota: Math.max(2, Math.round((r.quantita / massimo) * 100)) }));
+    return righe.map((r) => ({
+      ...r,
+      quota: Math.max(2, Math.round((r.quantita / massimo) * 100)),
+      variazione: r.prima !== null && r.prima !== undefined && r.prima > 0
+        ? Math.round(((r.quantita - r.prima) / r.prima) * 100)
+        : null,
+    }));
   }
 
-  readonly righeServizi = computed(() =>
-    this.conQuota((this.dati()?.servizi ?? []).map((r) => ({
-      nome: r.nome,
-      quantita: r.quantita,
-      // Sotto ogni servizio, quanto faceva prima: il confronto serve dove si guarda, non solo in cima.
-      nota: [
-        r.precedente !== null && r.precedente !== undefined ? `prec. ${r.precedente}` : null,
-        r.annoPrima !== null && r.annoPrima !== undefined ? `anno prima ${r.annoPrima}` : null,
-      ].filter(Boolean).join(' · '),
-    }))),
-  );
-
-  /** I due paragoni, già pronti da mostrare: quanti erano e di quanto si è cambiato. */
-  readonly paragoni = computed(() => {
-    const d = this.dati();
-    if (!d) return [];
-    const variazione = (prima: number) => (prima > 0 ? Math.round(((d.totale - prima) / prima) * 100) : 0);
-    const voci: { etichetta: string; totale: number; delta: number; da: string; a: string }[] = [];
-    if (d.confronto?.precedente) {
-      voci.push({ etichetta: 'statPartner.precedente', totale: d.confronto.precedente.totale,
-        delta: variazione(d.confronto.precedente.totale), da: d.confronto.precedente.da, a: d.confronto.precedente.a });
-    }
-    if (d.confronto?.annoPrima) {
-      voci.push({ etichetta: 'statPartner.annoPrima', totale: d.confronto.annoPrima.totale,
-        delta: variazione(d.confronto.annoPrima.totale), da: d.confronto.annoPrima.da, a: d.confronto.annoPrima.a });
-    }
-    return voci;
+  /** La variazione del totale: quanto è cambiato rispetto al periodo di confronto. */
+  readonly variazione = computed(() => {
+    const c = this.dati()?.confronto;
+    if (!c?.totale) return 0;
+    return Math.round(((this.dati()!.totale - c.totale) / c.totale) * 100);
   });
-  readonly righeFasce = computed(() => this.conQuota((this.dati()?.fasce ?? []).map((r) => ({ nome: r.fascia, quantita: r.quantita }))));
-  readonly righeGiorni = computed(() => this.conQuota((this.dati()?.giorni ?? []).map((r) => ({ nome: r.giorno, quantita: r.quantita }))));
-  readonly righeProdotti = computed(() => this.conQuota((this.dati()?.prodotti ?? []).map((r) => ({ nome: r.nome, quantita: r.pezzi }))));
-  readonly righeLuoghi = computed(() => this.conQuota((this.dati()?.luoghi ?? []).map((r) => ({ nome: r.luogo, quantita: r.quantita }))));
-  readonly righeIndirizzi = computed(() => this.conQuota((this.dati()?.indirizzi ?? []).map((r) => ({ nome: r.indirizzo, quantita: r.quantita }))));
-  readonly righeClienti = computed(() => this.conQuota((this.dati()?.clienti ?? []).map((r) => ({ nome: r.nome, quantita: r.quantita }))));
+
+  readonly righeServizi = computed(() => this.conQuota(this.dati()?.servizi ?? []));
+
+  readonly righeFasce = computed(() => this.conQuota(this.dati()?.fasce ?? []));
+  readonly righeGiorni = computed(() => this.conQuota(this.dati()?.giorni ?? []));
+  readonly righeProdotti = computed(() => this.conQuota(this.dati()?.prodotti ?? []));
+  readonly righeLuoghi = computed(() => this.conQuota(this.dati()?.luoghi ?? []));
+  readonly righeIndirizzi = computed(() => this.conQuota(this.dati()?.indirizzi ?? []));
+  readonly righeClienti = computed(() => this.conQuota(this.dati()?.clienti ?? []));
 
   altezzaMese(n: number): number {
     const massimo = (this.dati()?.vendite ?? []).reduce((m, r) => Math.max(m, r.quantita), 0) || 1;
@@ -335,22 +370,26 @@ export class StatistichePartnerComponent {
   }
 }
 
+interface Riga { nome: string; quantita: number; prima: number | null }
+
 interface Statistiche {
   partner: { id: string; insegna: string };
   periodo: { da: string | null; a: string | null };
   mostra: { consegna: boolean; ora: boolean; vendita: boolean };
   totale: number;
   confronto: {
+    tipo: string;
+    periodo: { da: string; a: string } | null;
+    totale: number | null;
     venduto: number;
-    precedente: { da: string; a: string; totale: number; venduto: number } | null;
-    annoPrima: { da: string; a: string; totale: number; venduto: number } | null;
+    vendutoPrima: number | null;
   };
-  servizi: { nome: string; pricingModel: string | null; quantita: number; precedente: number | null; annoPrima: number | null }[];
-  fasce: { fascia: string; quantita: number }[];
-  giorni: { giorno: string; quantita: number }[];
+  servizi: Riga[];
+  fasce: Riga[];
+  giorni: Riga[];
   vendite: { mese: string; quantita: number; valore: number }[];
-  prodotti: { nome: string; pezzi: number; consegne: number }[];
-  indirizzi: { indirizzo: string; quantita: number }[];
-  luoghi: { luogo: string; quantita: number }[];
-  clienti: { nome: string; quantita: number }[];
+  prodotti: Riga[];
+  indirizzi: Riga[];
+  luoghi: Riga[];
+  clienti: Riga[];
 }

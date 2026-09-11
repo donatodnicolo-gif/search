@@ -839,7 +839,7 @@
     }
   },
   "deliveries": {
-    "export": { "bottone": "Esporta per Excel", "corso": "Preparo il file…", "troncato": "Estrazione fermata a 20.000 righe: restringi il periodo per averle tutte.", "errore": "Estrazione non riuscita: riprova." },
+    "export": { "bottone": "Esporta per Excel", "vuoto": "Nessuna consegna da estrarre con questi filtri.", "corso": "Preparo il file…", "troncato": "Estrazione fermata a 20.000 righe: restringi il periodo per averle tutte.", "errore": "Estrazione non riuscita: riprova." },
     "ordina": { "label": "Ordina per", "asc": "Crescente ↑", "desc": "Decrescente ↓" },
     "margine": { "titolo": "Margine Deluxy {{pct}} % ({{euro}} €): sotto il 5 %" },
     "nonConsegnate": {
@@ -3667,6 +3667,18 @@
     "annoPrima": "Anno prima",
     "senzaConfronto": "Scegli un periodo con inizio e fine per vedere il confronto.",
     "apriStatistiche": "Statistiche",
+    "confronto": "Confronta con",
+    "confrontoDal": "Confronto dal",
+    "confrontoAl": "Confronto al",
+    "control": "confronto con",
+    "prima": "Prima",
+    "vendutoPrima": "Venduto prima",
+    "confronti": {
+      "precedente": "Periodo precedente",
+      "anno": "Anno precedente",
+      "personalizzato": "Personalizzato",
+      "nessuno": "Nessun confronto"
+    },
     "dal": "Dal",
     "al": "Al",
     "titolo": "Statistiche",

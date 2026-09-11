@@ -33,10 +33,18 @@ const A_ORA = ['A_ORA'];
 const VENDITA = ['VENDITA'];
 /** Le consegne che NON sono avvenute non raccontano dove si va: restano fuori da tutte le classifiche. */
 const NON_FATTE = ['cancelled', 'cancelled_office', 'not_delivered', 'refused'];
-const GIORNI = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
+/** Con 'ID' Postgres dà 1 = lunedì … 7 = domenica: l'ordine della settimana, non quello dell'alfabeto. */
+const GIORNI_ISO = ['', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'];
 
-type Filtri = { da?: string; a?: string; serviceTypeId?: string; pricingModel?: string };
+/** I modi di dire «prima» (regola utente, 11/09/2026: la scelta sta nei filtri). */
+export type TipoConfronto = 'precedente' | 'anno' | 'personalizzato' | 'nessuno';
+
+type Filtri = {
+  da?: string; a?: string; serviceTypeId?: string; pricingModel?: string;
+  confronto?: TipoConfronto; confrontoDa?: string; confrontoA?: string;
+};
 type Intervallo = { da: string; a: string };
+type Riga = { nome: string; quantita: number; prima: number | null };
 
 const daIso = (s: string) => new Date(`${s}T00:00:00.000Z`);
 /** Il giorno DOPO quello indicato: gli intervalli si chiudono con «<», così il 31 entra tutto. */
@@ -137,30 +145,36 @@ export class StatistichePartnerService {
      * contro trenta. Confrontare un mese in corso con un mese pieno è il modo classico di leggere un calo
      * che non esiste.
      */
-    const confronti = intervalliDiConfronto(f.da, f.a);
+    const tipo: TipoConfronto = f.confronto ?? 'precedente';
+    const possibili = intervalliDiConfronto(f.da, f.a);
+    const intervalloPrima: Intervallo | null =
+      tipo === 'nessuno' ? null
+      : tipo === 'anno' ? possibili.annoPrima
+      : tipo === 'personalizzato' ? (f.confrontoDa && f.confrontoA ? { da: f.confrontoDa, a: f.confrontoA } : null)
+      : possibili.precedente;
 
     // 1. TIPOLOGIA DI SERVIZI RICHIESTI, COI TRE PERIODI IN UNA QUERY SOLA.
     //    I tre conteggi si fanno con le somme condizionate, non con tre giri sul database: le righe da
     //    leggere sono le stesse, e leggerle tre volte costerebbe tre volte.
     const finestra = (iv: Intervallo | null) =>
       iv ? Prisma.sql`(d."date" >= ${daIso(iv.da)} AND d."date" < ${dopoIso(iv.a)})` : Prisma.sql`FALSE`;
+    // Il «prima» di TUTTE le tabelle è uno solo: quello scelto nei filtri.
+    const primaSql = finestra(intervalloPrima);
     const corrente = f.da || f.a
       ? Prisma.sql`(${f.da ? Prisma.sql`d."date" >= ${daIso(f.da)}` : Prisma.sql`TRUE`} AND ${f.a ? Prisma.sql`d."date" < ${dopoIso(f.a)}` : Prisma.sql`TRUE`})`
       : Prisma.sql`TRUE`;
     const perServizio = await this.prisma.$queryRaw<
-      { sid: string | null; nome: string | null; modello: string | null; n: bigint; nprec: bigint; nanno: bigint; vend: number | null; vprec: number | null; vanno: number | null }[]
+      { sid: string | null; nome: string | null; modello: string | null; n: bigint; nprec: bigint; vend: number | null; vprec: number | null }[]
     >(Prisma.sql`
       SELECT d."serviceTypeId" AS sid, s."name" AS nome, s."pricingModel" AS modello,
              SUM(CASE WHEN ${corrente} THEN 1 ELSE 0 END)::bigint AS n,
-             SUM(CASE WHEN ${finestra(confronti.precedente)} THEN 1 ELSE 0 END)::bigint AS nprec,
-             SUM(CASE WHEN ${finestra(confronti.annoPrima)} THEN 1 ELSE 0 END)::bigint AS nanno,
+             SUM(CASE WHEN ${primaSql} THEN 1 ELSE 0 END)::bigint AS nprec,
              SUM(CASE WHEN ${corrente} AND s."pricingModel" = 'VENDITA' THEN COALESCE(d."productValue", 0) ELSE 0 END)::float AS vend,
-             SUM(CASE WHEN ${finestra(confronti.precedente)} AND s."pricingModel" = 'VENDITA' THEN COALESCE(d."productValue", 0) ELSE 0 END)::float AS vprec,
-             SUM(CASE WHEN ${finestra(confronti.annoPrima)} AND s."pricingModel" = 'VENDITA' THEN COALESCE(d."productValue", 0) ELSE 0 END)::float AS vanno
+             SUM(CASE WHEN ${primaSql} AND s."pricingModel" = 'VENDITA' THEN COALESCE(d."productValue", 0) ELSE 0 END)::float AS vprec
       FROM platform."Delivery" d
       LEFT JOIN platform."ServiceType" s ON s."id" = d."serviceTypeId"
       WHERE d."partnerId" = ${partnerId} AND ${fatte}
-        AND (${corrente} OR ${finestra(confronti.precedente)} OR ${finestra(confronti.annoPrima)})
+        AND (${corrente} OR ${primaSql})
         ${f.serviceTypeId ? Prisma.sql`AND d."serviceTypeId" = ${f.serviceTypeId}` : Prisma.empty}
         ${f.pricingModel ? Prisma.sql`AND s."pricingModel" = ${f.pricingModel}` : Prisma.empty}
       GROUP BY 1, 2, 3
@@ -170,114 +184,117 @@ export class StatistichePartnerService {
         nome: r.nome ?? 'senza servizio',
         pricingModel: r.modello ?? null,
         quantita: Number(r.n),
-        precedente: confronti.precedente ? Number(r.nprec) : null,
-        annoPrima: confronti.annoPrima ? Number(r.nanno) : null,
+        prima: intervalloPrima ? Number(r.nprec) : null,
       }))
-      .filter((r) => r.quantita > 0 || (r.precedente ?? 0) > 0 || (r.annoPrima ?? 0) > 0)
+      .filter((r) => r.quantita > 0 || (r.prima ?? 0) > 0)
       .sort((a, b) => b.quantita - a.quantita);
     const somma = (prendi: (r: (typeof perServizio)[number]) => number) => perServizio.reduce((s, r) => s + prendi(r), 0);
     const totale = somma((r) => Number(r.n));
     const confronto = {
-      precedente: confronti.precedente
-        ? { ...confronti.precedente, totale: somma((r) => Number(r.nprec)), venduto: somma((r) => r.vprec ?? 0) }
-        : null,
-      annoPrima: confronti.annoPrima
-        ? { ...confronti.annoPrima, totale: somma((r) => Number(r.nanno)), venduto: somma((r) => r.vanno ?? 0) }
-        : null,
+      tipo,
+      // Le date dei due modi automatici viaggiano lo stesso: servono a scrivere in chiaro nei filtri
+      // con cosa si sta confrontando, senza farlo ricalcolare al browser.
+      disponibili: possibili,
+      periodo: intervalloPrima,
+      totale: intervalloPrima ? somma((r) => Number(r.nprec)) : null,
+      vendutoPrima: intervalloPrima ? somma((r) => r.vprec ?? 0) : null,
       venduto: somma((r) => r.vend ?? 0),
     };
 
     const vuoto: never[] = [];
 
+    /**
+     * ⭐ 11/09/2026 (regola utente: «il confronto va messo anche nelle varie tabelle») — UNA SOLA FORMA
+     * DI CLASSIFICA, E PORTA IL PRIMA CON SÉ.
+     *
+     * Ogni riquadro è la stessa domanda su una colonna diversa: quante volte, e quante volte PRIMA. Si
+     * fa con due somme condizionate sulle stesse righe — le righe del periodo scelto e quelle del periodo
+     * di confronto, lette insieme — invece di due giri sul database per ogni riquadro.
+     *
+     * ⚠️ Le voci che esistono SOLO nel periodo di confronto restano in classifica con zero: «al Four
+     * Seasons ci andavi 40 volte e ora nessuna» è esattamente ciò che un confronto deve far vedere, e
+     * nasconderle racconterebbe solo le buone notizie.
+     */
+    const classifica = async (
+      chiave: Prisma.Sql,
+      opzioni: { da?: Prisma.Sql; peso?: Prisma.Sql; filtro?: Prisma.Sql; limite?: number } = {},
+    ): Promise<{ nome: string; quantita: number; prima: number | null }[]> => {
+      const peso = opzioni.peso ?? Prisma.sql`1`;
+      const righe = await this.prisma.$queryRaw<{ k: string | null; n: number | null; p: number | null }[]>(Prisma.sql`
+        SELECT ${chiave} AS k,
+               SUM(CASE WHEN ${corrente} THEN ${peso} ELSE 0 END)::float AS n,
+               SUM(CASE WHEN ${primaSql} THEN ${peso} ELSE 0 END)::float AS p
+        FROM platform."Delivery" d
+        ${opzioni.da ?? Prisma.empty}
+        LEFT JOIN platform."ServiceType" s ON s."id" = d."serviceTypeId"
+        WHERE d."partnerId" = ${partnerId} AND ${fatte}
+          AND (${corrente} OR ${primaSql})
+          ${f.serviceTypeId ? Prisma.sql`AND d."serviceTypeId" = ${f.serviceTypeId}` : Prisma.empty}
+          ${f.pricingModel ? Prisma.sql`AND s."pricingModel" = ${f.pricingModel}` : Prisma.empty}
+          ${opzioni.filtro ?? Prisma.empty}
+        GROUP BY 1
+        HAVING ${chiave} IS NOT NULL AND ${chiave} <> ''
+        ORDER BY 2 DESC, 3 DESC
+        LIMIT ${opzioni.limite ?? 20}
+      `);
+      return righe.map((r) => ({
+        nome: String(r.k ?? ''),
+        quantita: Math.round(Number(r.n ?? 0)),
+        prima: intervalloPrima ? Math.round(Number(r.p ?? 0)) : null,
+      }));
+    };
+
     // 2. FASCE ORARIE — solo per chi fa consegne o servizi a ora.
-    const chiediFasce = async () =>
-      (await this.prisma.delivery.groupBy({
-          by: ['deliveryTimeFrom'],
-          where: { ...dove, NOT: { deliveryTimeFrom: null } },
-          _count: { _all: true },
-        }))
-          .map((r) => ({ fascia: r.deliveryTimeFrom as string, quantita: r._count._all }))
-          .sort((a, b) => b.quantita - a.quantita)
-          .slice(0, 24);
+    const chiediFasce = () => classifica(Prisma.sql`d."deliveryTimeFrom"`, { limite: 24 });
 
-    // 3. GIORNI DELLA SETTIMANA — il giorno si legge nell'ora di Roma: con l'UTC una consegna
-    //    della domenica sera cadrebbe di lunedì.
-    const chiediGiorni = async () =>
-      (
-          await this.prisma.$queryRaw<{ dow: number; n: bigint }[]>(Prisma.sql`
-            SELECT EXTRACT(DOW FROM (d."date" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome'))::int AS dow,
-                   COUNT(*)::bigint AS n
-            FROM platform."Delivery" d
-            WHERE d."partnerId" = ${partnerId} AND ${fatte}${sql}
-            GROUP BY 1 ORDER BY 2 DESC
-          `)
-        ).map((r) => ({ giorno: GIORNI[r.dow] ?? String(r.dow), quantita: Number(r.n) }));
+    // 3. GIORNI DELLA SETTIMANA — il giorno si legge nell'ora di Roma: con l'UTC una consegna della
+    //    domenica sera cadrebbe di lunedì.
+    const chiediGiorni = async () => {
+      const righe = await classifica(
+        Prisma.sql`to_char(d."date" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome', 'ID')`,
+        { limite: 7 },
+      );
+      // 'ID' dà 1 = lunedì … 7 = domenica: l'ordine della settimana, non quello dell'alfabeto.
+      return righe.map((r) => ({ ...r, nome: GIORNI_ISO[Number(r.nome)] ?? r.nome }));
+    };
 
-    // 4. ANDAMENTO VENDITE — quante e quanto, mese per mese. Il valore è quello della MERCE
-    //    (`productValue`): il prezzo della consegna è un'altra cosa e sommarli mescolerebbe due conti.
+    // 4. ANDAMENTO VENDITE — quante e quanto, mese per mese. Qui il confronto è già nel grafico: i mesi
+    //    si vedono uno accanto all'altro, e affiancarne un altro periodo lo renderebbe illeggibile.
     const chiediVendite = async () =>
       (
-          await this.prisma.$queryRaw<{ mese: string; n: bigint; valore: number | null }[]>(Prisma.sql`
-            SELECT to_char(d."date" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome', 'YYYY-MM') AS mese,
-                   COUNT(*)::bigint AS n,
-                   SUM(COALESCE(d."productValue", 0))::float AS valore
-            FROM platform."Delivery" d
-            JOIN platform."ServiceType" s ON s."id" = d."serviceTypeId"
-            WHERE d."partnerId" = ${partnerId} AND s."pricingModel" = 'VENDITA' AND ${fatte}${sql}
-            GROUP BY 1 ORDER BY 1 ASC
-          `)
-        ).map((r) => ({ mese: r.mese, quantita: Number(r.n), valore: r.valore ?? 0 }));
+        await this.prisma.$queryRaw<{ mese: string; n: bigint; valore: number | null }[]>(Prisma.sql`
+          SELECT to_char(d."date" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Rome', 'YYYY-MM') AS mese,
+                 COUNT(*)::bigint AS n,
+                 SUM(COALESCE(d."productValue", 0))::float AS valore
+          FROM platform."Delivery" d
+          JOIN platform."ServiceType" s ON s."id" = d."serviceTypeId"
+          WHERE d."partnerId" = ${partnerId} AND s."pricingModel" = 'VENDITA' AND ${fatte}
+            AND (${corrente} OR ${primaSql})
+          GROUP BY 1 ORDER BY 1 ASC
+        `)
+      ).map((r) => ({ mese: r.mese, quantita: Number(r.n), valore: r.valore ?? 0 }));
 
     // 5. PRODOTTI PIÙ VENDUTI — dalla FOTOGRAFIA sulla riga di consegna (`productName`), non dal
-    //    catalogo: un prodotto rinominato o cancellato non deve riscrivere la storia.
-    const chiediProdotti = async () =>
-      (
-          await this.prisma.$queryRaw<{ nome: string; pezzi: bigint; consegne: bigint }[]>(Prisma.sql`
-            SELECT COALESCE(NULLIF(dp."productName", ''), p."name", 'senza nome') AS nome,
-                   SUM(dp."quantity")::bigint AS pezzi,
-                   COUNT(DISTINCT d."id")::bigint AS consegne
-            FROM platform."DeliveryProduct" dp
-            JOIN platform."Delivery" d ON d."id" = dp."deliveryId"
-            LEFT JOIN platform."Product" p ON p."id" = dp."productId"
-            WHERE d."partnerId" = ${partnerId} AND ${fatte}${sql}
-            GROUP BY 1 ORDER BY 2 DESC LIMIT 20
-          `)
-        ).map((r) => ({ nome: r.nome, pezzi: Number(r.pezzi), consegne: Number(r.consegne) }));
+    //    catalogo: un prodotto rinominato o cancellato non deve riscrivere la storia. Qui si contano i
+    //    PEZZI, non le consegne: è la domanda «cosa vendo di più».
+    const chiediProdotti = () =>
+      classifica(Prisma.sql`COALESCE(NULLIF(dp."productName", ''), pr."name")`, {
+        da: Prisma.sql`JOIN platform."DeliveryProduct" dp ON dp."deliveryId" = d."id"
+        LEFT JOIN platform."Product" pr ON pr."id" = dp."productId"`,
+        peso: Prisma.sql`dp."quantity"`,
+      });
 
     // 6-7-8. INDIRIZZI, LUOGHI E CLIENTI — solo per chi fa consegne: sono la mappa del suo giro.
-    const chiediIndirizzi = async () =>
-      (await this.prisma.delivery.groupBy({
-        by: ['recipientAddress'],
-        where: { ...dove, NOT: { recipientAddress: '' } },
-        _count: { _all: true },
-        orderBy: { _count: { recipientAddress: 'desc' } },
-        take: 20,
-      })).map((r) => ({ indirizzo: r.recipientAddress ?? '', quantita: r._count._all }));
-
-    const chiediLuoghi = async () =>
-      (await this.prisma.delivery.groupBy({
-        by: ['recipientPlace'],
-        where: { ...dove, NOT: { recipientPlace: null } },
-        _count: { _all: true },
-        orderBy: { _count: { recipientPlace: 'desc' } },
-        take: 20,
-      })).map((r) => ({ luogo: r.recipientPlace ?? '', quantita: r._count._all }));
-
-    const chiediClienti = async () =>
-      (
-        await this.prisma.$queryRaw<{ nome: string; n: bigint }[]>(Prisma.sql`
-          SELECT TRIM(COALESCE(d."recipientFirstName", '') || ' ' || COALESCE(d."recipientLastName", '')) AS nome,
-                 COUNT(*)::bigint AS n
-          FROM platform."Delivery" d
-          WHERE d."partnerId" = ${partnerId} AND ${fatte}${sql}
-            -- ⚠️ «. .», «varie varie»: segnaposto messi al posto del nome quando il destinatario non si sa.
-            -- Sulla prova con Clivati «. .» usciva PRIMO con 2.775 consegne, e una classifica guidata da un
-            -- segnaposto non dice niente a nessuno. Serve un nome con almeno tre lettere.
-            AND length(regexp_replace(COALESCE(d."recipientFirstName", '') || COALESCE(d."recipientLastName", ''), '[^[:alpha:]]', '', 'g')) >= 3
-            AND lower(TRIM(COALESCE(d."recipientFirstName", '') || ' ' || COALESCE(d."recipientLastName", ''))) NOT IN ('varie varie', 'vari vari', 'cliente cliente')
-          GROUP BY 1 ORDER BY 2 DESC LIMIT 20
-        `)
-      ).map((r) => ({ nome: r.nome, quantita: Number(r.n) }));
+    const chiediIndirizzi = () => classifica(Prisma.sql`d."recipientAddress"`);
+    const chiediLuoghi = () => classifica(Prisma.sql`d."recipientPlace"`);
+    const chiediClienti = () =>
+      classifica(Prisma.sql`TRIM(COALESCE(d."recipientFirstName", '') || ' ' || COALESCE(d."recipientLastName", ''))`, {
+        // ⚠️ «. .», «varie varie»: segnaposto messi al posto del nome quando il destinatario non si sa.
+        // Sulla prova con Clivati «. .» usciva PRIMO con 2.775 consegne, e una classifica guidata da un
+        // segnaposto non dice niente a nessuno. Serve un nome con almeno tre lettere.
+        filtro: Prisma.sql`AND length(regexp_replace(COALESCE(d."recipientFirstName", '') || COALESCE(d."recipientLastName", ''), '[^[:alpha:]]', '', 'g')) >= 3
+          AND lower(TRIM(COALESCE(d."recipientFirstName", '') || ' ' || COALESCE(d."recipientLastName", ''))) NOT IN ('varie varie', 'vari vari', 'cliente cliente')`,
+      });
 
     /**
      * ⚠️⚠️ TRE QUERY ALLA VOLTA, NON SETTE.
@@ -292,7 +309,7 @@ export class StatistichePartnerService {
     const aOnde = async (lavori: (() => Promise<unknown>)[], quante = 3): Promise<unknown[]> => {
       const esiti: unknown[] = [];
       for (let i = 0; i < lavori.length; i += quante) {
-        esiti.push(...(await Promise.all(lavori.slice(i, i + quante).map((f) => f()))));
+        esiti.push(...(await Promise.all(lavori.slice(i, i + quante).map((fn) => fn()))));
       }
       return esiti;
     };
@@ -306,13 +323,13 @@ export class StatistichePartnerService {
       haConsegna ? chiediLuoghi : niente,
       haConsegna ? chiediClienti : niente,
     ])) as [
-      { fascia: string; quantita: number }[],
-      { giorno: string; quantita: number }[],
+      Riga[],
+      Riga[],
       { mese: string; quantita: number; valore: number }[],
-      { nome: string; pezzi: number; consegne: number }[],
-      { indirizzo: string; quantita: number }[],
-      { luogo: string; quantita: number }[],
-      { nome: string; quantita: number }[],
+      Riga[],
+      Riga[],
+      Riga[],
+      Riga[],
     ];
 
     return {
@@ -347,6 +364,9 @@ export class StatistichePartnerController {
   @ApiQuery({ name: 'serviceTypeId', required: false })
   @ApiQuery({ name: 'pricingModel', required: false })
   @ApiQuery({ name: 'partnerId', required: false, description: 'Solo ufficio: di quale partner' })
+  @ApiQuery({ name: 'confronto', required: false, enum: ['precedente', 'anno', 'personalizzato', 'nessuno'] })
+  @ApiQuery({ name: 'confrontoDa', required: false })
+  @ApiQuery({ name: 'confrontoA', required: false })
   async statistiche(
     @CurrentUser() user: JwtUser,
     @Query('da') da?: string,
@@ -354,12 +374,15 @@ export class StatistichePartnerController {
     @Query('serviceTypeId') serviceTypeId?: string,
     @Query('pricingModel') pricingModel?: string,
     @Query('partnerId') partnerId?: string,
+    @Query('confronto') confronto?: TipoConfronto,
+    @Query('confrontoDa') confrontoDa?: string,
+    @Query('confrontoA') confrontoA?: string,
   ) {
     // ⚠️ Il partner vede SÉ STESSO: l'id arriva dal token, mai dalla richiesta. Se arrivasse da fuori,
     // cambiare un parametro nell'indirizzo aprirebbe le statistiche di un concorrente.
     const id = user.role === Role.PARTNER ? user.partnerId : partnerId ?? user.partnerId;
     if (!id) throw new ForbiddenException('Nessun partner da mostrare');
-    return this.service.perPartner(id, { da, a, serviceTypeId, pricingModel });
+    return this.service.perPartner(id, { da, a, serviceTypeId, pricingModel, confronto, confrontoDa, confrontoA });
   }
 }
 

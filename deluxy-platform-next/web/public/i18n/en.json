@@ -838,7 +838,7 @@
     }
   },
   "deliveries": {
-    "export": { "bottone": "Export to Excel", "corso": "Preparing the file…", "troncato": "Export stopped at 20,000 rows: narrow the period to get them all.", "errore": "Export failed: try again." },
+    "export": { "bottone": "Export to Excel", "vuoto": "No deliveries to export with these filters.", "corso": "Preparing the file…", "troncato": "Export stopped at 20,000 rows: narrow the period to get them all.", "errore": "Export failed: try again." },
     "ordina": { "label": "Sort by", "asc": "Ascending ↑", "desc": "Descending ↓" },
     "margine": { "titolo": "Deluxy margin {{pct}} % ({{euro}} €): below 5 %" },
     "nonConsegnate": {
@@ -3665,6 +3665,18 @@
     "annoPrima": "Year before",
     "senzaConfronto": "Pick a period with a start and an end to see the comparison.",
     "apriStatistiche": "Statistics",
+    "confronto": "Compare with",
+    "confrontoDal": "Comparison from",
+    "confrontoAl": "Comparison to",
+    "control": "compared with",
+    "prima": "Before",
+    "vendutoPrima": "Sold before",
+    "confronti": {
+      "precedente": "Previous period",
+      "anno": "Previous year",
+      "personalizzato": "Custom",
+      "nessuno": "No comparison"
+    },
     "dal": "From",
     "al": "To",
     "titolo": "Statistics",

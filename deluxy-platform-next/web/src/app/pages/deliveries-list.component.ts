@@ -2629,23 +2629,63 @@ export class DeliveriesListComponent {
     if (this.esportando()) return;
     this.esportando.set(true);
     this.actionError.set(null);
+    /**
+     * ⚠️ 11/09/2026 — LA RETE DI SICUREZZA. «Preparo il file…» non deve poter restare acceso per sempre:
+     * se dopo un minuto non è arrivato niente, si dice che non è arrivato niente. Un bottone spento a
+     * tempo indeterminato non è un'attesa, è un vicolo cieco — e chi guarda non sa se insistere o no.
+     */
+    const salvagente = setTimeout(() => {
+      if (this.esportando()) {
+        this.esportando.set(false);
+        this.actionError.set(this.translate.instant('deliveries.export.errore'));
+      }
+    }, 60000);
+    const fine = () => clearTimeout(salvagente);
     const params = this.parametriRicerca();
     this.http.get(`${environment.apiUrl}/deliveries/esporta`, { params, responseType: 'blob', observe: 'response' }).subscribe({
       next: (res) => {
+        fine();
         this.esportando.set(false);
         const blob = res.body;
-        if (!blob) return;
+        /**
+         * ⚠️⚠️ 11/09/2026 — PERCHÉ IL FILE NON ARRIVAVA (segnalazione utente: «l'export excel non
+         * funziona ancora»). Il server rispondeva in tre decimi di secondo — misurato — ma il file non
+         * si salvava, e qui ci sono i due motivi, tutti e due dentro queste righe.
+         *
+         * 1. **Il collegamento non era nella pagina.** Firefox (e Safari) ignorano `click()` su un `<a>`
+         *    che non è stato inserito nel documento: nessun errore, nessun file, niente. Va aggiunto,
+         *    cliccato e tolto.
+         * 2. **L'indirizzo del file veniva buttato subito.** `revokeObjectURL` chiamato nella stessa riga
+         *    del click annulla il download prima che parta: il browser non ha ancora letto il blob. Si
+         *    libera dopo, quando il salvataggio è avviato.
+         *
+         * ⚠️ E se il foglio è VUOTO si dice: un file da zero righe che si scarica in silenzio sembra un
+         * guasto identico a nessun file.
+         */
+        if (!blob || blob.size === 0) {
+          this.actionError.set(this.translate.instant('deliveries.export.vuoto'));
+          return;
+        }
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = `consegne-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.style.display = 'none';
+        document.body.appendChild(a);
         a.click();
-        URL.revokeObjectURL(url);
+        setTimeout(() => {
+          a.remove();
+          URL.revokeObjectURL(url);
+        }, 2000);
         if (res.headers.get('X-Troncato')) this.actionError.set(this.translate.instant('deliveries.export.troncato'));
       },
       error: (e) => {
+        fine();
         this.esportando.set(false);
-        this.actionError.set(e?.error?.message ?? this.translate.instant('deliveries.export.errore'));
+        // ATTENZIONE: con responseType blob il corpo dell'errore e' un blob, non un oggetto:
+        // e.error.message e' quasi sempre vuoto, e senza lo stato HTTP il messaggio non aiuta.
+        const stato = e?.status ? ' (' + e.status + ')' : '';
+        this.actionError.set(this.translate.instant('deliveries.export.errore') + stato);
       },
     });
   }
