@@ -50,12 +50,6 @@ Richieste dell'utente dopo il deploy delle ricorrenze lette dal biglietto:
   `deluxy-orders-2z87d3f00`), quindi il pop-up del dettaglio ricorrenza
   (commit `23a46195`) mostra «come l'abbiamo dedotta» anche live.
 
-> ⚠️ **In locale il `.env` punta al CS di SVILUPPO** (`MESSAGGI_URL=http://localhost:3140`),
-> perché la produzione non ha ancora l'API dei reclami: per vedere Reclami e le
-> opzioni del Nuovo ordine serve `npm run dev` anche in `scoutwt/deluxy-messaging`.
-> Quando il CS viene pubblicato, rimettere `https://deluxy-messaging.vercel.app`.
-> (Le env di Vercel non sono toccate: là punta alla produzione.)
-
 **Trappola pagata oggi — dare a un'app il token della cassaforte la può
 rallentare.** Appena il CRM ha avuto `HUB_KEYS_TOKEN` (per l'API utenti del
 Hub), ogni pagina ha cominciato a chiamare `GET /api/chiavi` del Hub, che
@@ -121,13 +115,12 @@ scrivo io», riceve un'altra persona, consegna anonima, consenso marketing
 con «Usa la stima» / senza / a mano, mezzo di pagamento con i metodi visti,
 IVA come spunta con la spiegazione del CS. Misure in locale (CS locale):
 opzioni 0,6–1,1 s per negozio; tariffe Milano 2,1 s (15 €), Bergamo 3,4 s
-(80 € del sito + stima 75 € = 15 + 58,9 km × 1 €). ⚠️ **Il CS in produzione
-NON ha ancora queste rotte** (ultimo deploy CS di 14 ore prima, con due
-funzioni dell'altra sessione — orari negozi e modifica bozza — committate ma
-non pubblicate): il modulo live dice «Il Customer Service non dice le sue
-opzioni…» e resta usabile a mano finché il CS non si pubblica. Non l'ho
-pubblicato io: pubblicherebbe anche il lavoro dell'altra sessione, non ancora
-visto a schermo.
+(80 € del sito + stima 75 € = 15 + 58,9 km × 1 €). ✅ **Il CS in produzione ha le due rotte** (deploy `deluxy-messaging-3mu9ky7u7`
+dell'11/09, autorizzato dall'utente: ha pubblicato anche due funzioni
+dell'altra sessione — layout Orari negozi e modifica bozza — che erano
+committate e non pubblicate). Verificato dal vivo: opzioni del negozio Deluxy
+in 1,66 s (fasce di oggi 12-14…20-22, 8 voci di spedizione, 3 metodi).
+Se un giorno il CS tornasse indietro, il modulo lo dice e resta usabile a mano.
 
 Bug visto dall'utente dopo il deploy (screenshot del pop-up in Calendario): il
 form «Correggi» del dettaglio ricorrenza era una riga schiacciata (etichette e
