@@ -120,6 +120,34 @@ const VUOTA = (): Bozza => ({ nome: '', pIva: '', codiceFiscale: '', codiceSdi: 
     </ng-template>
   `,
   styles: [`
+    /* Stili di pagina: le altre liste li dichiarano in locale (non sono globali), qui uguali. */
+    .page-header { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
+    h1 { margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.025em; }
+    .page-caption { margin: 4px 0 0; color: var(--text-secondary); font-size: 14px; max-width: 70ch; }
+    .head-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .head-actions .btn { text-decoration: none; }
+    .head-actions .field { min-width: 200px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--hairline); white-space: nowrap; vertical-align: top; }
+    th { font-weight: 500; color: var(--text-tertiary); font-size: 12px; }
+    tbody tr { transition: background 0.14s var(--ease); }
+    tbody tr:hover { background: rgba(120,120,128,0.05); }
+    tr:last-child td { border-bottom: none; }
+    td.muted { white-space: normal; max-width: 260px; }
+    .strong { font-weight: 550; }
+    .muted { color: var(--text-tertiary); }
+    .pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 980px; padding: 3px 10px; font-size: 12px; font-weight: 550; margin-right: 4px; }
+    .pill-ok { background: rgba(36,138,61,.12); color: #1a7f37; }
+    .pill-neutral { background: var(--fill); color: var(--text-secondary); }
+    .actions-cell { white-space: nowrap; }
+    .act { display: inline-flex; align-items: center; border: 1px solid var(--hairline-strong); background: var(--surface); border-radius: 980px; padding: 4px 11px; font-size: 12px; font-weight: 550; color: var(--text); text-decoration: none; cursor: pointer; font-family: inherit; }
+    .act:hover { background: var(--fill); }
+    .state-card { padding: 32px; display: flex; flex-direction: column; gap: 4px; color: var(--text-secondary); }
+    .state-card.ok { color: var(--green, #1a7f37); padding: 14px 18px; margin-bottom: 12px; }
+    .error-card { background: rgba(215,0,21,0.06); border: 1px solid rgba(215,0,21,0.15); border-radius: var(--radius-l); color: var(--red); padding: 16px 18px; margin-bottom: 12px; }
+    td .sede { white-space: nowrap; }
+    td:nth-child(5) { white-space: normal; max-width: 360px; }
+    .field { width: 100%; }
     .blocco { padding: 16px 18px; margin-bottom: 14px; }
     .blocco h2 { margin: 0 0 10px; font-size: 15px; font-weight: 600; }
     .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 14px; }
