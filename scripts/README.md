@@ -127,6 +127,16 @@ cd deluxy-messaging && node scripts/applica-metodi-pagamento.mjs
 - **Serve**: `DATABASE_URL` nel `.env` dell'app
 - **Nota**: applicato in produzione l'11/09/2026 (6 righe). ⚠️ Le **coordinate del bonifico non le scrive lo script**: le mette l'amministratore in Impostazioni → Metodi di pagamento. Un IBAN in un file del repo è un segreto in chiaro.
 
+### metodi-dai-negozi.mts — deluxy-messaging
+Riempie i **metodi di pagamento** con quello che i siti dicono **davvero** al cliente. ⚠️ I nomi e i testi non sono inventati: sono stati letti dal **checkout vero** dei tre negozi l'11/09/2026 (una bozza di prova per negozio, poi cancellata, selezionando uno per uno i metodi manuali). Non c'è modo di chiederli all'API: sull'Admin API 2025-01 **non esiste nessun tipo per i gateway manuali** (introspezione: solo `PaymentSettings`, che porta i portafogli digitali). Idempotente — ogni riga si riconosce da nome + negozio — e di suo è una **prova a secco**.
+
+```bash
+cd deluxy-messaging && npx tsx scripts/metodi-dai-negozi.mts --esegui
+```
+
+- **Serve**: `DATABASE_URL` nel `.env`
+- **Nota**: eseguito l'11/09/2026 — 10 righe (Contrassegno per tutti; Deposito bancario, PostePay e Binance / Crypto uno per negozio, perché **nome e testo cambiano da negozio a negozio**), e tolte le 6 seminate dalla migrazione. ⚠️ Nessuno dei tre siti dà l'**IBAN** al checkout, e su Flowers **PostePay non dice niente**: sono buchi dei siti, non dell'app.
+
 ### prova-metodi-pagamento.mts — deluxy-messaging
 **Sola lettura.** Prova i metodi di pagamento senza creare nessun ordine: che le specifiche seminate dicano quello che promettono, che la validazione rifiuti i casi storti (nome vuoto, attributo con spazi, «già pagato» con la riga per chi consegna), che un metodo si rilegga **dal database** e che uno spento o inventato non si serva, e che ogni negozio abbia davvero i **termini di pagamento** di Shopify — senza i quali un ordine «da incassare» nascerebbe pagato.
 
