@@ -1756,7 +1756,8 @@
       "valetIdentityCheckHint": "Al ritiro il partner inserisce il codice del valet: senza, il valet non può mettere in consegna. Se il partner ha il flag sulla scheda arriva già accesa.",
       "ddtBrand": "Brand del DDT",
       "pickupAddress": "Indirizzo di ritiro",
-      "pickupAddressPh": "Se vuoto, ritiro dal partner"
+      "pickupAddressPh": "Se vuoto, ritiro dal partner",
+      "luogo": "Luogo"
     },
     "newProduct": {
       "title": "Nuovo prodotto",
@@ -1777,7 +1778,8 @@
       "selectProduct": "Prodotto…",
       "searchProduct": "Cerca un prodotto…",
       "qty": "Qtà",
-      "auto": "auto"
+      "auto": "auto",
+      "luogo": "Hotel, ufficio, ospedale …"
     },
     "hint": {
       "provinceDetected": "Provincia {{code}} → mostrati solo partner/valet abilitati",
@@ -1788,7 +1790,8 @@
       "noMapsKeyLink": "Configurala in Impostazioni",
       "selectPartnerFirst": "Scegli prima il partner: i servizi dipendono dal suo listino.",
       "noServicesForPartner": "Questo partner non ha servizi a listino: mostrati tutti.",
-      "foreignAddress": "Indirizzo estero: la provincia non si applica — partner e valet non sono filtrati."
+      "foreignAddress": "Indirizzo estero: la provincia non si applica — partner e valet non sono filtrati.",
+      "luogo": "si riempie da solo"
     },
     "timing": {
       "selectServiceFirst": "Seleziona prima un servizio per impostare la fascia di consegna.",

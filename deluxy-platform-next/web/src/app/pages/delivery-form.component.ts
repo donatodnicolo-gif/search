@@ -159,9 +159,9 @@ interface ProductRow {
             <!-- ⭐ 11/09/2026 (regola utente): il LUOGO resta scritto sulla consegna. Si riempie da solo
                  scegliendo il posto su Google; si può correggere a mano (una portineria si chiama come la
                  conosce chi ci va, non come la chiama la mappa). -->
-            <label class="fld sotto-indirizzo"><span>{{ 'deliveryForm.fields.luogo' | translate }} <em>{{ 'deliveryForm.fields.luogoHint' | translate }}</em></span>
+            <label class="fld sotto-indirizzo"><span>{{ 'deliveryForm.field.luogo' | translate }} <em>{{ 'deliveryForm.hint.luogo' | translate }}</em></span>
               <input class="field" name="recipientPlace" [(ngModel)]="model.recipientPlace"
-                     [attr.placeholder]="'deliveryForm.fields.luogoPh' | translate" /></label>
+                     [attr.placeholder]="'deliveryForm.placeholder.luogo' | translate" /></label>
             @if (addressProvince()) { <span class="slot-hint">{{ 'deliveryForm.hint.provinceDetected' | translate:{ code: addressProvince()?.code } }}</span> }
             <!-- Un indirizzo ESTERO non e' un errore di provincia: la provincia
                  semplicemente non si applica, e si dice con una nota, non con

@@ -1754,7 +1754,8 @@
       "valetIdentityCheckHint": "At pickup the partner enters the valet code: without it the valet cannot start. Comes pre-checked when the partner has the flag on its profile.",
       "ddtBrand": "DDT brand",
       "pickupAddress": "Pickup address",
-      "pickupAddressPh": "If empty, pickup from the partner"
+      "pickupAddressPh": "If empty, pickup from the partner",
+      "luogo": "Place"
     },
     "newProduct": {
       "title": "New product",
@@ -1775,7 +1776,8 @@
       "selectProduct": "Product…",
       "searchProduct": "Search a product…",
       "qty": "Qty",
-      "auto": "auto"
+      "auto": "auto",
+      "luogo": "Hotel, office, hospital …"
     },
     "hint": {
       "provinceDetected": "Province {{code}} → only enabled partners/valets are shown",
@@ -1786,7 +1788,8 @@
       "noMapsKeyLink": "Set it in Settings",
       "selectPartnerFirst": "Pick the partner first: services depend on their price list.",
       "noServicesForPartner": "This partner has no services on their price list: showing all.",
-      "foreignAddress": "Foreign address: province does not apply — partners and valets are not filtered."
+      "foreignAddress": "Foreign address: province does not apply — partners and valets are not filtered.",
+      "luogo": "filled automatically"
     },
     "timing": {
       "selectServiceFirst": "Select a service first to set the delivery time slot.",
