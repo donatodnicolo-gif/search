@@ -26,6 +26,7 @@ import { MAX_DESCRIZIONE, MAX_TITOLO, seoDaRegole } from "@/lib/seo-regole";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ETICHETTA_FASE, ETICHETTA_TIPOLOGIA_VENDITA, SPIEGAZIONE_TIPOLOGIA_VENDITA, TIPOLOGIE_VENDITA } from "@/lib/dominio";
 import { CAMPI_OPERATIVI, chiaveDef, etichettaDef, listaDa, type DefinizioneMetafield } from "@/lib/metafield-puro";
+import { orarioConsegnaDaOraMinima } from "@/lib/orario-consegna";
 
 
 // `canaleVendite` = come si chiama il sito nel venduto ('deluxy.it' per il
@@ -196,7 +197,7 @@ export function FormProdottoNuovo({
   /** ⭐ 10/09/2026: per sito e per chiave, su quale quota delle schede attive sta il metafield e il valore più usato. */
   attesiPerNegozio?: Record<string, Record<string, { quota: number; tipico: string | null }>>;
   /** ⭐ 10/09/2026: i partner già scritti sui prodotti attivi di ogni sito. */
-  partnerNoti?: Record<string, { id: string; indirizzo: string; prodotti: number }[]>;
+  partnerNoti?: Record<string, { id: string; indirizzo: string; insegna?: string | null; prodotti: number }[]>;
   /** ⭐ 08/09/2026: le sezioni previste per ciascuna categoria e negozio. */
   sezioni?: SezionePerForm[];
   /** I due plus di ogni sito: righe 2 e 3 dell'elenco in cima alla scheda. */
@@ -348,6 +349,25 @@ export function FormProdottoNuovo({
   const [nomeOpzione, setNomeOpzione] = useState(iniziale?.nomeOpzione || "Formato");
   const [varianti, setVarianti] = useState<VarianteForm[]>(iniziale?.varianti.length ? iniziale.varianti : [varianteVuota()]);
   const [metafield, setMetafield] = useState<Record<string, string>>(iniziale?.metafield ?? {});
+
+  /**
+   * ⭐ 11/09/2026 (regola utente): «Orario Consegna: deduci da ora minima di
+   * consegna». Le fasce del sito sono 8-12, 12-16, 16-20: un prodotto che non
+   * si consegna prima delle 12 non può stare «In Mattinata».
+   *
+   * ⚠️ Si scrive **solo dove il campo è vuoto**: cambiando l'ora minima non si
+   * riscrive una scelta già fatta da una persona — sarebbe la stessa cosa che
+   * l'editor della scheda faceva alle sezioni, e l'abbiamo già pagata.
+   */
+  const oraMinima = metafield["custom.minimo_orario"];
+  useEffect(() => {
+    if (!oraMinima) return;
+    setMetafield((m) => {
+      if (m["custom.orario_consegna"]) return m;
+      const dedotto = orarioConsegnaDaOraMinima(oraMinima);
+      return dedotto ? { ...m, "custom.orario_consegna": dedotto } : m;
+    });
+  }, [oraMinima]);
   // ⭐ 08/09/2026 — **I tre punti in cima alla scheda**: il primo lo scrive chi
   // compila (è di questo prodotto), gli altri due vengono dai plus del sito.
   // ⭐ 08/09/2026: il nome per i partner, con la sua spunta.
@@ -449,7 +469,14 @@ export function FormProdottoNuovo({
   const negoziDelProdotto = [...new Set((iniziale?.pubblicazioni ?? []).filter((p) => p.shopifyId).map((p) => p.negozio))].sort();
   // Tag (chiesti dall'utente): quelli del prodotto, coi suggerimenti presi
   // dai tag già in uso sui prodotti importati dal negozio.
-  const [tags, setTags] = useState<string[]>(iniziale?.tags ?? []);
+  /**
+   * ⭐ 11/09/2026 (regola utente): «se è un prodotto nuovo metti in automatico
+   * "novità"». È un **tag**, non un campo: sui prodotti attivi ne portano 85, e
+   * si scrive così, minuscolo e con l'accento. Vale solo alla nascita — su un
+   * prodotto che si sta modificando non si aggiunge, perché non è più nuovo — e
+   * si toglie con la ✕ come tutti gli altri.
+   */
+  const [tags, setTags] = useState<string[]>(() => iniziale?.tags ?? (modifica ? [] : ["novità"]));
   const [tagNuovo, setTagNuovo] = useState("");
   const aggiungiTag = (t: string) => {
     const pulito = t.trim().replace(/,+$/, "").trim();
@@ -977,11 +1004,21 @@ export function FormProdottoNuovo({
                 <option key={c.chiave} value={c.chiave}>
                   {c.nome}
                   {c.negozio ? ` · ${c.negozio}` : ""}
-                  {c.conPrompt ? " · guida l'AI" : ""}
                 </option>
               ))}
             </select>
             <span className="cella-sub">
+              {/* ⭐ 11/09/2026 (domanda dell'utente: «perché bouquet guida AI?»).
+                  «Guida l'AI» vuol dire che quella categoria ha un testo salvato
+                  che indirizza l'AI quando scrive la descrizione. Stava attaccato
+                  al nome dentro la tendina e sembrava parte del nome della
+                  categoria: ora si legge sotto il campo, e solo per quella
+                  scelta — dove serve a chi sta per premere «Scrivi con l'AI». */}
+              {categorieVisibili.find((c) => c.chiave === categoria)?.conPrompt ? (
+                <>
+                  Questa categoria ha una <b>guida per l&apos;AI</b>: quando l&apos;AI scrive la descrizione parte da quelle indicazioni.{" "}
+                </>
+              ) : null}
               Le categorie del brand scelto più quelle comuni: si impostano in <a href="/classificazione">Imposta categorie e linee</a>.
             </span>
           </div>
@@ -1653,9 +1690,13 @@ export function FormProdottoNuovo({
                           }}
                         >
                           <option value="">— nessun partner —</option>
+                          {/* ⭐ 11/09/2026 (regola utente): «al posto del partner id
+                              indica il nome del partner». Il nome quando lo
+                              sappiamo, l'id quando no: un id è brutto, ma un
+                              nome sbagliato è peggio. */}
                           {partner.map((x) => (
                             <option key={x.id} value={x.id}>
-                              {x.id} · {x.indirizzo || "(senza indirizzo)"} · {x.prodotti} prodotti
+                              {x.insegna ?? "Partner " + x.id} · {x.indirizzo || "(senza indirizzo)"} · {x.prodotti} prodotti
                             </option>
                           ))}
                           {partnerScelto && !partner.some((x) => x.id === partnerScelto) && <option value={partnerScelto}>{partnerScelto} · (non fra i partner di {nomeSito})</option>}

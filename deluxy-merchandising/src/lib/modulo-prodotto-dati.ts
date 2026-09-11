@@ -38,7 +38,7 @@ export async function datiModuloProdotto(): Promise<{
    */
   attesiPerNegozio: Record<string, Record<string, { quota: number; tipico: string | null }>>;
   /** I partner già scritti sui prodotti attivi di ogni sito (`custom.partner_id` + indirizzo): la tendina del modulo. */
-  partnerNoti: Record<string, { id: string; indirizzo: string; prodotti: number }[]>;
+  partnerNoti: Record<string, { id: string; indirizzo: string; insegna: string | null; prodotti: number }[]>;
 }> {
   const [negozi, categorie, collezioni, prompt, chiaveAi, attivi, conTag, sezioni, tipi, attiviConCampi] = await Promise.all([
     elencoNegozi(),
@@ -65,7 +65,17 @@ export async function datiModuloProdotto(): Promise<{
     // gli attesi per sito e i partner noti (vedi sotto).
     prisma.prodotto.findMany({
       where: { statoShopify: "ACTIVE", metafieldShopify: { not: Prisma.DbNull } },
-      select: { negozioNome: true, metafieldShopify: true, pubblicazioni: { where: { statoShopify: "ACTIVE" }, select: { negozio: true } } },
+      select: {
+        negozioNome: true,
+        metafieldShopify: true,
+        // ⭐ 11/09/2026 (regola utente: «al posto del partner id indica il nome
+        // del partner»). L'insegna non sta nei metafield: sta sulle colonne dei
+        // prodotti arrivati dalla piattaforma, accanto all'id numerico. Ogni
+        // prodotto che porta tutti e due ci insegna un nome.
+        partnerIdShopify: true,
+        partnerInsegna: true,
+        pubblicazioni: { where: { statoShopify: "ACTIVE" }, select: { negozio: true } },
+      },
     }),
   ]);
   const { attesiPerNegozio, partnerNoti } = attesiDaiProdotti(attiviConCampi);
@@ -113,10 +123,16 @@ export async function datiModuloProdotto(): Promise<{
  * l'indirizzo più usato accanto.
  */
 export function attesiDaiProdotti(
-  prodotti: { negozioNome: string | null; metafieldShopify: unknown; pubblicazioni: { negozio: string }[] }[]
+  prodotti: {
+    negozioNome: string | null;
+    metafieldShopify: unknown;
+    partnerIdShopify?: string | null;
+    partnerInsegna?: string | null;
+    pubblicazioni: { negozio: string }[];
+  }[]
 ): {
   attesiPerNegozio: Record<string, Record<string, { quota: number; tipico: string | null }>>;
-  partnerNoti: Record<string, { id: string; indirizzo: string; prodotti: number }[]>;
+  partnerNoti: Record<string, { id: string; indirizzo: string; insegna: string | null; prodotti: number }[]>;
 } {
   const totale = new Map<string, number>();
   const perChiave = new Map<string, Map<string, Map<string, number>>>(); // sito → chiave → valore → n
@@ -157,10 +173,27 @@ export function attesiDaiProdotti(
       attesiPerNegozio[sito][k] = { quota: tot ? n / tot : 0, tipico: top ? top[0] : null };
     }
   }
-  const partnerNoti: Record<string, { id: string; indirizzo: string; prodotti: number }[]> = {};
+  // ⭐ 11/09/2026: i nomi che conosciamo, imparati dai prodotti che portano sia
+  // l'id numerico del partner sia la sua insegna (li mandano quelli nati dalla
+  // piattaforma). ⚠️ Sono pochi: finché l'app delivery non manda l'id numerico
+  // insieme all'insegna (contratto §3.1), la maggior parte dei partner storici
+  // resta senza nome, e allora si mostra l'id — meglio un numero che un nome
+  // sbagliato.
+  const insegnaPerId = new Map<string, string>();
+  for (const p of prodotti) {
+    if (p.partnerIdShopify && p.partnerInsegna && !insegnaPerId.has(p.partnerIdShopify)) {
+      insegnaPerId.set(p.partnerIdShopify, p.partnerInsegna);
+    }
+  }
+  const partnerNoti: Record<string, { id: string; indirizzo: string; insegna: string | null; prodotti: number }[]> = {};
   for (const [sito, ids] of partner) {
     partnerNoti[sito] = [...ids.entries()]
-      .map(([id, indirizzi]) => ({ id, indirizzo: piuUsato(indirizzi)?.[0] ?? "", prodotti: [...indirizzi.values()].reduce((a, b) => a + b, 0) }))
+      .map(([id, indirizzi]) => ({
+        id,
+        indirizzo: piuUsato(indirizzi)?.[0] ?? "",
+        insegna: insegnaPerId.get(id) ?? null,
+        prodotti: [...indirizzi.values()].reduce((a, b) => a + b, 0),
+      }))
       .sort((a, b) => b.prodotti - a.prodotti || a.id.localeCompare(b.id));
   }
   return { attesiPerNegozio, partnerNoti };

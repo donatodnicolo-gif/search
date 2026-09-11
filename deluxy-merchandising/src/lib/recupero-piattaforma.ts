@@ -10,8 +10,46 @@
 // della piattaforma non deve cancellarlo. Si scrive solo dove non c'è niente.
 
 import { prisma } from "./db";
-import { leggiProdottoDallaPiattaforma } from "./piattaforma";
+import { orarioConsegnaDaOraMinima } from "./orario-consegna";
+import { leggiPartnerDallaPiattaforma, leggiProdottoDallaPiattaforma } from "./piattaforma";
+import { componiProvince, vociPerSigla } from "./province-negozio";
 import { allineaVarianti } from "./varianti-piattaforma";
+
+/**
+ * **I campi del negozio che parlano del partner, riempiti da chi li sa.**
+ *
+ * Regole dell'utente (11/09/2026): «indirizzo del partner: questo dovrebbe
+ * essere aperta automaticamente da app delivery» · «anche nations availability
+ * li ha l'app delivery» · «uguale città».
+ *
+ * La piattaforma descrive il partner con **città e sigle di province**; i siti
+ * scrivono le province per esteso (`ITALY-MILAN(MI)`) e la città come lista.
+ * Il ponte fra le due lingue sta in `province-negozio.ts`, e le grafie si
+ * imparano dalle schede vere invece di inventarle.
+ *
+ * ⚠️ Si scrive **solo dove il campo è vuoto**.
+ */
+async function campiDelPartner(
+  metafield: Record<string, string>,
+  partnerId: string | null,
+): Promise<{ scritti: Record<string, string>; detto: string[] }> {
+  const scritti: Record<string, string> = {};
+  const detto: string[] = [];
+  if (!partnerId) return { scritti, detto };
+  const elenco = await leggiPartnerDallaPiattaforma();
+  if (!elenco.ok) return { scritti, detto: [elenco.messaggio] };
+  const suo = elenco.partner.find((x) => x.id === partnerId);
+  if (!suo) return { scritti, detto: ["il partner di questo prodotto non è fra quelli attivi della piattaforma"] };
+
+  if (!metafield["custom.partner_address"] && suo.citta) scritti["custom.partner_address"] = suo.citta;
+  if (!metafield["custom.citta"] && suo.citta) scritti["custom.citta"] = JSON.stringify([suo.citta]);
+  if (!metafield["custom.nations_availability"] && suo.province?.length) {
+    const { valore, fuori } = componiProvince(suo.province, await vociPerSigla());
+    if (valore) scritti["custom.nations_availability"] = valore;
+    if (fuori.length) detto.push(`province che nessun sito scrive e che ho lasciato fuori: ${fuori.join(", ")}`);
+  }
+  return { scritti, detto };
+}
 
 /** Quello che la lettura della piattaforma **non** contiene: va detto, non taciuto. */
 export const FUORI_PORTATA =
@@ -27,7 +65,7 @@ export async function recuperaUnProdotto(id: string): Promise<EsitoRecupero> {
     select: {
       id: true, nome: true, codice: true, prezzoVendita: true, costoProduzione: true,
       prezzoPartner: true, tipologiaVendita: true, idEsterno: true,
-      partnerPiattaformaId: true, partnerInsegna: true,
+      partnerPiattaformaId: true, partnerInsegna: true, metafieldShopify: true,
       varianti: { select: { id: true, nome: true, sku: true } },
     },
   });
@@ -63,6 +101,20 @@ export async function recuperaUnProdotto(id: string): Promise<EsitoRecupero> {
     base,
     costo,
   );
+  // ⭐ 11/09/2026: i campi del negozio che parlano del partner (indirizzo,
+  // città, province) e l'orario di consegna dedotto dall'ora minima.
+  const mfAttuali =
+    p.metafieldShopify && typeof p.metafieldShopify === "object" && !Array.isArray(p.metafieldShopify)
+      ? ({ ...(p.metafieldShopify as Record<string, string>) } as Record<string, string>)
+      : {};
+  const daPartner = await campiDelPartner(mfAttuali, (dati.partnerPiattaformaId as string) ?? p.partnerPiattaformaId);
+  const mfNuovi = { ...mfAttuali, ...daPartner.scritti };
+  if (!mfNuovi["custom.orario_consegna"] && mfNuovi["custom.minimo_orario"]) {
+    const dedotto = orarioConsegnaDaOraMinima(mfNuovi["custom.minimo_orario"]);
+    if (dedotto) daPartner.scritti["custom.orario_consegna"] = mfNuovi["custom.orario_consegna"] = dedotto;
+  }
+  if (Object.keys(daPartner.scritti).length) dati.metafieldShopify = mfNuovi;
+
   if (Object.keys(dati).length) await prisma.prodotto.update({ where: { id }, data: dati });
 
   const fatto: string[] = [];
@@ -72,13 +124,18 @@ export async function recuperaUnProdotto(id: string): Promise<EsitoRecupero> {
   if (dati.partnerPiattaformaId) fatto.push("id del partner");
   if (dati.costoProduzione) fatto.push(`costo ${dati.costoProduzione} €`);
   if (dati.prezzoPartner && !dati.costoProduzione) fatto.push(`prezzo al partner ${dati.prezzoPartner} €`);
+  if (daPartner.scritti["custom.partner_address"]) fatto.push(`indirizzo «${daPartner.scritti["custom.partner_address"]}»`);
+  if (daPartner.scritti["custom.citta"]) fatto.push("città");
+  if (daPartner.scritti["custom.nations_availability"]) fatto.push("province in cui si vende");
+  if (daPartner.scritti["custom.orario_consegna"]) fatto.push("orario di consegna dedotto dall'ora minima");
 
   const riassunto = fatto.length
     ? `Recuperato dalla piattaforma: ${fatto.join(", ")}.`
     : `Dalla piattaforma non è arrivato niente di nuovo: qui c'è già tutto quello che quella lettura contiene${d.varianti.length ? "" : ", e di là il prodotto non ha varianti"}.`;
 
+  const note = [riassunto, ...daPartner.detto.map((x) => `⚠️ ${x}.`), FUORI_PORTATA].join(" ");
   await prisma.tappaSviluppo
-    .create({ data: { prodottoId: id, da: "—", a: "—", nota: `${riassunto} ${FUORI_PORTATA}`, origine: "api" } })
+    .create({ data: { prodottoId: id, da: "—", a: "—", nota: note, origine: "api" } })
     .catch(() => undefined);
 
   return { ok: true, riassunto, cambiato: fatto.length > 0 };

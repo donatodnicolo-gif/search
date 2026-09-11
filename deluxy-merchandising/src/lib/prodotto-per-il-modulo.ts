@@ -3,7 +3,8 @@ import { Prisma } from "@prisma/client";
 import type { ProdottoIniziale } from "@/components/FormProdottoNuovo";
 import { isoRoma } from "@/lib/fuso";
 import type { datiModuloProdotto } from "@/lib/modulo-prodotto-dati";
-import { CAMPI_FISSI_DEL_PARTNER, daPiattaforma } from "@/lib/prodotti-dal-partner";
+import { orarioConsegnaDaOraMinima } from "@/lib/orario-consegna";
+import { CAMPI_FISSI_DEL_PARTNER, CAMPI_PREDEFINITI_DEL_PARTNER, daPiattaforma } from "@/lib/prodotti-dal-partner";
 import { metafieldDaColonne } from "@/lib/shopify-collezioni";
 
 /**
@@ -81,7 +82,21 @@ export function prodottoPerIlModulo(
   // riempie solo se manca — se qualcuno l'ha corretto qui, resta il suo.
   if (daPiattaforma(p.origine)) {
     Object.assign(metafield, CAMPI_FISSI_DEL_PARTNER);
+    // ⭐ 11/09/2026 (regola utente): «se prodotto partner il valore è Creato
+    // dall'Artista». È un **valore di partenza**, non un vincolo: si scrive solo
+    // dove il campo è vuoto, e chi compila può cambiarlo.
+    for (const [chiave, valore] of Object.entries(CAMPI_PREDEFINITI_DEL_PARTNER)) {
+      if (!metafield[chiave]) metafield[chiave] = valore;
+    }
     if (p.partnerIdShopify && !metafield["custom.partner_id"]) metafield["custom.partner_id"] = p.partnerIdShopify;
+  }
+
+  // ⭐ 11/09/2026 (regola utente): «Orario Consegna: deduci da ora minima di
+  // consegna». Solo se nessuno l'ha scritto: una scheda che dichiara le sue
+  // fasce sa meglio di noi quali sono.
+  if (!metafield["custom.orario_consegna"] && metafield["custom.minimo_orario"]) {
+    const dedotto = orarioConsegnaDaOraMinima(metafield["custom.minimo_orario"]);
+    if (dedotto) metafield["custom.orario_consegna"] = dedotto;
   }
   const collezioniPreviste = Array.isArray(p.collezioniPreviste) ? (p.collezioniPreviste as string[]) : [];
 

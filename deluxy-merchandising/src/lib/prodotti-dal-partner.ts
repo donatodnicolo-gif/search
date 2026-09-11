@@ -327,3 +327,21 @@ export const CAMPI_FISSI_DEL_PARTNER: Readonly<Record<string, string>> = {
   "custom.is_unique": "true",
   "custom.not_physical": "true",
 };
+
+/**
+ * **I campi che per un prodotto del partner partono già scritti, ma si possono
+ * cambiare.** Diversi da `CAMPI_FISSI_DEL_PARTNER`, che invece non si toccano.
+ *
+ * Regola dell'utente (11/09/2026): «"Da chi fatto" `custom.da_chi_fatto`:
+ * questi sono valori default; se prodotto partner il valore è "Creato
+ * dall'Artista"».
+ *
+ * ⚠️ La forma è quella vera del negozio, non una inventata: sulle 614 schede
+ * attive che hanno quel campo i valori sono tre — «Creato dall'Artista: »,
+ * «Pensato In Esclusiva per te da », «Selezionato per te da » — scritti come
+ * lista JSON e **con lo spazio finale**, perché il sito ci attacca dopo il nome
+ * del partner.
+ */
+export const CAMPI_PREDEFINITI_DEL_PARTNER: Readonly<Record<string, string>> = {
+  "custom.da_chi_fatto": JSON.stringify(["Creato dall'Artista: "]),
+};
