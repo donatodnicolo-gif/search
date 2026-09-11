@@ -79,6 +79,22 @@ cd deluxy-messaging && node scripts/applica-fornitore-pagamento.mjs
 - **Serve**: `DATABASE_URL` nel `.env` dell'app
 - **Nota**: idempotente; stampa quante richieste non hanno il fornitore separato. Eseguito il 07/09/2026: 92.
 
+### chiudi-rimborsi-gia-resi.mts — deluxy-messaging
+Chiude le richieste di rimborso che su Shopify risultano **già rese**. Nasce da #12868 (utente: «risulta già rimborsato su shopify, in questi casi chiudi in automatico»): il rimborso era partito su Shopify un minuto e mezzo prima che la richiesta fosse scritta qui, ed è rimasta «da approvare» per otto giorni. Chiude solo se il reso copre l'importo chiesto, **scalando le altre richieste dello stesso ordine già eseguite**; una coperta solo in parte non si tocca. Stessa logica del cron `/api/cron/rimborsi` (minuti 18 e 48).
+
+```bash
+cd deluxy-messaging && npx tsx scripts/chiudi-rimborsi-gia-resi.mts
+```
+
+Per chiudere davvero (di suo è una prova a secco):
+
+```bash
+cd deluxy-messaging && npx tsx scripts/chiudi-rimborsi-gia-resi.mts --esegui
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` dell'app (le credenziali Shopify si leggono dal DB)
+- **Nota**: di suo NON scrive — qui si chiudono d'ufficio pratiche di denaro, e si guarda prima. Eseguito l'11/09/2026: chiusi #2585, #1735, #1758, #12868; #2789 lasciata aperta (resi 87,55 € dei 87,65 € chiesti).
+
 ### ispeziona-valuta-ordine.mts — deluxy-messaging
 **Sola lettura.** Di un ordine dice che cosa ha pagato il cliente (valuta di presentazione) e che cosa vede il negozio (valuta del negozio), incasso per incasso. Serve quando un rimborso non torna: su #2846 il cliente ha pagato **160,00 USD** e il negozio incassa **138,20 EUR**, ed è da lì che nasce la conversione in `rimborso-shopify.ts`.
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { SoldiReclamo } from './SoldiReclamo'
 import { FiloReclamo } from './FiloReclamo'
 import { ChipsPeriodo } from './ChipsPeriodo'
@@ -117,6 +117,8 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
 
   const [bozza, setBozza] = useState<Bozza>(VUOTO)
   const [formAperto, setFormAperto] = useState(false)
+  /** Il modulo del reclamo: serve per portarcisi quando se ne apre uno. */
+  const modulo = useRef<HTMLDivElement | null>(null)
   const [avviso, setAvviso] = useState('')
   const [errore, setErrore] = useState('')
 
@@ -423,6 +425,12 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
     if (r.colpaTipo === 'partner') caricaPartner()
     setAvviso('')
     setErrore('')
+    // ⚠️⚠️ E SI VA A VEDERLO. Il modulo sta SOPRA la tabella: aprendo un
+    // reclamo dalla decima riga non succedeva niente di visibile — la scheda si
+    // apriva fuori schermo, sopra la testa di chi guardava. Segnalato
+    // dall'utente l'11/09/2026 («al click su elenco non apre dettagli»): il
+    // difetto non era il click, era che l'apertura non si vedeva.
+    setTimeout(() => modulo.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
   }
 
   async function salva() {
@@ -583,7 +591,7 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
 
       {/* Form nuovo/modifica */}
       {formAperto ? (
-        <div className="card" style={{ marginBottom: 24 }}>
+        <div className="card" style={{ marginBottom: 24 }} ref={modulo}>
           <h2 style={{ marginTop: 0 }}>{bozza.id ? 'Modifica reclamo' : 'Nuovo reclamo'}</h2>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -947,10 +955,27 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
             </thead>
             <tbody>
               {reclami.map((r) => (
+                // ⭐ LA RIGA SI APRE COL CLICK (Libro UX&UI v1.6; utente,
+                // 11/09/2026: «al click su elenco non apre dettagli»). Stesso
+                // gesto dei Rimborsi e delle Chiamate: il bottone «Apri» resta,
+                // ma non è più l'unico modo.
+                // ⚠️ Il click sui controlli della riga NON apre niente: la
+                // tendina dello stato e i due bottoni fanno il loro mestiere.
                 <tr
                   key={r.id}
                   id={`reclamo-${r.id}`}
-                  className={r.id === evidenziato ? 'riga-evidenziata' : undefined}
+                  tabIndex={0}
+                  className={`riga-apribile${r.id === evidenziato ? ' riga-evidenziata' : ''}`}
+                  title="Apri il reclamo: descrizione, azioni, esito"
+                  onClick={(e) => {
+                    const el = e.target as HTMLElement
+                    if (el.closest('a,button,input,select,label,textarea')) return
+                    modifica(r)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter' || e.target !== e.currentTarget) return
+                    modifica(r)
+                  }}
                 >
                   <td>
                     <div className="cella-nome">{r.ordineNumero || '—'}</div>

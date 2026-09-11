@@ -1292,11 +1292,25 @@ export function DettaglioOrdine({
                 </button>
               </>
             ) : null}
-            {/* ✕ obbligatoria (Libro v1.7 §9): stesso handler di Esc e del velo. */}
-            <button className="pannello-chiudi" aria-label="Chiudi" title="Chiudi (Esc)" onClick={onChiudi}>
-              ✕
-            </button>
           </div>
+          {/* ── LA ✕, NELL'ANGOLO ──
+              ⚠️⚠️ Segnalata dall'utente l'11/09/2026: «manca la "x" per chiudere
+              pop-up». C'era, ma stava **in coda alla fila delle azioni**, e
+              quella fila va a capo (`flex-wrap`, per i telefoni): su un ordine
+              con «Manda in app», «Unisci ordini» e «Riconsegna» scendeva sotto
+              il titolo, allineata a SINISTRA, in mezzo a tre pillole. Nessuno la
+              cerca lì: la si cerca in alto a destra, e lì non c'era niente.
+              Ora è ancorata all'angolo della testata (che è sticky, quindi resta
+              in vista a pannello scorrato) e non dipende più da come si dispone
+              la fila delle azioni. Stesso handler di Esc e del clic sul velo. */}
+          <button
+            className="pannello-chiudi pannello-chiudi-angolo"
+            aria-label="Chiudi"
+            title="Chiudi (Esc)"
+            onClick={onChiudi}
+          >
+            ✕
+          </button>
         </div>
 
         {errore ? <div className="avviso-errore">{errore}</div> : null}

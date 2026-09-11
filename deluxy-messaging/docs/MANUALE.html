@@ -613,6 +613,43 @@
         <div class="log">
           <div class="log-item">
             <span class="when">11/09/2026</span>
+            <span class="what"><b>Un rimborso già reso su Shopify si chiude da solo.</b> Segnalato dall'utente
+              sull'ordine <b>#12868</b>: «risulta già rimborsato su Shopify, in questi casi chiudi in automatico».
+              Misurato su quel caso: il rimborso di 135,00 € era stato fatto su Shopify alle 15:15:07 e la richiesta
+              era stata scritta qui <b>un minuto e mezzo dopo</b> — ed è rimasta «da approvare» per otto giorni, in
+              cima a una pagina che serve a dire che cosa c'è da fare. Ora un controllo ogni mezz'ora chiede a
+              Shopify quanto è già stato reso su ogni richiesta aperta e, se copre l'importo chiesto, la chiude come
+              <b>Rimborsato</b> scrivendo quanto e quando («risultava già rimborsato su Shopify il 3 set 2026, 17:15:
+              135,00 € resi su #12868»). <b>La verità la dice Shopify</b>, non il nostro stato di pagamento, che
+              arriva con un giro di sincronizzazione e di un rimborso di due minuti fa non sa ancora niente.
+              <b>Due paletti</b>: se sullo stesso ordine altre richieste risultano già rese, il loro importo si
+              toglie prima di decidere — due richieste da 50 € su 50 € resi non si chiudono tutte e due —, e una
+              richiesta <b>coperta solo in parte non si tocca</b>, perché lì serve ancora una decisione di una
+              persona. Alla prima passata si sono chiuse quattro richieste vecchie (#2585, #1735, #1758, #12868) e
+              una è rimasta aperta apposta: su #2789 risultano resi 87,55 € dei 87,65 € chiesti.</span>
+          </div>
+          <div class="log-item">
+            <span class="when">11/09/2026</span>
+            <span class="what"><b>Reclami: la riga si apre col click, e l'apertura si vede.</b> Segnalato
+              dall'utente («al click su elenco non apre dettagli»). Cliccando una riga dell'elenco si apre il
+              reclamo, come già nei Rimborsi e nelle Chiamate; il bottone «Apri» resta, e i controlli della riga —
+              la tendina dello stato, «Elimina» — continuano a fare il loro mestiere. <b>Il difetto vero però non
+              era il click</b>: il modulo del reclamo sta <i>sopra</i> la tabella, quindi aprendo un reclamo dalla
+              decima riga non succedeva niente di visibile — la scheda si apriva fuori schermo, sopra la testa di
+              chi guardava. Ora, aprendo un reclamo, la pagina ci porta.</span>
+          </div>
+          <div class="log-item">
+            <span class="when">11/09/2026</span>
+            <span class="what"><b>La ✕ del pop-up di un ordine è nell'angolo, dove si cerca.</b> Segnalato
+              dall'utente («manca la "x" per chiudere pop-up»). C'era, ma era l'ultimo elemento della fila delle
+              azioni in testata, e quella fila va a capo di proposito per stare nei telefoni: su un ordine con
+              «Manda in app», «Unisci ordini» e «Riconsegna» la ✕ finiva <b>sotto il titolo, allineata a
+              sinistra</b>, vestita come una quarta pillola. In alto a destra non c'era niente. Ora è ancorata
+              all'angolo della testata, che resta in vista anche a pannello scorrato, e non dipende più da quante
+              azioni ha quell'ordine. Esc e il clic fuori continuano a funzionare.</span>
+          </div>
+          <div class="log-item">
+            <span class="when">11/09/2026</span>
             <span class="what"><b>Un ordine pagato in dollari adesso si rimborsa da qui.</b> Segnalato
               dall'utente sull'ordine #2846 («non si può superare questo problema?»): la pagina si fermava con
               «l'ordine è stato pagato in USD mentre il negozio incassa in EUR: questo rimborso va fatto da

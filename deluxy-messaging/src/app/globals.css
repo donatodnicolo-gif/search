@@ -6854,3 +6854,24 @@ tr.riga-apribile:focus-visible { outline: 2px solid var(--gold); outline-offset:
   background: rgba(215, 0, 21, 0.08);
   color: var(--red);
 }
+
+/* ── LA ✕ NELL'ANGOLO DELLA TESTATA (Libro UX&UI v1.7 §9) ──
+   ⚠️⚠️ Segnalata dall'utente l'11/09/2026 sul pop-up di un ordine: «manca la
+   "x" per chiudere». C'era, ma era l'ultimo elemento della fila delle azioni,
+   e quella fila va a capo di proposito (a 375px, altrimenti il titolo la
+   spinge fuori): con tre azioni in testata la ✕ finiva **sotto il titolo,
+   allineata a sinistra**, vestita come una quarta pillola. Si cerca in alto a
+   destra, e in alto a destra non c'era niente.
+   Ancorandola all'angolo non dipende più da quante azioni ci sono. La testata
+   è `position: sticky`, quindi è lei il riferimento: la ✕ resta nell'angolo
+   anche a pannello scorrato. */
+/* (la testata è già sticky più su: da lì dipende questo ancoraggio) */
+.pannello-chiudi-angolo {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 3;
+}
+/* ⚠️ E il contenuto della testata si ferma prima: senza questo, un titolo lungo
+   o l'avviso rosso a tutta larghezza scorrerebbero SOTTO la ✕. */
+.pannello-testa:has(> .pannello-chiudi-angolo) > *:first-child { padding-right: 40px; }
