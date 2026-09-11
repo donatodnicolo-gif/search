@@ -118,7 +118,8 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
               <th class="sortable" (click)="table.sortBy('insegna')">{{ 'partners.col.insegna' | translate }}<span class="sort-ind">{{ table.indicator('insegna') }}</span></th>
               <th class="sortable" (click)="table.sortBy('email')">{{ 'partners.col.email' | translate }}<span class="sort-ind">{{ table.indicator('email') }}</span></th>
               <th class="sortable" (click)="table.sortBy('phone')">{{ 'partners.col.phone' | translate }}<span class="sort-ind">{{ table.indicator('phone') }}</span></th>
-              <th>{{ 'partners.col.provinces' | translate }}</th>
+              <!-- ⭐ 11/09/2026 (regola utente): le AREE di consegna, non le province (che restano solo per chi non ha aree). -->
+              <th>{{ 'partners.col.aree' | translate }}</th>
               <th>{{ 'partners.col.categories' | translate }}</th>
               <th class="sortable" (click)="table.sortBy('paymentStatus')">{{ 'partners.col.payment' | translate }}<span class="sort-ind">{{ table.indicator('paymentStatus') }}</span></th>
               <th class="sortable" (click)="table.sortBy('active')">{{ 'partners.col.status' | translate }}<span class="sort-ind">{{ table.indicator('active') }}</span></th>
@@ -134,13 +135,18 @@ import { StatusOption, StatusSelectComponent } from '../core/status-select.compo
                 <td class="muted">{{ p.email }}</td>
                 <td>{{ p.phone || '—' }}</td>
                 <td>
-                  @for (pp of primeProvince(p); track pp.province.id) {
-                    <span class="pill pill-neutral">{{ pp.province.code }}</span>
-                  } @empty { <span class="muted">—</span> }
-                  @if (altreProvince(p); as quante) {
-                    <span class="pill pill-neutral coda" [title]="restoProvince(p)">
-                      {{ 'partners.altre' | translate: { n: quante } }}
-                    </span>
+                  @for (a of primeAree(p); track a.area.id) {
+                    <span class="pill pill-neutral">{{ a.area.nome }}</span>
+                  } @empty {
+                    @for (pp of primeProvince(p); track pp.province.id) {
+                      <span class="pill pill-neutral" [title]="'partners.col.provinces' | translate">{{ pp.province.code }}</span>
+                    } @empty { <span class="muted">—</span> }
+                    @if (altreProvince(p); as quante) {
+                      <span class="pill pill-neutral coda" [title]="restoProvince(p)">{{ 'partners.altre' | translate: { n: quante } }}</span>
+                    }
+                  }
+                  @if (altreAree(p); as quante) {
+                    <span class="pill pill-neutral coda" [title]="restoAree(p)">{{ 'partners.altre' | translate: { n: quante } }}</span>
                   }
                 </td>
                 <td class="muted small">
@@ -295,6 +301,7 @@ export class PartnersListComponent {
       'phone',
       'businessName',
       'vatNumber',
+      'aree.area.nome',
       'provinces.province.code',
       'provinces.province.name',
       'categories.category.name',
@@ -387,6 +394,17 @@ export class PartnersListComponent {
    * Sei sta su una riga sola a qualunque larghezza utile.
    */
   private static readonly TETTO_CELLA = 6;
+
+  /** ⭐ 11/09: le aree di consegna del partner (le province effettive sono la loro unione). */
+  primeAree(p: Partner) {
+    return (p.aree || []).slice(0, PartnersListComponent.TETTO_CELLA);
+  }
+  altreAree(p: Partner): number {
+    return Math.max(0, (p.aree || []).length - PartnersListComponent.TETTO_CELLA);
+  }
+  restoAree(p: Partner): string {
+    return (p.aree || []).slice(PartnersListComponent.TETTO_CELLA).map((a) => a.area.nome).join(', ');
+  }
 
   primeProvince(p: Partner) {
     return (p.provinces || []).slice(0, PartnersListComponent.TETTO_CELLA);
