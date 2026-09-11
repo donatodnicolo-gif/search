@@ -785,3 +785,51 @@ export function leggiSpecTargeting(spec: Record<string, unknown>): TargetingAdSe
 
   return { grezzo: spec, riassunto, eta, genere, paesi, citta, regioni, pubblici, pubbliciEsclusi, advantage, posizionamenti };
 }
+
+/**
+ * I conti pubblicitari che il nostro token VEDE su Meta.
+ *
+ * PERCHÉ ESISTE (11/09/2026). L'app lavora sui conti che qualcuno ha censito a
+ * mano in Impostazioni — tre: Gifts, Flowers, Cake. Aprendo Ads Manager sul
+ * computer dell'utente, il conto proposto per primo era un QUARTO
+ * (`1298043513875111`) che nell'app non c'è. Se su un conto non censito girano
+ * campagne, la loro spesa non entra da nessuna parte: non nel MER, non in
+ * `/api/v1/spesa` che le altre app leggono, non nei budget. E il guaio è che
+ * **non si vede**: gli elenchi sono pieni di righe, sono solo le righe dei
+ * conti che conosciamo.
+ *
+ * È lo stesso principio degli ad set «che Meta riporta e l'app non ha
+ * censito»: quello che manca si dichiara, non si lascia dedurre da un totale
+ * che sembra completo.
+ */
+export async function leggiContiMeta(): Promise<{
+  conti: Array<{ id: string; nome: string; stato: number | null; valuta: string | null }>;
+  errore: string | null;
+}> {
+  const t = token();
+  if (!t) return { conti: [], errore: "META_ACCESS_TOKEN non impostato" };
+  try {
+    const q = new URLSearchParams({
+      fields: "account_id,name,account_status,currency",
+      limit: "200",
+      access_token: t,
+    });
+    const r = await fetch(`${BASE}/me/adaccounts?${q.toString()}`, { cache: "no-store" });
+    const corpo = await r.json();
+    if (!r.ok || corpo.error) {
+      return { conti: [], errore: String(corpo?.error?.message ?? `HTTP ${r.status}`) };
+    }
+    const conti = (corpo.data ?? []).map((c: Record<string, unknown>) => ({
+      // ⚠️ `account_id` è l'id NUDO (senza `act_`), che è la forma con cui i
+      // conti sono censiti in AccountAdv: confrontare `act_123` con `123`
+      // farebbe risultare «non censiti» tutti e tre quelli che ci sono.
+      id: String(c.account_id ?? "").replace(/^act_/, ""),
+      nome: String(c.name ?? c.account_id ?? "senza nome"),
+      stato: c.account_status == null ? null : Number(c.account_status),
+      valuta: c.currency == null ? null : String(c.currency),
+    }));
+    return { conti, errore: null };
+  } catch (e) {
+    return { conti: [], errore: e instanceof Error ? e.message : String(e) };
+  }
+}

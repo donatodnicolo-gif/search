@@ -1,3 +1,4 @@
+import { ContiMetaNonCensiti } from "@/components/ContiMetaNonCensiti";
 import { Icona } from "@/components/Icona";
 import { Sidebar } from "@/components/Sidebar";
 import { attivaAccount, rimuoviAccount, salvaAccount, salvaApiKeyDrive, salvaCartellaDrive, salvaImpostazioniAi, salvaIstruzioniAi, salvaServiceAccountDrive, salvaImpersonazioneDrive, salvaOauthDrive, provaScritturaDrive, depositaLogAzioniOra, depositaRisultatiOra, salvaTokenTikTok } from "@/lib/azioni";
@@ -560,6 +561,11 @@ export default async function PaginaImpostazioni({
             </form>
           </section>
         )}
+
+        {/* ⚠️ Prima dell'elenco dei conti censiti: quelli che il token VEDE e
+            che qui non ci sono. Un conto fuori dall'app non dà errore da
+            nessuna parte — la sua spesa semplicemente non esiste per noi. */}
+        <ContiMetaNonCensiti />
 
         <section className="scheda">
           <div className="scheda-titolo">Account collegati ({account.length})</div>

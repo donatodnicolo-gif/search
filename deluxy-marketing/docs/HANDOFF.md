@@ -12,6 +12,28 @@
 > (11/09 07:47), Google stanotte su tutti i giri, **0 consegne non-ok dal
 > 04/09**. Cosa è cambiato:
 >
+> 🔴 **11/09/2026 — C'È UN QUARTO CONTO META, E NELL'APP NON C'È.**
+> Aprendo Ads Manager sul computer dell'utente, il conto proposto per primo era
+> **`1298043513875111`**. I conti Meta censiti in `AccountAdv` sono tre —
+> Gifts `2802316249885506`, Flowers `965988141913909`, Cake `1040175814157216`
+> — e quello non è fra loro (verificato sul database di produzione).
+>
+> **Perché pesa**: un conto non censito non produce errori da nessuna parte. Le
+> campagne che ci girano non esistono per questa app: la loro spesa non entra
+> nel MER, non esce da `/api/v1/spesa` (che Budgets e le altre app leggono) e
+> non compare in nessun elenco. Gli elenchi non sembrano vuoti — sono completi
+> **sui conti che conosciamo**.
+> ⚠️ **Quanto ci gira non lo so**: per chiederlo serve il token, che sta solo
+> su Vercel. Il numero vero si vede in produzione, in Impostazioni.
+>
+> Fatto (in locale): **Impostazioni chiede a Meta quali conti vede il token** e
+> li confronta coi censiti, elencando quelli fuori con stato e valuta. L'app
+> **non** li aggiunge da sola: a quale brand appartiene un conto è una
+> decisione, e indovinarla attribuirebbe spesa al marchio sbagliato. Se la
+> lettura non arriva, il riquadro lo dichiara invece di dire «tutto a posto».
+> 🔴 **Da decidere dall'utente**: `1298043513875111` è un conto di prova, di
+> un'agenzia, dismesso — o ci girano campagne di Deluxy?
+>
 > ✅ **11/09/2026 — «ACCESA E VUOTA» ADESSO SI VEDE, E SI SA COME CI SIAMO ARRIVATI.**
 > Il punto rosso di «[Deluxy] Gifts - eng» aveva una causa precisa, e non era
 > lo script. L'operazione `completa_campagna` del 09/09 portava nei suoi
