@@ -2,6 +2,66 @@
 
 Stato all'11/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
+## 11/09/2026 notte — QUARTO GIRO: archiviazione vera e campi dal partner
+
+Deploy **`n1p9ybt5i`** (production, Ready); prima `ck5p16ipu`.
+
+⚠️ **Il branch è condiviso e stanotte un'altra sessione (Customer Service)
+l'ha riscritto**: il commit `a7fc0175` è stato riapplicato come `6291fbd9` da
+un loro rebase, ed è finito su origin insieme al loro lavoro. Niente perso
+(verificato file per file), ma è esattamente il modo in cui si perde lavoro
+non pushato. Con due sessioni in parallelo: **worktree isolato**.
+
+### «Perché non riesco a mettere Archiviato?» — ci riusciva, ma non dove conta
+
+La fase cambiava e la tappa si scriveva. Quello che **non** succedeva era sul
+negozio: «Torta Damianoooo» risultava `archiviato` qui e **`ACTIVE` su Gifts**,
+cioè ancora in vendita per il cliente.
+
+Ora «Archiviato» mette **ARCHIVED su ogni negozio** dove il prodotto sta, dice
+negozio per negozio com'è andata, e se non può lo scrive invece di tacere
+(`src/lib/archivia-sui-negozi.ts`, usato dal tasto rapido e dal modulo tramite
+`statoVolutoPerFase`). «Archiviato» entra anche **fra le fasi del modulo**, dove
+mancava — due strade per lo stesso gesto non possono avere due elenchi diversi.
+Provato sul vero: `ACTIVE → ARCHIVED`.
+
+⚠️ Su Shopify ARCHIVED **non cancella niente**: esce dalla vendita, resta
+nell'admin coi suoi ordini, si riattiva quando si vuole.
+
+### I quattro campi «che di là ci sono», contati
+
+Chiamando le due letture del canale app: `/app/partner` manda **cinque campi**
+su 126 partner (id, insegna, province 122/126, servizi, e **città solo su 13**);
+`/app/prodotti` ne manda dieci.
+
+| Campo | Arriva? |
+|---|---|
+| `custom.nations_availability` | ✅ **sì, già oggi** (dalle province) |
+| indirizzo del partner | ❌ non c'è nella lettura |
+| ora minima | ❌ non ci sono gli orari di apertura |
+| giorni di preparazione | ❌ non c'è nella lettura prodotti |
+
+**Nel loro schema però esistono tutti** (`Partner.address`,
+`Partner.openingHours`, `Product.prepDays`, `ProductVariant.prepDays`): è la
+rotta che non li seleziona. Codice pronto da incollare in
+`docs/CONTRATTO-APP-DELIVERY.md` §2-quater.
+
+**Da questa parte è già tutto pronto**: i campi sono facoltativi, quindi entrano
+da soli il giorno in cui li mandano. Dove finiscono è **misurato sulle 1.276
+schede attive** (`src/lib/giorni-consegna.ts`): ora minima →
+`custom.minimo_orario` (1.147 schede, ore piene); `prepDays` →
+**`prodotto.consegna`** (1.229 schede — namespace `prodotto`, non `custom`); e
+da quelli la parola: 0 → «Oggi e Domani», 1 → «Domani», 2 → «48 ore», 3 →
+«72 ore», oltre → «Su Prenotazione». ⚠️ Lo storico è sporco («1 giorno → Oggi
+e Domani» 76 volte): la regola vale per i prodotti **nuovi**, lo storico non si
+tocca. I giorni della **variante** finiscono nella nota della taglia finché non
+si decide dove farli vivere su Shopify.
+
+⭐ «Indirizzo del partner» usa ora **l'indirizzo vero se c'è, la città solo come
+ripiego, dicendolo**. E le traduzioni partono **accese** sui prodotti dell'app
+delivery: in modifica di norma sono spente (ritradurre costa e riscrive sopra
+una rifinitura a mano), ma un prodotto del partner quel passato non ce l'ha.
+
 ## 🔴 11/09/2026 notte — TERZO GIRO: le tre cose chieste, fatte e pubblicate
 
 Le tre che l'utente aveva chiesto e che non erano cominciate («**Fai tutto**»).
