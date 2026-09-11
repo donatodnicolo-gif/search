@@ -16,6 +16,12 @@
 > 6. Tre correzioni proposte l'11/09 e **non fatte**, in attesa di risposta: rinominare «Prezzo partner» nel modulo consegna (sui prodotti non unici mostra il prezzo del cliente); mandare a Merchandising varianti, tipologia, proprietario e giorni di preparazione dei prodotti nati dal partner; in «Manda in app» del Customer Service non moltiplicare la quantità della riga quando il prezzo viene sostituito col costo fornitore (consegne già nate così: #101230 35×80, #101207 15×65, #101229 10×60).
 > 7. «Allinea note» in Impostazioni resta la strada per i prossimi allineamenti di note e nomi partner da Merchandising (valutare un cron).
 >
+> 🪳 **11/09/2026 (notte, 38) — L'ESTRAZIONE NON PARTIVA: RICORSIONE INFINITA** (manuale 147).
+> - `deliveries-list.component.ts`: `parametriRicerca()` era `{ let params = this.parametriRicerca(); return params; }` — un guscio rimasto da quando il corpo doveva essere spostato fuori da `load()`. Ora costruisce davvero i parametri e `load()` la usa; `ricordaVista()` resta in `load` (l'estrazione non deve riscrivere l'indirizzo della pagina).
+> - ⚠️ **`tsc` non lo vede**: la ricorsione è corretta come tipi. E non lascia traccia sul server, perché l'eccezione scatta prima della chiamata di rete. Sintomo: bottone acceso all'infinito + log di produzione VUOTI per quella rotta.
+> - ⚠️ **Lezione di metodo**: ho cercato per tre giri nel server (misurando: era lento davvero, 38 s, e l'ho corretto) e nel salvataggio del file (due difetti veri, corretti). Nessuno dei due era la causa del sintomo segnalato. Quando i log del server sono vuoti, il difetto è PRIMA della rete.
+> - Controllo aggiunto una volta: cercati altri metodi che si richiamano entro tre righe dalla firma in tutto `web/src` — nessuno.
+
 > ⏱️ **11/09/2026 (notte, 37) — L'ESTRAZIONE EXCEL ERA IL SERVER, NON IL BROWSER** (manuale 146).
 > - `esporta()` non passa più da `findAll` una pagina alla volta: i filtri si prendono da `filtriElenco(user, query)` — metodo NUOVO, estratto da `findAll`, che costruisce `where` e `orderBy` col filtro di ruolo — e si legge in UNA `findMany` con `take: TETTO + 1`. Il troncamento si sa dalla riga in più, non da un COUNT.
 > - ⚠️⚠️ **L'ordinamento del foglio NON è quello dell'elenco**: `[{date:'desc'},{code:'desc'}]` invece delle tre chiavi con `nulls last`. Misurato su 20.000 righe chiedendo il solo `code`: **6.290 ms contro 784 ms**. Se qualcuno «ripristina» l'ordinamento dell'elenco, l'estrazione torna a impiegare mezzo minuto.

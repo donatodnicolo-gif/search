@@ -3171,16 +3171,23 @@ export class DeliveriesListComponent {
    * ⭐ 11/09/2026: i PARAMETRI DEI FILTRI, in un posto solo. Li usa la lista e li usa l'estrazione per
    * Excel: quello che si vede a schermo è quello che si scarica, senza due liste di filtri da tenere allineate.
    */
+  /**
+   * ⚠️⚠️ 11/09/2026 — QUESTA FUNZIONE SI CHIAMAVA DA SOLA.
+   *
+   * Era nata per dare all'estrazione per Excel gli STESSI filtri dell'elenco, ma il corpo era rimasto
+   * dentro `load()` e qui era rimasto un guscio che faceva `this.parametriRicerca()`: ricorsione
+   * infinita. L'eccezione scattava PRIMA che partisse la richiesta, quindi «Preparo il file…» restava
+   * acceso, il server non vedeva mai arrivare niente — i log di produzione erano vuoti — e dopo un
+   * minuto compariva solo «Estrazione non riuscita».
+   *
+   * ⚠️ Per tre giri ho cercato la causa nel server e nel salvataggio del file, perché il sintomo
+   * (nessuna richiesta nei log) somiglia a una rete che non risponde. Era invece codice che non arrivava
+   * mai a chiamare la rete. **Un difetto che non lascia traccia sul server sta nel client.**
+   *
+   * ⚠️ La vista NON si ricorda da qui (`ricordaVista` resta in `load`): scrivere nell'indirizzo mentre
+   * si esporta cambierebbe la pagina sotto ai piedi di chi ha solo premuto un bottone.
+   */
   parametriRicerca(): HttpParams {
-    let params = this.parametriRicerca();
-
-    return params;
-  }
-  load(silenzioso = false): void {
-    if (!silenzioso) {
-      this.loading.set(true);
-      this.error.set(null);
-    }
     let params = new HttpParams()
       .set('page', String(this.page()))
       .set('pageSize', String(this.pageSize))
@@ -3218,6 +3225,17 @@ export class DeliveriesListComponent {
     // ripartire da oggi. Si scrive nell'indirizzo — così vale anche per il
     // tasto indietro del browser e per un link condiviso — e in sessionStorage,
     // che è quello che legge il «← Consegne» del dettaglio.
+    return params;
+  }
+
+  load(silenzioso = false): void {
+    if (!silenzioso) {
+      this.loading.set(true);
+      this.error.set(null);
+    }
+    const params = this.parametriRicerca();
+    // La vista si RICORDA (27/08, chiesto dall'utente): tornando indietro da una consegna si rivede il
+    // giorno che si stava guardando. Sta qui e non nei parametri: riguarda la navigazione, non i filtri.
     this.ricordaVista(params);
     this.http
       .get<{ items: Delivery[]; total: number }>(`${environment.apiUrl}/deliveries`, { params })
