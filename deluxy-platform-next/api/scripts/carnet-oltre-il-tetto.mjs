@@ -29,6 +29,23 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 
 const APPLICA = process.argv.includes('--applica');
+/**
+ * ⭐⭐ 11/09/2026 — «CAMBIA COMUNQUE» (decisione dell'utente, presa dopo che gli era stato detto cosa
+ * comporta). Con questo interruttore si correggono ANCHE le consegne già fatturate o già entrate in uno
+ * stipendio. Restano vere le due cose che erano state dette:
+ *   · la fattura già emessa al partner NON cambia — cambia solo ciò che l'app dice di quella consegna,
+ *     quindi per quelle righe il documento e l'applicazione raccontano due storie diverse;
+ *   · lo stipendio già pagato NON cambia.
+ *
+ * ⚠️ NIENTE DOPPI PAGAMENTI, e non è un'opinione: il filtro del «da pagare» degli Stipendi esclude le
+ * consegne che stanno già dentro uno stipendio (`salaryLines: { none: {} }`). Rimettere `payable` a
+ * «sì» su una consegna già pagata non la rimette in coda.
+ *
+ * ⚠️ PRIMA DI SCRIVERE si salva lo stato attuale di ogni riga in un file JSON accanto allo script: se
+ * qualcuno domani dice «rimetti com'era», si rimette com'era. Un cambiamento deciso è una cosa, un
+ * cambiamento irreversibile è un'altra.
+ */
+const ANCHE_CHIUSE = process.argv.includes('--anche-chiuse');
 const RADICE = 'C:/Users/nicol/app/.claude/worktrees/deploy-delivery/deluxy-platform-next/';
 const require = createRequire(RADICE + 'api/package.json');
 const { PrismaClient } = require('@prisma/client');
@@ -90,10 +107,12 @@ for (const r of regole) {
   }
   if (!oltre.length) continue;
 
-  const bloccate = oltre.filter((d) => d.invoiced || d.salaryLines.length > 0);
-  const libere = oltre.filter((d) => !d.invoiced && d.salaryLines.length === 0);
+  const chiuse = oltre.filter((d) => d.invoiced || d.salaryLines.length > 0);
+  const bloccate = ANCHE_CHIUSE ? [] : chiuse;
+  const libere = ANCHE_CHIUSE ? oltre : oltre.filter((d) => !d.invoiced && d.salaryLines.length === 0);
   console.log(`${r.name}: ${consegne.length} consegne agganciate, ${oltre.length} oltre il tetto` +
-    ` (${libere.length} correggibili, ${bloccate.length} già fatturate o già in uno stipendio)`);
+    ` (${libere.length} da correggere, ${bloccate.length} lasciate stare)` +
+    (ANCHE_CHIUSE && chiuse.length ? ` — fra le correggibili ${chiuse.length} sono già fatturate o già in uno stipendio` : ''));
   for (const d of libere) daStaccare.push({ ...d, regola: r });
   for (const d of bloccate) intoccabili.push({ ...d, regola: r });
 }
@@ -129,6 +148,16 @@ if (!APPLICA) {
   process.exit(0);
 }
 
+// Lo stato di prima, su file, prima di toccare qualunque cosa.
+const salvataggio = RADICE + `api/scripts/carnet-prima-di-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`;
+fs.writeFileSync(salvataggio, JSON.stringify(daStaccare.map((d) => ({
+  id: d.id, code: d.code, deliveryRuleId: d.regola.id, regola: d.regola.name,
+  ruleAdjustment: d.ruleAdjustment, payable: d.payable, billable: d.billable,
+  invoiced: d.invoiced, inStipendio: d.salaryLines.length > 0, motivo: d.motivo,
+})), null, 1));
+console.log('');
+console.log('stato di prima salvato in:', salvataggio.split('/').pop());
+
 let fatte = 0;
 for (const d of daStaccare) {
   await db.delivery.update({
@@ -145,7 +174,9 @@ for (const d of daStaccare) {
     data: {
       deliveryId: d.id,
       type: 'note',
-      message: `Regola carnet «${d.regola.name}» tolta: ${d.motivo}. Il tetto vale per le prime consegne del giorno in ordine di creazione; questa lo superava e l'aggancio veniva dall'importazione del vecchio sistema. Plus/minus da regola riportato a 0.`,
+      message: `Regola carnet «${d.regola.name}» tolta: ${d.motivo}. Il tetto vale per le prime consegne del giorno in ordine di creazione; questa lo superava e l'aggancio veniva dall'importazione del vecchio sistema. Plus/minus da regola riportato a 0.` +
+        (d.invoiced ? ' ⚠️ La consegna era GIÀ FATTURATA: la fattura emessa non cambia, quindi da qui in avanti documento e applicazione dicono cose diverse su questa riga (correzione chiesta esplicitamente l\'11/09/2026).' : '') +
+        (d.salaryLines.length ? ' ⚠️ La consegna era GIÀ dentro uno stipendio: lo stipendio pagato non cambia, e questa riga non torna in coda perché gli Stipendi escludono le consegne già liquidate.' : ''),
     },
   });
   fatte++;

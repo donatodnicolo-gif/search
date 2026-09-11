@@ -16,6 +16,12 @@
 > 6. Tre correzioni proposte l'11/09 e **non fatte**, in attesa di risposta: rinominare «Prezzo partner» nel modulo consegna (sui prodotti non unici mostra il prezzo del cliente); mandare a Merchandising varianti, tipologia, proprietario e giorni di preparazione dei prodotti nati dal partner; in «Manda in app» del Customer Service non moltiplicare la quantità della riga quando il prezzo viene sostituito col costo fornitore (consegne già nate così: #101230 35×80, #101207 15×65, #101229 10×60).
 > 7. «Allinea note» in Impostazioni resta la strada per i prossimi allineamenti di note e nomi partner da Merchandising (valutare un cron).
 >
+> 🎟️➋ **11/09/2026 (notte, 42) — E ANCHE LE 796 CHIUSE** (manuale 152).
+> - `carnet-oltre-il-tetto.mjs --anche-chiuse`: l'utente ha chiesto di correggere ANCHE le già fatturate / già in uno stipendio, dopo che gli erano state spiegate le conseguenze. Applicato.
+> - ⚠️ **Le due verità**: la fattura e lo stipendio emessi NON cambiano. Su quelle righe il documento e l'app divergono: sta scritto nel registro di ogni consegna toccata.
+> - ⚠️ **Niente doppi pagamenti**: `SalariesService.DA_PAGARE` contiene `salaryLines: { none: {} }`, quindi una consegna già liquidata non torna in coda anche se `payable` risale a true. Verificato nel codice prima di scrivere.
+> - 🔙 **Come si torna indietro**: `api/scripts/carnet-prima-di-<data>.json` ha, per ogni riga, `deliveryRuleId`, `ruleAdjustment`, `payable`, `billable` di prima. Il punto aperto delle 796 si chiude qui.
+
 > 🎟️ **11/09/2026 (notte, 41) — CARNET OLTRE IL TETTO: 438 CONSEGNE STACCATE** (manuale 151).
 > - Script `api/scripts/carnet-oltre-il-tetto.mjs` (anteprima di default, `--applica` per scrivere). Per ogni regola ATTIVA con `dailyRule`/`totalRule` tiene le prime N in ordine di creazione e stacca le altre: `deliveryRuleId` a null, `ruleAdjustment` a 0, e `payable`/`billable` riaccesi SOLO se era stata la regola a spegnerli.
 > - **Applicato**: 438 staccate su 1.234 fuori tetto (28 regole). Tornano «da pagare» 124, «da fatturare» 73; spariscono 5.751 € di plus/minus da regola. Ogni consegna ha una nota nel registro.
