@@ -2557,6 +2557,12 @@
     "costoPartner": "Costo del servizio",
     "margini": {
       "title": "I margini di questa vendita: quello che resta a Deluxy",
+      "prodottoVendita": "Prodotto di questa vendita",
+      "totaleOrdine": "Totale pagato dal cliente (ordine)",
+      "composizione": "prodotti {{p}} € + consegna e altro {{e}} €",
+      "nonLetto": "totale dell’ordine non letto da Orders: il conto usa il solo prodotto",
+      "attribuito": "Attribuito a questa consegna",
+      "quotaExtra": "prodotto + la sua parte di consegna e altro ({{n}} vendite nell’ordine)",
       "prezzoCliente": "Prezzo pagato dal cliente",
       "ordine": "Ordine n. {{n}}",
       "valoreAlPartner": "Valore al partner",
@@ -2569,7 +2575,7 @@
       "costoValet": "Paga del valet per questa consegna",
       "valetMancante": "non ancora nota (nessun valet o nessuna tariffa)",
       "dopoValet": "Margine dopo il valet",
-      "note": "Numeri di cassa: prezzo del cliente IVA inclusa, commissione con la sua IVA, paga del valet come in Stipendi. Non sono un conto economico: mancano l’IVA sulla vendita e i costi generali."
+      "note": "Numeri di cassa: totale dell’ordine da Orders (IVA inclusa, consegna compresa), commissione con la sua IVA, paga del valet come in Stipendi. Non sono un conto economico: mancano l’IVA sulla vendita e i costi generali."
     },
     "saleAccountOffice": {
       "title": "Il conto di questa vendita: quello che guadagna il partner",

@@ -20,6 +20,7 @@ import { prezzoAlPartner } from '../common/prezzo-partner';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsModule, NotificationsService } from '../notifications/notifications.module';
 import { SettingsModule, SettingsService } from '../settings/settings.module';
+import { OrdersClientModule, OrdersClientService } from '../orders/orders-client.module';
 
 /** Un partner candidato allo smistamento, col motivo per cui e' in lista. */
 /** `prezzo`/`sconto` arrivano SOLO da una riconciliazione accettata: la vendita nasce a quel prezzo. */
@@ -139,6 +140,7 @@ export class SalesService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly settings: SettingsService,
+    private readonly orders: OrdersClientService,
   ) {}
 
   /**
@@ -643,7 +645,6 @@ export class SalesService {
     return /^\d+$/.test(coda) ? coda : null;
   }
 
-  private statiOrdersCache: { quando: number; da: string; mappa: Map<string, StatoOrdineOrders> } | null = null;
 
   /**
    * Gli stati degli ordini in Orders, per numero Shopify, a pagine di 200 dal
@@ -772,53 +773,13 @@ export class SalesService {
   }
 
   private async statiDaOrders(vendite: { externalOrderId: string | null; createdAt: Date }[]): Promise<Map<string, StatoOrdineOrders>> {
+    // ⭐ 11/09/2026: la lettura vive in `OrdersClientService` (la usano anche le Consegne per il
+    // totale pagato dal cliente). Stessa finestra (dalla vendita più vecchia, max 120 giorni) e
+    // stessa cache di 2′; le chiavi restano id di Orders e numero del gid Shopify.
     const conOrdine = vendite.filter((v) => SalesService.chiaviOrdine(v.externalOrderId).length);
     if (!conOrdine.length) return new Map();
-    const limite = new Date(); limite.setDate(limite.getDate() - 120);
     const piuVecchia = conOrdine.reduce((m, v) => (v.createdAt < m ? v.createdAt : m), new Date());
-    const da = (piuVecchia < limite ? limite : piuVecchia).toISOString().slice(0, 10);
-    const adesso = Date.now();
-    if (this.statiOrdersCache && this.statiOrdersCache.da <= da && adesso - this.statiOrdersCache.quando < 120_000) {
-      return this.statiOrdersCache.mappa;
-    }
-    const cfg = await this.prisma.appSetting.findMany({ where: { key: { in: ['ordersUrl', 'ordersApiKey'] } } });
-    const map = Object.fromEntries(cfg.map((r) => [r.key, r.value]));
-    const url = (map['ordersUrl'] || process.env.ORDERS_URL || '').replace(/\/+$/, '');
-    const chiave = map['ordersApiKey'] || process.env.ORDERS_API_KEY || '';
-    const mappa = new Map<string, StatoOrdineOrders>();
-    if (!url || !chiave) return mappa;
-    try {
-      for (let pagina = 1; pagina <= 25; pagina++) {
-        const q = new URLSearchParams({ page: String(pagina), limit: '200', da, annullati: 'inclusi' });
-        const res = await fetch(`${url}/api/v1/ordini?${q}`, { headers: { 'x-api-key': chiave } });
-        if (!res.ok) break;
-        const body = (await res.json()) as { ordini?: any[]; pagine?: number };
-        for (const o of body.ordini ?? []) {
-          const k = SalesService.numeroShopify(o.orderId);
-          const idOrders = typeof o.id === 'string' ? o.id : null;
-          if (!k && !idOrders) continue;
-          const dati = {
-            salute: typeof o.salute === 'string' ? o.salute : (o.salute?.chiave ?? null),
-            stato: o.classificazione?.stato?.chiave ?? null,
-            terminale: o.classificazione?.stato?.terminale ?? null,
-            smistamento: o.smistamento ?? null,
-            evasione: o.evasione ?? null,
-            fulfillmentStatus: o.fulfillmentStatus ?? null,
-            consegnataIl: o.consegnata?.il ?? null,
-            annullato: o.annullato ?? o.cancelledAt ?? null,
-          };
-          // Due chiavi per lo stesso ordine: l'id di Orders (quello che la
-          // vendita ha davvero) e il numero Shopify, per chi arrivasse col gid.
-          if (idOrders) mappa.set(idOrders, dati);
-          if (k) mappa.set(k, dati);
-        }
-        if (!(body.ordini ?? []).length || pagina >= (body.pagine ?? 1)) break;
-      }
-      this.statiOrdersCache = { quando: adesso, da, mappa };
-    } catch (e) {
-      console.error('stati-da-orders:', (e as Error).message);
-    }
-    return mappa;
+    return (await this.orders.mappa(piuVecchia)) as Map<string, StatoOrdineOrders>;
   }
 
   /**
@@ -3585,7 +3546,7 @@ export class SalesController {
 }
 
 @Module({
-  imports: [NotificationsModule, SettingsModule],
+  imports: [NotificationsModule, SettingsModule, OrdersClientModule],
   controllers: [SalesController],
   providers: [SalesService],
   exports: [SalesService],

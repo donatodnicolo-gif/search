@@ -151,6 +151,12 @@ interface DeliveryDetail {
   /** ⭐ 10/09: i margini di Deluxy sulla vendita — arriva SOLO all'ufficio. */
   margineVendita?: {
     ordine: string | null;
+    /** ⭐ 11/09: la riga di prodotto, il totale dell'ordine (da Orders), la parte oltre i prodotti, quante vendite nell'ordine. */
+    prodottoVendita: number;
+    totaleOrdine: number | null;
+    righeProdotti: number;
+    extraOrdine: number | null;
+    venditeNellOrdine: number;
     prezzoCliente: number;
     valoreAlPartner: number;
     scontoPercent: number | null;
@@ -616,10 +622,27 @@ interface DeliveryDetail {
           <section class="card block conto-vendita margini-vendita">
             <h2>{{ 'deliveryDetail.margini.title' | translate }}</h2>
             <dl>
-              <dt>{{ 'deliveryDetail.margini.prezzoCliente' | translate }}</dt>
-              <dd>{{ m.prezzoCliente.toFixed(2) }} €
+              <!-- ⭐ 11/09/2026 (segnalazione utente): il TOTALE pagato dal cliente viene da Orders;
+                   la riga di prodotto è solo una parte (10 € su 25 € nell'ordine 12913). -->
+              <dt>{{ 'deliveryDetail.margini.prodottoVendita' | translate }}</dt>
+              <dd>{{ m.prodottoVendita.toFixed(2) }} €
                 @if (m.ordine) { <span class="scomposto">{{ 'deliveryDetail.margini.ordine' | translate: { n: m.ordine } }}</span> }
               </dd>
+              <dt class="forte">{{ 'deliveryDetail.margini.totaleOrdine' | translate }}</dt>
+              <dd class="forte">
+                @if (m.totaleOrdine != null) {
+                  {{ m.totaleOrdine.toFixed(2) }} €
+                  <span class="scomposto">{{ 'deliveryDetail.margini.composizione' | translate: { p: m.righeProdotti.toFixed(2), e: (m.extraOrdine ?? 0).toFixed(2) } }}</span>
+                } @else {
+                  <span class="muted">{{ 'deliveryDetail.margini.nonLetto' | translate }}</span>
+                }
+              </dd>
+              @if (m.venditeNellOrdine > 1 || (m.totaleOrdine != null && m.prezzoCliente !== m.totaleOrdine)) {
+                <dt>{{ 'deliveryDetail.margini.attribuito' | translate }}</dt>
+                <dd>{{ m.prezzoCliente.toFixed(2) }} €
+                  <span class="scomposto">{{ 'deliveryDetail.margini.quotaExtra' | translate: { n: m.venditeNellOrdine } }}</span>
+                </dd>
+              }
               <dt>{{ 'deliveryDetail.margini.valoreAlPartner' | translate }}</dt>
               <dd>{{ m.valoreAlPartner.toFixed(2) }} €
                 @if (m.scontoPercent != null) { <span class="scomposto">{{ 'deliveryDetail.margini.sconto' | translate: { pct: m.scontoPercent } }}</span> }

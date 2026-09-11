@@ -2555,6 +2555,12 @@
     "costoPartner": "Service cost",
     "margini": {
       "title": "Margins on this sale: what stays with Deluxy",
+      "prodottoVendita": "Product of this sale",
+      "totaleOrdine": "Total paid by the customer (order)",
+      "composizione": "products {{p}} € + delivery and extras {{e}} €",
+      "nonLetto": "order total not read from Orders: the account uses the product only",
+      "attribuito": "Attributed to this delivery",
+      "quotaExtra": "product + its share of delivery and extras ({{n}} sales in the order)",
       "prezzoCliente": "Price paid by the customer",
       "ordine": "Order no. {{n}}",
       "valoreAlPartner": "Value to the partner",
@@ -2567,7 +2573,7 @@
       "costoValet": "Valet pay for this delivery",
       "valetMancante": "not known yet (no valet or no rate)",
       "dopoValet": "Margin after the valet",
-      "note": "Cash figures: customer price VAT included, commission with its VAT, valet pay as in Salaries. Not a P&L: VAT on the sale and overheads are not included."
+      "note": "Cash figures: order total from Orders (VAT included, delivery included), commission with its VAT, valet pay as in Salaries. Not a P&L: VAT on the sale and overheads are not included."
     },
     "saleAccountOffice": {
       "title": "This sale, in figures: what the partner earns",

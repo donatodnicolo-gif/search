@@ -40,6 +40,7 @@ import { PrismaService } from '../prisma/prisma.service';
 // della regola ricopiata in due posti (il preventivo deve dire la STESSA paga).
 import { pagaConsegna, scegliListinoValet } from '../salaries/salaries.module';
 import { SettingsService } from '../settings/settings.module';
+import { OrdersClientService } from '../orders/orders-client.module';
 import { CreateDeliveryDto } from './dto/create-delivery.dto';
 import { UpdateDeliveryDto } from './dto/update-delivery.dto';
 
@@ -265,6 +266,7 @@ export class DeliveriesService {
     private readonly settings: SettingsService,
     private readonly notifications: NotificationsService,
     private readonly stock: StockService,
+    private readonly orders: OrdersClientService,
   ) {}
 
   /**
@@ -801,7 +803,7 @@ export class DeliveriesService {
     if (idVendita.length) {
       const vendite = await this.prisma.sale.findMany({
         where: { deliveryId: { in: idVendita } },
-        select: { id: true, deliveryId: true, externalOrderNumber: true, brand: true, status: true, amount: true },
+        select: { id: true, deliveryId: true, externalOrderNumber: true, brand: true, status: true, amount: true, externalOrderId: true, createdAt: true },
       });
       const perConsegna = new Map(vendite.map((v) => [v.deliveryId as string, v]));
       for (const r of rows as any[]) {
@@ -842,6 +844,15 @@ export class DeliveriesService {
           for (const l of listiniValet as any[]) { const a = perValetL.get(l.valetId) ?? []; a.push(l); perValetL.set(l.valetId, a); }
           const perValet = new Map<string, any>((valets as any[]).map((v) => [v.id, v]));
           const q2 = (x: number) => Math.round(x * 100) / 100;
+          // ⭐ 11/09: il TOTALE pagato dal cliente da Orders (mappa in cache, una per pagina) e la
+          // somma delle vendite dello stesso ordine (una groupBy), come nel dettaglio.
+          const venditeRighe = righeVendita.map((r) => perConsegna.get(r.id)!);
+          const ordini = await this.orders.mappa(new Date(Math.min(...venditeRighe.map((v) => new Date(v.createdAt).getTime()))));
+          const idsOrdine = [...new Set(venditeRighe.map((v) => v.externalOrderId).filter(Boolean))] as string[];
+          const somme = idsOrdine.length
+            ? await this.prisma.sale.groupBy({ by: ['externalOrderId'], where: { externalOrderId: { in: idsOrdine }, status: { notIn: ['non_accettata', 'annullata'] } }, _sum: { amount: true }, _count: { _all: true } })
+            : [];
+          const perOrdine = new Map(somme.map((g) => [g.externalOrderId as string, { somma: g._sum.amount ?? 0, n: g._count._all }]));
           for (const r of righeVendita) {
             const righe = perRiga.get(r.id) ?? [];
             const valore = valoreProdotti(righe as any, r.productValue);
@@ -852,7 +863,14 @@ export class DeliveriesService {
               if (f != null) quota = q2((baseFee(righe as any, r.productValue) * f) / 100);
             }
             if (quota == null) continue;
-            const prezzoCliente = perConsegna.get(r.id)!.amount as number;
+            const v = perConsegna.get(r.id)!;
+            let prezzoCliente = v.amount as number;
+            const o = OrdersClientService.chiavi(v.externalOrderId, v.externalOrderNumber).map((k) => ordini.get(k)).find(Boolean);
+            if (o?.totale != null) {
+              const g = perOrdine.get(v.externalOrderId ?? '') ?? { somma: v.amount, n: 1 };
+              prezzoCliente = q2(v.amount + (o.totale - g.somma) / Math.max(1, g.n));
+            }
+            if (!(prezzoCliente > 0)) continue;
             const resta = q2(prezzoCliente - q2(valore - conIva(quota)));
             let costoValet: number | null = null;
             if ((r.valetSalary ?? 0) > 0) costoValet = q2(r.valetSalary + (r.valetAdditionalPrice ?? 0));
@@ -1133,13 +1151,26 @@ export class DeliveriesService {
     if (economia && user.role !== Role.PARTNER && user.role !== Role.VALET) {
       const vendita = await this.prisma.sale.findFirst({
         where: { deliveryId: delivery.id },
-        select: { id: true, amount: true, discountPercent: true, quantity: true, externalOrderNumber: true },
+        select: { id: true, amount: true, discountPercent: true, quantity: true, externalOrderNumber: true, externalOrderId: true, createdAt: true },
         orderBy: { createdAt: 'desc' },
       });
       if (vendita && vendita.amount > 0) {
         const q2 = (x: number) => Math.round(x * 100) / 100;
-        // `Sale.amount` è il TOTALE pagato dal cliente per la vendita (non l'unitario).
-        const prezzoCliente = q2(vendita.amount);
+        // ⭐ 11/09/2026 (segnalazione utente: «nei margini manca il vero totale pagato dal cliente»).
+        // `Sale.amount` è la RIGA di prodotto; il TOTALE lo sa Orders (la casa dell'ordine): su
+        // #12913 il cliente ha pagato 25 € (10 € di prodotto + 15 € di consegna). Il margine si fa
+        // su quello che è entrato davvero. Se l'ordine ha più vendite — più consegne — la parte
+        // oltre i prodotti (consegna, extra, sconti) si divide fra loro in parti uguali. Se Orders
+        // non risponde, resta il prodotto, e la scheda lo dice.
+        const ordine = await this.orders.perVendita(vendita);
+        const sorelle = vendita.externalOrderId
+          ? await this.prisma.sale.findMany({ where: { externalOrderId: vendita.externalOrderId, status: { notIn: ['non_accettata', 'annullata'] } }, select: { id: true, amount: true } })
+          : [];
+        const venditeNellOrdine = Math.max(1, sorelle.length);
+        const righeProdotti = q2(sorelle.length ? sorelle.reduce((s, x) => s + (x.amount ?? 0), 0) : vendita.amount);
+        const totaleOrdine = ordine?.totale ?? null;
+        const extraOrdine = totaleOrdine != null ? q2(totaleOrdine - righeProdotti) : null;
+        const prezzoCliente = q2(vendita.amount + (extraOrdine ?? 0) / venditeNellOrdine);
         const scontoProdotto = q2(prezzoCliente - economia.incasso);
         const restaADeluxy = q2(prezzoCliente - economia.dovutoNetto);
         const costoValet = (delivery as any).valetSalary ?? valetSalaryDalListino ?? null;
@@ -1147,6 +1178,8 @@ export class DeliveriesService {
         const costoValetTotale = costoValet != null ? q2(costoValet + extraValet) : null;
         margineVendita = {
           ordine: vendita.externalOrderNumber ?? null,
+          prodottoVendita: q2(vendita.amount),
+          totaleOrdine, righeProdotti, extraOrdine, venditeNellOrdine,
           prezzoCliente,
           valoreAlPartner: economia.incasso,
           scontoPercent: vendita.discountPercent ?? null,
