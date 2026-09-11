@@ -76,7 +76,30 @@ export type Anagrafica = {
   /// più scrivere né leggere (09/09/2026).
   attivo?: boolean;
   fonte: string;
+  // ⭐ 11/09/2026 — CHI PAGA. Il registro risponde già con P.IVA, CF, SDI, PEC e IBAN
+  // di CHI FATTURA questa azienda (i suoi se «paga da sé», quelli del capogruppo se
+  // no), e dice quale capogruppo è. Ragione sociale e indirizzo restano della sede:
+  // l'intestazione la decide `intestatarioFattura` qui sotto.
+  pagaDaSe?: boolean | null;
+  capogruppo?: { id: string; nome: string } | null;
 };
+
+/**
+ * ⭐ 11/09/2026 (decisione dell'utente, dopo il confronto fra le tre app): quando la
+ * sede NON paga da sé, la pro-forma e la fattura si intestano al CAPOGRUPPO — il nome
+ * è la sua ragione sociale (P.IVA, SDI e PEC arrivano già dal registro come sue) e la
+ * sede compare sotto come «per conto di». Se paga da sé, come sempre.
+ * ⚠️ L'indirizzo resta quello della sede: il capogruppo nel registro non ha un suo
+ * indirizzo (da aggiungere là, quando servirà).
+ */
+export function intestatarioFattura(
+  a: Anagrafica | null,
+  locale: { ragioneSociale?: string | null; nome: string },
+): { nome: string; perContoDi: string | null; dallaCapogruppo: boolean } {
+  const capo = a && a.pagaDaSe === false && a.capogruppo?.nome ? a.capogruppo.nome.trim() : null;
+  if (capo) return { nome: capo, perContoDi: locale.nome, dallaCapogruppo: true };
+  return { nome: locale.ragioneSociale || a?.ragioneSociale || locale.nome, perContoDi: null, dallaCapogruppo: false };
+}
 
 export function urlAnagrafiche(): string {
   return env("ANAGRAFICHE_URL") ?? "http://localhost:3060";

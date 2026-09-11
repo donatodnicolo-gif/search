@@ -6,7 +6,7 @@
 // (pagina), la stampa e il PDF (react-pdf) leggono LA STESSA cosa e non possono
 // divergere. Prima tutto questo stava dentro la pagina.
 import { prisma } from "./db";
-import { anagraficaPerId } from "./anagrafiche";
+import { anagraficaPerId, intestatarioFattura } from "./anagrafiche";
 import { intestazioneDaMostrare, type Intestazione } from "./intestazione";
 import { rifProForma, totaliProForma, importoRiga, type RigaLike } from "./proforma";
 
@@ -65,14 +65,19 @@ export async function caricaDocumentoProForma(id: string): Promise<DocumentoProF
   // registro è giù, restano i pochi campi del partner. 8 s perché è una
   // lettura che DEVE riuscire (vedi handoff 28/08).
   const anag = pf.partner.anagraficaId ? await anagraficaPerId(pf.partner.anagraficaId, 8000) : null;
-  const nome = pf.partner.ragioneSociale || anag?.ragioneSociale || pf.partner.nome;
+  // ⭐ 11/09/2026: se la sede non paga da sé, l'intestatario è il CAPOGRUPPO (P.IVA, SDI e
+  // PEC arrivano già dal registro come suoi) e la sede sta sotto, «per conto di».
+  const intestatario = intestatarioFattura(anag, pf.partner);
+  const nome = intestatario.nome;
   const indirizzo = anag?.indirizzo ?? null;
   const cittaGrezza = anag?.citta ?? pf.partner.citta ?? null;
   const pIva = anag?.pIva ?? null;
   const cf = anag?.codiceFiscale ?? null;
   const cliente: ClienteDocumento = {
     nome,
-    insegna: pf.partner.nome && pf.partner.nome !== nome ? pf.partner.nome : null,
+    insegna: intestatario.dallaCapogruppo
+      ? `per conto di ${intestatario.perContoDi}`
+      : (pf.partner.nome && pf.partner.nome !== nome ? pf.partner.nome : null),
     indirizzo,
     citta: cittaGrezza && !(indirizzo ?? "").toLowerCase().includes(cittaGrezza.toLowerCase()) ? cittaGrezza : null,
     pIva,

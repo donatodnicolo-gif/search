@@ -15,7 +15,7 @@ import {
   type FicEntity,
 } from "@/lib/fic";
 import { suggerisciClienteFic } from "@/lib/fic-cliente";
-import { anagraficaPerId } from "@/lib/anagrafiche";
+import { anagraficaPerId, intestatarioFattura } from "@/lib/anagrafiche";
 import { BottoneInvio } from "@/components/BottoneInvio";
 
 export const dynamic = "force-dynamic";
@@ -60,7 +60,8 @@ async function emetti(origine: string, id: string, fd: FormData) {
     const pec = a.datiFinanziari?.pec?.trim() || null;
     const sdi = a.datiFinanziari?.codiceSdi?.trim().toUpperCase() || null;
     entity = {
-      name: a.ragioneSociale || a.nome,
+      // ⭐ 11/09/2026: se la sede non paga da sé, il cliente FIC è il CAPOGRUPPO.
+      name: intestatarioFattura(a, { ragioneSociale: a.ragioneSociale, nome: a.nome }).nome,
       vat_number: a.pIva,
       // Azienda italiana: il codice fiscale coincide con la P.IVA se non ce
       // n'è uno a parte, altrimenti FIC chiede il codice fiscale del cliente.
@@ -231,7 +232,7 @@ export default async function EmettiFatturaPage({
   const iso = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
   // Se nessun cliente FIC combacia ma il partner ha i dati fiscali nel registro,
   // si può crearne uno nuovo su FIC da quei dati (opzione «registro:»).
-  const nomeRegistro = anagPartner ? (anagPartner.ragioneSociale || anagPartner.nome) : null;
+  const nomeRegistro = anagPartner ? intestatarioFattura(anagPartner, { ragioneSociale: anagPartner.ragioneSociale, nome: anagPartner.nome }).nome : null;
   const puoCreareDaRegistro = Boolean(anagPartner?.pIva && nomeRegistro);
   const nuovoDaRegistro = !suggerito && puoCreareDaRegistro;
 
