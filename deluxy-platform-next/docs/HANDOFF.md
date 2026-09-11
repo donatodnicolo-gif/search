@@ -16,6 +16,12 @@
 > 6. Tre correzioni proposte l'11/09 e **non fatte**, in attesa di risposta: rinominare «Prezzo partner» nel modulo consegna (sui prodotti non unici mostra il prezzo del cliente); mandare a Merchandising varianti, tipologia, proprietario e giorni di preparazione dei prodotti nati dal partner; in «Manda in app» del Customer Service non moltiplicare la quantità della riga quando il prezzo viene sostituito col costo fornitore (consegne già nate così: #101230 35×80, #101207 15×65, #101229 10×60).
 > 7. «Allinea note» in Impostazioni resta la strada per i prossimi allineamenti di note e nomi partner da Merchandising (valutare un cron).
 >
+> 🎟️ **11/09/2026 (notte, 41) — CARNET OLTRE IL TETTO: 438 CONSEGNE STACCATE** (manuale 151).
+> - Script `api/scripts/carnet-oltre-il-tetto.mjs` (anteprima di default, `--applica` per scrivere). Per ogni regola ATTIVA con `dailyRule`/`totalRule` tiene le prime N in ordine di creazione e stacca le altre: `deliveryRuleId` a null, `ruleAdjustment` a 0, e `payable`/`billable` riaccesi SOLO se era stata la regola a spegnerli.
+> - **Applicato**: 438 staccate su 1.234 fuori tetto (28 regole). Tornano «da pagare» 124, «da fatturare» 73; spariscono 5.751 € di plus/minus da regola. Ogni consegna ha una nota nel registro.
+> - ⚠️ **796 NON toccate**: già fatturate o già dentro uno stipendio (`invoiced` o `salaryLines` non vuoto). Cambiarle qui non cambia il documento già emesso: servono una per una, con una decisione di chi fattura. **Questo è il punto aperto.**
+> - ⚠️ **Nessuna delle fuori-tetto era nata nella piattaforma**: tutte importate dal vecchio sistema. Il codice di `agganciaRegolaCarnet` il tetto lo conta già (`usate >= dailyCount → continue`): non è lì il difetto, e non serve toccarlo.
+
 > 🤝 **11/09/2026 (notte, 40) — CONTRATTO CON MERCHANDISING: INVIO COMPLETO + ROTTA DI APPROVAZIONE** (manuale 150).
 > - Il contratto sta di là: `scoutwt/deluxy-merchandising/docs/CONTRATTO-APP-DELIVERY.md`. I §3.1 e §3.2 sono le due cose che toccavano a NOI (quella cartella non si tocca da qui: regola 4 del CLAUDE.md, una sessione per cartella).
 > - `merchandising-sync.module.ts`: firma di `spingi`/`inviaOra` allargata (tutti i campi facoltativi) e corpo con `shortDesc, note, prepDays, notPhysical, alternateName, useAlternateName, images, tipologiaVendita, type, partnerId, variants[]` più `partner: { insegna, legacyId, city, provinces[] }`.
