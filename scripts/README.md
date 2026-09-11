@@ -642,6 +642,28 @@ cd deluxy-merchandising && npx tsx scripts/prova-metafield-nuovi.ts --solo=TORTE
 - **Serve**: `DATABASE_URL` (+ `DIRECT_URL`), `APP_SECRET`, negozi collegati con token **`write_products`**
 - **Nota**: i prodotti di prova restano sui negozi in DRAFT finché qualcuno non li cancella dall'admin; lo script non cancella niente
 
+### prova-lettura-piattaforma.ts — deluxy-merchandising
+Chiede alla **piattaforma consegne** che cosa sa dei prodotti dei partner in «Attesa approvazione» e stampa quello che il tasto «⟲ Recupera dalla piattaforma» riempirebbe. **Non scrive niente.** Usa la stessa funzione del tasto (`leggiProdottoDallaPiattaforma`), quindi se passa qui passa anche là: serve a verificare il collegamento dopo aver messo indirizzo e chiave.
+
+```bash
+cd deluxy-merchandising && npx tsx scripts/prova-lettura-piattaforma.ts
+```
+
+- **Serve**: `DATABASE_URL` (+ `DIRECT_URL`), `APP_SECRET`, e **`PIATTAFORMA_URL` + `PIATTAFORMA_API_KEY`** nella cassaforte (Impostazioni → Piattaforma consegne)
+- **Nota**: senza il collegamento risponde «Piattaforma consegne non configurata» su ogni riga, e non è un guasto
+
+### recupera-dalla-piattaforma.ts — deluxy-merchandising
+Applica **in blocco** il tasto «⟲ Recupera dalla piattaforma» a tutti i prodotti dei partner in «Attesa approvazione»: varianti, id e insegna del partner, prezzo al partner e prezzo pubblico, presi dal canale app della piattaforma. Chiama la stessa funzione del tasto (`recuperaUnProdotto`), quindi la regola è una sola.
+
+```bash
+# dice solo che cosa troverebbe, senza scrivere
+cd deluxy-merchandising && npx tsx scripts/recupera-dalla-piattaforma.ts --prova
+# applica
+cd deluxy-merchandising && npx tsx scripts/recupera-dalla-piattaforma.ts
+```
+
+- **Serve**: come sopra
+- **Nota**: **riempie solo i campi vuoti** e **aggiunge** varianti, non ne toglie né ne riscrive: quello che una persona ha corretto qui resta suo. Ogni prodotto toccato porta la riga di cronaca con che cosa è arrivato e che cosa quella lettura non contiene (descrizione, plus, note, giorni di preavviso, foto)
 ### google-ads-script.js — deluxy-marketing (v2)
 NON si lancia da terminale: si **incolla in Google Ads** (Strumenti → Azioni collettive → Script), una copia per account **e per lavoro**. Google Ads esegue sempre `main()`: il lavoro si sceglie con la costante `AZIONE` in testa al file — `metriche` (giornaliere, ogni giorno 23-24) · `approvazioni` (stati di review, alert A4, ogni giorno) · `copy` (keyword+annunci, ogni settimana) · `gruppi` (gruppi di annunci, una riga per giorno, e gruppi di asset per le PMax) · `asset` (sitelink/callout/snippet/immagini, ogni settimana) · `esegui` (esegue le operazioni **approvate** in /operazioni: pausa, budget, keyword, negative, campagne nuove in pausa via bulk upload) · `tutto`.
 

@@ -106,13 +106,28 @@ spinta venga allargata di là:
 - `allineaVarianti` è uscita dalla rotta in `src/lib/varianti-piattaforma.ts`,
   perché ora la usano in due. Aggiunge e basta: non cancella varianti già qui.
 
-🔴 **Il tasto oggi non può funzionare: la connessione verso la piattaforma non è
-configurata.** Nella cassaforte ci sono solo `OPENAI_API_KEY` e le tre
-`sync-apertura:*`. Servono `PIATTAFORMA_URL` e `PIATTAFORMA_API_KEY` in
-**Impostazioni → Piattaforma consegne (app delivery)**; la chiave si genera di
-là (`scripts/crea-chiave-app.mjs`), e **non si può fare da questa cartella**.
-Senza, sia il recupero sia la comunicazione dell'approvazione rispondono «non
-configurata» — e lo scrivono sulla scheda, non lo nascondono.
+✅ **Collegato dall'utente il pomeriggio dell'11/09** («collegamento con app
+delivery su merchandising con chiave creato»): `PIATTAFORMA_URL` e
+`PIATTAFORMA_API_KEY` sono nella cassaforte (salvate alle 14:36). Il tasto
+funziona, ed è stato applicato a tutti e quattro i prodotti in coda con
+`scripts/recupera-dalla-piattaforma.ts` — che chiama **la stessa funzione del
+tasto**, non una copia.
+
+| Prodotto | Che cosa è arrivato |
+|---|---|
+| Torta Damiano (`DXY-23281`) | 2 varianti (`-01`, `-02`), id del partner, prezzo al partner 100 € |
+| torta (`DXY-23283`) | partner «Pasticceria Gruè», il suo id |
+| Torta Damianino (`DXY-23284`) | 2 varianti, partner «Chanel Test», id, prezzo al partner 100 € |
+| 2 abiti (`DXY-23285`) | partner «Brioni», id, prezzo al partner 15.150 € |
+
+🔴 **Il prezzo pubblico è ancora zero su tutti e quattro, e non è colpa del
+passaggio**: di là `publicPrice` è vuoto. È il campo che blocca l'approvazione.
+Lo decide una persona, sulla piattaforma o qui. Restano da scegliere anche la
+categoria (tre su quattro sono «Da classificare») e una descrizione o un plus.
+
+⚙️ Nel fare questo la regola del recupero è uscita dall'azione in
+`src/lib/recupero-piattaforma.ts`, perché ora la usano in due — il tasto e lo
+script. Due copie della stessa regola divergono.
 
 Restano fuori portata anche col tasto: descrizione, plus (`shortDesc`), note di
 specifica, giorni di preavviso e foto — quella lettura non li seleziona. Per
@@ -199,8 +214,11 @@ vuoto e visibile.
 `partner: { insegna, legacyId, city, provinces }`.
 ### Cosa resta aperto, in ordine
 
-1. **Configurare la piattaforma** in Impostazioni (vedi sopra): sblocca il tasto
-   «Recupera» e la comunicazione dell'approvazione.
+1. ~~Configurare la piattaforma~~ — **fatto** l'11/09 pomeriggio, e il recupero
+   è già stato applicato ai quattro prodotti in coda (vedi il cappello). Resta
+   da provare la **comunicazione dell'approvazione**, che si vedrà al primo
+   prodotto approvato: la rotta di là (§3.2) non è ancora aperta, quindi
+   l'attesa è che scriva «approvato qui, non comunicato».
 2. ~~Push e deploy~~ — **fatti** (vedi il cappello).
 3. **Provare l'immagine su due negozi** con una foto vera, e provare a
    **salvare dal browser** un prodotto del partner (i campi bloccati sono stati

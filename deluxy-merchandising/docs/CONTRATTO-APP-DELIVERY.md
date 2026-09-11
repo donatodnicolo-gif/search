@@ -89,9 +89,15 @@ riga vorrebbe dire copiare le varianti del prodotto di un altro partner.
 specifica, `prepDays`, foto. Quella lettura non li seleziona: per quelli serve
 davvero il §3.1.
 
-🔴 Serve la configurazione in **Impostazioni → Piattaforma consegne**
-(`PIATTAFORMA_URL`, `PIATTAFORMA_API_KEY`): all'11/09 non c'è, e sia il
-recupero sia la comunicazione dell'approvazione rispondono «non configurata».
+✅ **Collegato l'11/09/2026** (Impostazioni → Piattaforma consegne:
+`PIATTAFORMA_URL` e `PIATTAFORMA_API_KEY` nella cassaforte). Provato sui
+quattro prodotti in coda con `scripts/prova-lettura-piattaforma.ts` e applicato
+con `scripts/recupera-dalla-piattaforma.ts`: sono arrivati insegna e id del
+partner, il prezzo al partner e quattro varianti coi loro SKU.
+
+⚠️ **Il prezzo pubblico non è arrivato, e non per colpa del passaggio**: di là
+`publicPrice` è vuoto su tutti e quattro. È il campo che blocca l'approvazione,
+e lo decide una persona — sulla piattaforma o qui.
 
 ## 2-ter. I CAMPI DEL NEGOZIO di un prodotto del partner (11/09/2026)
 
