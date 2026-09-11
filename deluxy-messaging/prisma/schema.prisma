@@ -483,10 +483,17 @@ model Ordine {
   /// Chiesto dall'utente il 26/08/2026: «segna comunque un link all'apertura del
   /// pop-up».
   ///
-  /// ⚠️ Scritto con /// e non con un blocco /** */: la formattazione di Prisma
-  /// non capisce i blocchi e a ogni giro ci infilava dentro una riga «* /**»
-  /// in più (erano arrivate a sette prima che qualcuno se ne accorgesse,
-  /// 11/09/2026). Le tre barre sono la sintassi vera dei commenti di Prisma.
+  /// ⚠️ Scritto con le tre barre e non con un blocco di commento in stile
+  /// Javascript: la formattazione di Prisma i blocchi non li capisce, e a ogni
+  /// giro ce ne infilava dentro una riga in più (erano arrivate a sette prima
+  /// che qualcuno se ne accorgesse, 11/09/2026). Le tre barre sono la sintassi
+  /// vera dei commenti di Prisma.
+  ///
+  /// ⚠️⚠️ E in un commento con le tre barre non si scrive MAI la sequenza che
+  /// CHIUDE un commento Javascript: Prisma ricopia queste righe dentro i tipi
+  /// che genera, quella sequenza chiude il commento a metà e il client non
+  /// compila più. Costata un deploy fallito l'11/09/2026 — in locale non si
+  /// vedeva, perché lì `prisma generate` non era riuscito a riscrivere i tipi.
   riconsegnaLink   String    @default("")
   riconsegnaNumero String    @default("")
   riconsegnaIl     DateTime?
@@ -2425,25 +2432,23 @@ model OrarioNegozio {
   aggiornatoIl   DateTime       @updatedAt
 }
 
-/**
- * ⭐ 11/09/2026 — I METODI DI PAGAMENTO, CON LE LORO SPECIFICHE.
- * Richiesta dell'utente: «in nuovo ordine la terza opzione è altri metodi di
- * pagamento: consentimi su impostazioni di stabilire per ogni metodo che viene
- * elencato le specifiche».
- * ⚠️⚠️ Prima i metodi stavano SCRITTI NEL CODICE — una tendina con Bonifico,
- * Contanti, POS, PayPal, Altro — e portavano tutti lo stesso comportamento:
- * qualunque cosa si scegliesse, l'ordine nasceva allo stesso modo e il nome
- * finiva in una riga di nota. Ma «bonifico anticipato» e «contanti alla
- * consegna» non sono due parole per la stessa cosa: uno fa nascere un ordine
- * DA INCASSARE, l'altro no; uno vuole l'IBAN scritto al cliente, l'altro una
- * riga per chi consegna. La differenza è il comportamento, ed è quello che da
- * qui si imposta.
- * ⚠️ Una riga NON è un gateway di Shopify: Shopify non lascia scegliere il
- * gateway chiudendo una bozza (vedi `metodiPagamentoDelNegozio` in
- * `nuovo-ordine.ts`, riprovato sull'API 2025-01). Quello che si governa da qui
- * è come nasce l'ordine, quando il pagamento è dovuto e che cosa resta
- * scritto — nella nota, negli attributi e al cliente.
- */
+/// ⭐ 11/09/2026 — I METODI DI PAGAMENTO, CON LE LORO SPECIFICHE.
+/// Richiesta dell'utente: «in nuovo ordine la terza opzione è altri metodi di
+/// pagamento: consentimi su impostazioni di stabilire per ogni metodo che viene
+/// elencato le specifiche».
+/// ⚠️⚠️ Prima i metodi stavano SCRITTI NEL CODICE — una tendina con Bonifico,
+/// Contanti, POS, PayPal, Altro — e portavano tutti lo stesso comportamento:
+/// qualunque cosa si scegliesse, l'ordine nasceva allo stesso modo e il nome
+/// finiva in una riga di nota. Ma «bonifico anticipato» e «contanti alla
+/// consegna» non sono due parole per la stessa cosa: uno fa nascere un ordine
+/// DA INCASSARE, l'altro no; uno vuole l'IBAN scritto al cliente, l'altro una
+/// riga per chi consegna. La differenza è il comportamento, ed è quello che da
+/// qui si imposta.
+/// ⚠️ Una riga NON è un gateway di Shopify: Shopify non lascia scegliere il
+/// gateway chiudendo una bozza (vedi `metodiPagamentoDelNegozio` in
+/// `nuovo-ordine.ts`, riprovato sull'API 2025-01). Quello che si governa da qui
+/// è come nasce l'ordine, quando il pagamento è dovuto e che cosa resta
+/// scritto — nella nota, negli attributi e al cliente.
 model MetodoPagamento {
   id           String          @id @default(cuid())
   /// Come si chiama a schermo e nella nota dell'ordine: «Contanti alla consegna».
