@@ -51,6 +51,9 @@ interface ImageRow { url: string; }
             </select></label>
           <!-- ⭐ 06/09/2026 (regola utente): «metti l'obbligo di questa specifica anche nel
                form di creazione e modifica prodotti, specificando a cosa serve». -->
+          <!-- ⭐ 11/09/2026 (regola utente): al PARTNER la tipologia non si mostra — un prodotto creato da lui è
+               UNICO (suo, col suo prezzo). Lo imposta il modulo e lo impone il server. -->
+          @if (!isPartner()) {
           <label class="fld"><span class="req">{{ 'productForm.field.tipologiaVendita' | translate }}</span>
             <select class="field" name="tipologiaVendita" [(ngModel)]="model.tipologiaVendita" required>
               <option value="">{{ 'productForm.placeholder.selectTipologia' | translate }}</option>
@@ -65,6 +68,9 @@ interface ImageRow { url: string; }
               }
             </ul>
           </div>
+          }
+          <!-- ⭐ 11/09/2026 (regola utente): il campo Partner al partner non serve — è lui che crea il prodotto. -->
+          @if (!isPartner()) {
           <label class="fld"><span>{{ 'productForm.field.partner' | translate }} {{ model.isUnique ? '*' : '' }}</span>
             <select class="field" name="partnerId" [(ngModel)]="model.partnerId">
               <option value="">{{ 'productForm.option.noPartner' | translate }}</option>
@@ -72,6 +78,7 @@ interface ImageRow { url: string; }
                 <option [value]="p.id">{{ p.insegna }}@if (!p.active) { <span> ({{ 'productForm.partnerInactive' | translate }})</span> }</option>
               }
             </select></label>
+          }
           <label class="fld"><span>SKU</span>
             <input class="field" [value]="'productForm.skuAuto' | translate" disabled /></label>
           <label class="fld"><span>{{ 'productForm.field.line' | translate }} <em>{{ 'productForm.field.lineHint' | translate }}</em></span>
@@ -80,8 +87,11 @@ interface ImageRow { url: string; }
             <input class="field num" type="number" min="0" name="prepDays" [(ngModel)]="model.prepDays" /></label>
           <label class="fld"><span class="req">{{ 'productForm.field.price' | translate }}</span>
             <input class="field num" type="number" step="0.01" name="price" [(ngModel)]="model.price" required /></label>
+          <!-- ⭐ 11/09/2026 (regola utente): il prezzo PUBBLICO lo decidiamo noi — al partner resta il suo prezzo. -->
+          @if (!isPartner()) {
           <label class="fld"><span>{{ 'productForm.field.publicPrice' | translate }}</span>
             <input class="field num" type="number" step="0.01" name="publicPrice" [(ngModel)]="model.publicPrice" /></label>
+          }
           <label class="fld span-2"><span>{{ 'productForm.field.imageUrl' | translate }}</span>
             <input class="field" name="imageUrl" [(ngModel)]="model.imageUrl" placeholder="https://…" /></label>
           <label class="fld span-2"><span class="req">{{ 'productForm.field.shortDesc' | translate }} <em>{{ 'productForm.field.shortDescHint' | translate }}</em></span>
@@ -90,7 +100,9 @@ interface ImageRow { url: string; }
             <textarea class="field" rows="3" name="description" [(ngModel)]="model.description"></textarea></label>
         </div>
         <div class="toggles mt">
-          <label class="toggle"><input type="checkbox" name="isUnique" [(ngModel)]="model.isUnique" /><span>{{ 'productForm.toggle.isUnique' | translate }}</span></label>
+          @if (!isPartner()) {
+            <label class="toggle"><input type="checkbox" name="isUnique" [(ngModel)]="model.isUnique" /><span>{{ 'productForm.toggle.isUnique' | translate }}</span></label>
+          }
           <!-- 02/09 (regola utente): il flag «non modificabile» lo governa
                l'UFFICIO — al partner non compare (e il server lo scarta). -->
           @if (!isPartner()) {
@@ -109,7 +121,8 @@ interface ImageRow { url: string; }
         }
       </section>
 
-      <!-- Shopify -->
+      <!-- Shopify: ⭐ 11/09/2026 (regola utente) al partner non si mostra. Le immagini stanno in una scheda a parte, per tutti. -->
+      @if (!isPartner()) {
       <section class="card block">
         <header class="block-head"><h2>{{ 'productForm.section.shopify.title' | translate }}</h2>
           <span class="block-sub">{{ 'productForm.section.shopify.sub' | translate }}</span></header>
@@ -139,20 +152,39 @@ interface ImageRow { url: string; }
           </div>
         }
 
-        <div class="sub-head mt2">{{ 'productForm.images.title' | translate }}</div>
-        <span class="sub-hint">{{ 'productForm.images.sub' | translate }}</span>
+      </section>
+      }
+
+      <!-- Immagini e video: per tutti. ⭐ 11/09/2026 (regola utente): «consenti caricamento di immagini e
+           video da propri file» — il file va su Drive («File App») e qui resta il link, come le ricevute. -->
+      <section class="card block">
+        <header class="block-head"><h2>{{ 'productForm.images.title' | translate }}</h2>
+          <span class="block-sub">{{ 'productForm.images.sub' | translate }}</span></header>
         <div class="mt">
           @for (row of imageRows; track $index) {
             <div class="img-row">
+              @if (row.url) {
+                @if (eVideo(row.url)) { <span class="anteprima video">▶</span> }
+                @else { <img class="anteprima" [src]="row.url" alt="" /> }
+              }
               <input class="field" [attr.placeholder]="'productForm.images.placeholder' | translate" [(ngModel)]="row.url" [name]="'img' + $index" />
               <button type="button" class="icon-btn" [attr.aria-label]="'common.remove' | translate" (click)="imageRows.splice($index,1)">✕</button>
             </div>
           }
-          <button type="button" class="btn btn-secondary add" (click)="imageRows.push({url:''})">{{ 'productForm.images.add' | translate }}</button>
+          <div class="img-azioni">
+            <button type="button" class="btn btn-secondary add" (click)="imageRows.push({url:''})">{{ 'productForm.images.add' | translate }}</button>
+            <label class="btn btn-secondary add">
+              {{ (caricamentoFile() ? 'common.saving' : 'productForm.images.carica') | translate }}
+              <input type="file" accept="image/*,video/*" multiple hidden (change)="caricaFile($event)" [disabled]="caricamentoFile()" />
+            </label>
+            <span class="sub-hint">{{ 'productForm.images.caricaHint' | translate }}</span>
+          </div>
+          @if (erroreFile()) { <div class="error-card">{{ erroreFile() }}</div> }
         </div>
       </section>
 
-      <!-- Partner aggiuntivi (gated dietro Visible to other partners) -->
+      <!-- Partner aggiuntivi (gated dietro Visible to other partners). ⭐ 11/09/2026: al partner non si mostrano. -->
+      @if (!isPartner()) {
       <section class="card block">
         <header class="block-head"><h2>{{ 'productForm.section.additionalPartners.title' | translate }}</h2>
           <span class="block-sub">{{ 'productForm.section.additionalPartners.sub' | translate }}</span></header>
@@ -169,7 +201,7 @@ interface ImageRow { url: string; }
         }
       </section>
 
-      <!-- Super prodotto (solo flag) -->
+      <!-- Super prodotto (solo flag). ⭐ 11/09/2026: al partner non si mostra. -->
       <section class="card block">
         <header class="block-head"><h2>{{ 'productForm.section.superProduct.title' | translate }}</h2>
           <span class="block-sub">{{ 'productForm.section.superProduct.sub' | translate }}</span></header>
@@ -178,6 +210,7 @@ interface ImageRow { url: string; }
           <label class="toggle"><input type="checkbox" name="isSuperProvince" [(ngModel)]="model.isSuperProvince" /><span>{{ 'productForm.toggle.isSuperProvince' | translate }}</span></label>
         </div>
       </section>
+      }
 
       <!-- Varianti -->
       <section class="card block">
@@ -198,11 +231,18 @@ interface ImageRow { url: string; }
                     <input class="field num" type="number" min="0" [(ngModel)]="row.prepDays" [name]="'vprep' + $index" /></label>
                   <label class="fld sm"><span>{{ 'productForm.variants.price' | translate }}</span>
                     <input class="field num" type="number" step="0.01" [(ngModel)]="row.price" [name]="'vprice' + $index" /></label>
+                  @if (!isPartner()) {
                   <label class="fld sm"><span>{{ 'productForm.variants.publicPrice' | translate }}</span>
                     <input class="field num" type="number" step="0.01" [(ngModel)]="row.publicPrice" [name]="'vpub' + $index" /></label>
+                  }
                 </div>
                 <label class="fld sm mt"><span>{{ 'productForm.variants.image' | translate }}</span>
                   <input class="field" [attr.placeholder]="'productForm.images.placeholder' | translate" [(ngModel)]="row.imageUrl" [name]="'vimg' + $index" /></label>
+                <!-- ⭐ 11/09/2026 (regola utente): «anche per varianti le immagini possono essere caricate da propri file». -->
+                <label class="btn btn-secondary add sm-btn">
+                  {{ (caricamentoFile() ? 'common.saving' : 'productForm.images.carica') | translate }}
+                  <input type="file" accept="image/*,video/*" hidden (change)="caricaFileVariante($event, $index)" [disabled]="caricamentoFile()" />
+                </label>
                 <div class="var-foot">
                   <span class="sku-auto">{{ 'productForm.variants.skuAuto' | translate }}</span>
                   <label class="toggle sm"><input type="checkbox" [(ngModel)]="row.controlStock" [name]="'vctrl' + $index" /><span>{{ 'productForm.variants.controlStock' | translate }}</span></label>
@@ -218,7 +258,8 @@ interface ImageRow { url: string; }
         }
       </section>
 
-      <!-- Campi personalizzati -->
+      <!-- Campi personalizzati. ⭐ 11/09/2026 (regola utente): al partner non si mostrano. -->
+      @if (!isPartner()) {
       <section class="card block">
         <header class="block-head"><h2>{{ 'productForm.section.customFields.title' | translate }}</h2>
           <span class="block-sub">{{ 'productForm.section.customFields.sub' | translate }}</span></header>
@@ -233,6 +274,7 @@ interface ImageRow { url: string; }
         }
         <button type="button" class="btn btn-secondary add" (click)="fieldRows.push({name:'',required:false,adminOnly:false})">{{ 'productForm.customFields.add' | translate }}</button>
       </section>
+      }
 
       @if (justSaved()) { <div class="ok-card card">{{ 'productForm.saved.before' | translate }}<strong>{{ 'productForm.saved.create' | translate }}</strong>{{ 'productForm.saved.or' | translate }}<strong>{{ 'common.duplicate' | translate }}</strong>{{ 'productForm.saved.after' | translate }}</div> }
       @if (error()) { <div class="error-card card">{{ error() }}</div> }
@@ -264,6 +306,11 @@ interface ImageRow { url: string; }
       .block-head h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.015em; }
       .block-sub { display: block; margin-top: 3px; font-size: 13px; color: var(--text-tertiary); }
       .sub-head { font-size: 13px; font-weight: 600; color: var(--text); }
+      .img-row .anteprima { width: 40px; height: 40px; object-fit: cover; border-radius: 8px; flex: 0 0 40px; border: 1px solid var(--hairline); }
+      .img-row .anteprima.video { display: inline-flex; align-items: center; justify-content: center; background: var(--fill); font-size: 14px; }
+      .img-azioni { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+      .img-azioni label.btn { cursor: pointer; }
+      .sm-btn { cursor: pointer; margin-top: 6px; font-size: 12px; padding: 4px 10px; }
       .legenda { grid-column: 1 / -1; padding: 10px 12px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--fill, #f5f5f7); }
       .legenda-tit { font-size: 12.5px; font-weight: 600; color: var(--text); }
       .legenda ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; }
@@ -371,6 +418,51 @@ export class ProductFormComponent {
   readonly selectedPlatforms = new Set<string>();
   readonly selectedPartners = new Set<string>();
 
+  /** ⭐ 11/09: caricamento di immagini e video dai propri file (Drive «File App», come le ricevute). */
+  readonly caricamentoFile = signal(false);
+  readonly erroreFile = signal<string | null>(null);
+  eVideo(url: string): boolean { return /\.(mp4|mov|webm|m4v|avi)(\?|$)/i.test(url) || /video/i.test(url); }
+  /** Immagine (o video) di una variante dai propri file: stessa rotta, il link finisce sulla riga. */
+  caricaFileVariante(ev: Event, indice: number): void {
+    const input = ev.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    this.erroreFile.set(null);
+    this.caricamentoFile.set(true);
+    const fd = new FormData();
+    fd.append('file', file);
+    this.http.post<{ url: string }>(`${environment.apiUrl}/products/upload`, fd).subscribe({
+      next: (r) => { this.caricamentoFile.set(false); if (r?.url && this.variantRows[indice]) this.variantRows[indice].imageUrl = r.url; },
+      error: (e) => { this.caricamentoFile.set(false); this.erroreFile.set(e?.error?.message ?? this.translate.instant('productForm.images.caricaErrore')); },
+    });
+  }
+
+  caricaFile(ev: Event): void {
+    const input = ev.target as HTMLInputElement;
+    const files = Array.from(input.files ?? []);
+    input.value = '';
+    if (!files.length) return;
+    this.erroreFile.set(null);
+    this.caricamentoFile.set(true);
+    const uno = (i: number): void => {
+      if (i >= files.length) { this.caricamentoFile.set(false); return; }
+      const fd = new FormData();
+      fd.append('file', files[i]);
+      this.http.post<{ url: string }>(`${environment.apiUrl}/products/upload`, fd).subscribe({
+        next: (r) => {
+          if (r?.url) {
+            const vuota = this.imageRows.findIndex((x) => !x.url.trim());
+            if (vuota >= 0) this.imageRows[vuota] = { url: r.url }; else this.imageRows.push({ url: r.url });
+          }
+          uno(i + 1);
+        },
+        error: (e) => { this.caricamentoFile.set(false); this.erroreFile.set(e?.error?.message ?? this.translate.instant('productForm.images.caricaErrore')); },
+      });
+    };
+    uno(0);
+  }
+
   /** Le quattro tipologie di vendita: la casa è Merchandising, qui si sceglie e si mostra. */
   readonly TIPOLOGIE = ['unico', 'quantita', 'mix', 'preventivo'] as const;
 
@@ -414,7 +506,21 @@ export class ProductFormComponent {
 
   constructor() {
     const api = environment.apiUrl;
-    this.http.get<Category[]>(`${api}/categories`).subscribe((d) => this.categories.set(d));
+    // ⭐ 11/09/2026 (regola utente): al PARTNER solo le categorie abilitate a lui (scheda partner → Categorie);
+    // se non ne ha nessuna, tutte, così può comunque creare.
+    this.http.get<Category[]>(`${api}/categories`).subscribe((d) => {
+      const pid = this.auth.user()?.partnerId;
+      if (!this.isPartner() || !pid) { this.categories.set(d); return; }
+      this.http.get<{ categories?: { category: { id: string } }[] }>(`${api}/partners/${pid}`).subscribe({
+        next: (p) => {
+          const sue = new Set((p?.categories ?? []).map((c) => c.category?.id).filter(Boolean));
+          this.categories.set(sue.size ? d.filter((c) => sue.has(c.id)) : d);
+        },
+        error: () => this.categories.set(d),
+      });
+    });
+    // ⭐ 11/09/2026: il prodotto del partner è UNICO, con tipologia «unico»: il modulo lo sa da subito.
+    if (this.isPartner()) { this.model.isUnique = true; this.model.tipologiaVendita = 'unico'; }
     this.http.get<Partner[]>(`${api}/partners`).subscribe((d) => this.partners.set(d));
 
     // Modalita' modifica: /products/:id/edit
@@ -514,7 +620,8 @@ export class ProductFormComponent {
       this.error.set(this.translate.instant('productForm.error.tipologiaRequired'));
       return;
     }
-    if (m.isUnique && !m.partnerId) {
+    // ⭐ 11/09: al partner il campo Partner non si mostra: il server mette lui.
+    if (m.isUnique && !m.partnerId && !this.isPartner()) {
       this.error.set(this.translate.instant('productForm.error.partnerRequired'));
       return;
     }

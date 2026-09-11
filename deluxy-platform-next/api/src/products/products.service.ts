@@ -193,6 +193,17 @@ export class ProductsService {
     const nomeDelPartner = user.role === Role.PARTNER
       ? { alternateName: String(scalar.name ?? '').trim() || undefined, useAlternateName: true }
       : {};
+    // ⭐ 11/09/2026 (regola utente): il prodotto creato dal PARTNER è UNICO («tipologia di vendita»
+    // non gli si mostra), è suo (niente partner aggiuntivi, niente superprodotto) e il prezzo
+    // pubblico lo decidiamo noi. Il modulo lo nasconde; qui si impone.
+    if (user.role === Role.PARTNER) {
+      (scalar as any).type = ProductType.UNICO;
+      (scalar as any).tipologiaVendita = 'unico';
+      (scalar as any).isSuperProduct = false;
+      (scalar as any).isSuperProvince = false;
+      (scalar as any).visibleToOtherPartners = false;
+      delete (scalar as any).publicPrice;
+    }
     const creato = await this.prisma.product.create({
       data: {
         ...scalar,
@@ -240,6 +251,12 @@ export class ProductsService {
         throw new ForbiddenException('Questo prodotto non è modificabile: è gestito dall\'ufficio.');
       }
       delete (dto as Record<string, unknown>)['notEditable'];
+      // ⭐ 11/09/2026 (regola utente): il partner non tocca tipologia, tipo, partner, prezzo pubblico,
+      // superprodotto, visibilità agli altri partner — sono dell'ufficio.
+      for (const k of ['type', 'tipologiaVendita', 'partnerId', 'publicPrice', 'isSuperProduct', 'isSuperProvince', 'visibleToOtherPartners', 'additionalPartnerIds', 'approved', 'active', 'prodottoApp']) {
+        delete (dto as Record<string, unknown>)[k];
+      }
+      if (Array.isArray((dto as any).variants)) for (const v of (dto as any).variants) delete v.publicPrice;
     }
     const {
       fields,

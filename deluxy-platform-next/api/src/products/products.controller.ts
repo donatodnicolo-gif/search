@@ -8,8 +8,14 @@ import {
   Post,
   Put,
   Query,
+  BadRequestException,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import { SettingsService } from '../settings/settings.module';
 import { IsBoolean } from 'class-validator';
 import { CurrentUser, JwtUser, Roles } from '../common/decorators';
 import { Role } from '../common/enums';
@@ -32,7 +38,7 @@ export class ArchiveProductDto {
 @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER, Role.PARTNER)
 @Controller('products')
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(private readonly productsService: ProductsService, private readonly settings: SettingsService) {}
 
   @Get()
   @ApiOperation({
@@ -82,6 +88,26 @@ export class ProductsController {
   @ApiOperation({ summary: 'Crea prodotto (unico/non-unico/superprodotto, con campi)' })
   create(@Body() dto: CreateProductDto, @CurrentUser() user: JwtUser) {
     return this.productsService.create(dto, user);
+  }
+
+  /**
+   * ⭐ 11/09/2026 (regola utente: «consenti caricamento di immagini e video da propri file»). Il file
+   * va su Drive («File App», Standard §5: OAuth, mai service account) e qui torna il LINK, che il
+   * modulo mette fra le immagini del prodotto. Solo immagini e video, 25 MB al massimo. Senza Drive
+   * si dice chiaro che non si può: sul serverless il disco è effimero, un file locale sparirebbe.
+   */
+  @Post('upload')
+  @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER, Role.PARTNER)
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Carica un\'immagine o un video del prodotto su Drive e torna il link' })
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } }))
+  async upload(@UploadedFile() file?: { buffer: Buffer; originalname: string; mimetype: string; size: number }) {
+    if (!file) throw new BadRequestException('Nessun file caricato');
+    if (!/^(image|video)\//.test(file.mimetype || '')) throw new BadRequestException('Si caricano solo immagini e video.');
+    const nome = `prodotto-${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    const esito = await this.settings.caricaSuDrive(nome, file.buffer, file.mimetype);
+    if (!esito.ok || !esito.link) throw new BadRequestException(`Drive non ha accettato il file${esito.motivo ? ': ' + esito.motivo : ''}. Collega Drive in Impostazioni → File App.`);
+    return { url: esito.link, nome, tipo: file.mimetype };
   }
 
   @Put(':id')

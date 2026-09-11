@@ -2309,6 +2309,9 @@
     },
     "images": {
       "title": "Immagini",
+      "carica": "Carica dai tuoi file",
+      "caricaHint": "Immagini e video (max 25 MB): finiscono su Drive «File App» e qui resta il link.",
+      "caricaErrore": "Caricamento non riuscito.",
       "sub": "Galleria immagini del prodotto. La prima è la principale.",
       "placeholder": "https://…",
       "primary": "Principale",

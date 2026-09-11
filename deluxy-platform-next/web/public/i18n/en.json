@@ -2307,6 +2307,9 @@
     },
     "images": {
       "title": "Images",
+      "carica": "Upload from your files",
+      "caricaHint": "Images and videos (max 25 MB): stored on Drive «File App», the link stays here.",
+      "caricaErrore": "Upload failed.",
       "sub": "Product image gallery. The first one is the primary image.",
       "placeholder": "https://…",
       "primary": "Primary",

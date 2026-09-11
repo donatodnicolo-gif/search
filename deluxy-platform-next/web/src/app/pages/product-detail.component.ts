@@ -138,11 +138,15 @@ interface ProductDetail {
 
             <h3>{{ 'productForm.images.title' | translate }}</h3>
             @if (images().length) {
-              <ul class="links">
+              <!-- ⭐ 11/09/2026: anteprime — immagini e video caricati dai propri file. -->
+              <div class="galleria">
                 @for (url of images(); track url) {
-                  <li><a [href]="url" target="_blank" rel="noopener noreferrer">{{ url }}</a></li>
+                  <a [href]="url" target="_blank" rel="noopener noreferrer" class="media">
+                    @if (eVideo(url)) { <video [src]="url" muted playsinline preload="metadata"></video> }
+                    @else { <img [src]="url" alt="" loading="lazy" /> }
+                  </a>
                 }
-              </ul>
+              </div>
             } @else { <p class="muted">{{ 'productDetail.noImages' | translate }}</p> }
           </section>
 
@@ -218,6 +222,9 @@ interface ProductDetail {
       .mono { font-variant-numeric: tabular-nums; }
       .chips { display: flex; flex-wrap: wrap; gap: 8px; }
       .chip { border: 1px solid var(--hairline-strong); border-radius: 980px; padding: 4px 12px; font-size: 12.5px; }
+      .galleria { display: flex; flex-wrap: wrap; gap: 8px; }
+      .galleria .media { display: block; width: 96px; height: 96px; border-radius: 10px; overflow: hidden; border: 1px solid var(--hairline); background: var(--fill); }
+      .galleria .media img, .galleria .media video { width: 100%; height: 100%; object-fit: cover; display: block; }
       .links { margin: 0; padding-left: 18px; font-size: 13px; }
       .links li { margin-bottom: 4px; word-break: break-all; }
       table.mini { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -281,6 +288,7 @@ export class ProductDetailComponent {
   readonly platforms = signal<string[]>([]);
   /** Galleria immagini (l'API salva `images` come stringa JSON). */
   readonly images = signal<string[]>([]);
+  eVideo(url: string): boolean { return /\.(mp4|mov|webm|m4v|avi)(\?|$)/i.test(url) || /video/i.test(url); }
 
   private parseJsonArray(value: unknown): string[] {
     if (Array.isArray(value)) return value.filter(Boolean).map(String);
