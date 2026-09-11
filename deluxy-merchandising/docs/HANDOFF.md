@@ -2,6 +2,14 @@
 
 Stato all'11/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
+## 🏷️ 11/09/2026 — I prodotti nati dal partner arrivano «da approvare» (sessione piattaforma, PUBBLICATO `deluxy-merchandising-icufl4arz`)
+
+Regola dell'utente: «quando un partner crea il proprio prodotto il nome che mette è il nome partner; il prodotto finisce in Merchandising con nome uguale a quello del partner e sarà da approvare; se viene approvato finisce su Shopify».
+- `POST /api/v1/prodotti` accetta `nomePartner`, `nomePartnerAttivo`, `noteSviluppo` (in creazione e, il nome partner, anche in aggiornamento — non si cancella se non arriva). La piattaforma manda, per i prodotti creati dal PARTNER: `origine: partner`, `nomePartner` = nome scritto dal partner, `fase: prototipo`, nota «Creato dal partner … dalla piattaforma il …: DA APPROVARE».
+- `cambiaFase` (`src/lib/azioni.ts`): su un prodotto SENZA `shopifyId`, i tasti rapidi «Approvato» e «Pubblico» portano a `/prodotti/:id/modifica?fase=…` (banner `.avviso-info`, fase preimpostata nel modulo): è il salvataggio del modulo che crea la scheda su Shopify (approvato = bozza, pubblico = visibile — regola del 09/09). Chi è già sul negozio cambia solo fase.
+- Pubblicati anche (10/09): `nomePartner` nell'API prodotti; `POST /api/v1/prodotti/disponibilita` (giorni minimi e ora minima dal calendario dei partner dei prodotti unici, chiamata dal cron della piattaforma ogni mezz'ora); 5.080 nomi partner riempiti.
+- ⚠️ Il deploy in cloud prende SOLO ciò che è pushato su `scout-ui`: il lavoro locale «NON pubblicato» qui sotto non è entrato.
+
 ## 11/09/2026 — LA SCHEDA CHE SI SCRIVE E QUELLA CHE ARRIVA SU SHOPIFY SONO LA STESSA (in locale, NON pubblicato)
 
 Sei segnalazioni dell'utente, arrivate insieme, con una causa comune:

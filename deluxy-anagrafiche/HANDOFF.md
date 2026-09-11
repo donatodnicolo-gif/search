@@ -3,6 +3,13 @@
 > Documento per riprendere il lavoro da zero in una nuova sessione. Aggiornato il 27/08/2026.
 > Leggi anche `README.md` (brief di integrazione per le altre app) e il `CLAUDE.md` alla radice del repo.
 
+## 🏢 11/09/2026 — Il capogruppo nelle tre app (sessione piattaforma)
+
+- **Rotta di scrittura** `POST /api/v1/partners/:id/capogruppo` (10/09): accetta `{ capofila }` (modo originale: la sede entra nel capogruppo della capofila, creato se manca) **oppure** `{ capogruppo: { nome, pIva?, registroId? }, pagaDaSe }` mandato dalla piattaforma, **oppure** `{ capogruppo: null }` per toglierlo. Risponde con l'id del capogruppo del registro, che la piattaforma salva come `Capogruppo.registroId`.
+- **Guardie** (10/09, dopo l'incidente Olfattorio): il match per P.IVA in `partners/route.ts` vale solo se c'è una sede sola e non ha già un altro `platformId`; la ricerca per nome esclude schede di altri `platformId`; `PATCH` risponde 409 se prova a riassegnare un `platformId`.
+- **Chi legge cosa**: la risposta API (`lib/partner-api.ts`) porta già P.IVA, CF, SDI, PEC, IBAN di CHI FATTURA (`leggiFatturazione`: la sede se paga da sé, il capogruppo se no) più `pagaDaSe` e `capogruppo {id, nome}`. La **piattaforma** (11/09) copia sul partner i dati di fatturazione del capogruppo e li blocca nel modulo; **Finance** (11/09) intesta pro-forma e fatture al capogruppo con la sede «per conto di». ⚠️ Il Capogruppo del registro non ha un INDIRIZZO: Finance usa quello della sede. Se serve, va aggiunto qui (schema condiviso: d'accordo con l'utente).
+- Manuale ufficiale: `deluxy-platform-next/docs/COME-FUNZIONA-APP-DELUXY.md` changelog 113, 121, 122; registro in `MANUALE-DELUXY.html`.
+
 ## ⚠️ 25/08/2026 — «un solo risultato» non è un'identità (match per nome)
 
 Errore **trovato in produzione**, nel registro delle modifiche di quest'app:
