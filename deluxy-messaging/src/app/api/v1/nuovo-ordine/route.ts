@@ -18,7 +18,11 @@ export const maxDuration = 60
 //         consegna{data,fascia,indirizzo,civicoNote,cap,citta,provincia,paese},
 //         righe[{variantId | titolo+prezzo, quantita}], biglietto,
 //         spedizione{titolo,prezzo}, pagamento: "link"|"pagato",
-//         mezzoPagamento, operatore?{id,nome} }
+//         mezzoPagamento, operatore?{id,nome},
+//         — facoltativi (11/09/2026, stessi della schermata interna) —
+//         destinatario?{nome,cognome,telefono}, anonima?, consensoMarketing?,
+//         eccezioneOrari? (motivo per un giorno chiuso), aggiungiIva? }
+// Le opzioni che il modulo offre si chiedono a GET /api/v1/nuovo-ordine/opzioni.
 // L'`operatore.nome` finisce nella riga di lavoro (chi l'ha creato): le app
 // passino "APP — Nome Cognome", così il conteggio per persona resta vero.
 export async function POST(req: NextRequest) {
@@ -72,6 +76,20 @@ export async function POST(req: NextRequest) {
     },
     pagamento: body.pagamento,
     mezzoPagamento: String(body.mezzoPagamento ?? ''),
+    // I campi facoltativi: assenti = «no», come per gli altri chiamanti.
+    ...(body.destinatario && (String(body.destinatario.nome ?? '').trim() || String(body.destinatario.cognome ?? '').trim())
+      ? {
+          destinatario: {
+            nome: String(body.destinatario.nome ?? ''),
+            cognome: String(body.destinatario.cognome ?? ''),
+            telefono: String(body.destinatario.telefono ?? ''),
+          },
+        }
+      : {}),
+    ...(typeof body.anonima === 'boolean' ? { anonima: body.anonima } : {}),
+    ...(typeof body.consensoMarketing === 'boolean' ? { consensoMarketing: body.consensoMarketing } : {}),
+    ...(typeof body.aggiungiIva === 'boolean' ? { aggiungiIva: body.aggiungiIva } : {}),
+    ...(String(body.eccezioneOrari ?? '').trim() ? { eccezioneOrari: String(body.eccezioneOrari).trim().slice(0, 200) } : {}),
     operatore: {
       id: String(body.operatore?.id ?? client.nome),
       nome: String(body.operatore?.nome ?? client.nome),

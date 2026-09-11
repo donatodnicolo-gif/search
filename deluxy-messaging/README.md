@@ -39,6 +39,17 @@ vale il predefinito). Con `?dominio=fb72b1-2.myshopify.com` un negozio solo, con
 `&data=2026-12-25` anche la risposta secca «si può scegliere?» col motivo. La casa di questo
 dato è il Customer Service: nessuna app se ne tiene una copia.
 
+**Le opzioni di Nuovo ordine, per le altre app (11/09/2026).** Un'app che crea ordini da
+fuori (il CRM) non riscrive le regole del modulo: le chiede. `GET /api/v1/nuovo-ordine/opzioni?negozio=<id>`
+risponde con le fasce dagli orari del negozio (`primoGiornoAperto`, griglia `oltre`,
+`calendario` dei prossimi giorni con ok/motivo/fasce), le voci di spedizione usate, i metodi di
+pagamento visti, l'`iva` (aggiungibile, predefinito falso, spiegazione) e `campi`, l'elenco a
+parole dei facoltativi che il POST accetta. `POST /api/v1/nuovo-ordine/tariffe` (indirizzo +
+righe) dà le tariffe del sito e la stima fuori zona, con lo stesso conto della schermata
+interna (`src/lib/tariffe-con-stima.ts`). E `POST /api/v1/nuovo-ordine` accetta anche
+`destinatario`, `anonima`, `consensoMarketing`, `aggiungiIva` ed `eccezioneOrari` (il motivo
+per un giorno chiuso: vuoto = rifiutato, come prima).
+
 ⚠️ **Un negozio senza orari salvati non ha regole**: nessuna data si blocca e Nuovo ordine usa le
 fasce storiche del marchio. La scheda lo dice con l'etichetta «senza orari», e propone un punto di
 partenza da correggere (tutti i giorni, fasce 08-12 · 12-16 · 16-20 — quelle che i siti mandano
