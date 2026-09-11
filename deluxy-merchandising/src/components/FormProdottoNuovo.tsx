@@ -145,7 +145,14 @@ const ETICHETTA_STATO_NEGOZIO: Record<string, string> = { ACTIVE: "attivo", DRAF
  * toccare la fase, quel prodotto tornava **Concept** in silenzio. Non era un
  * difetto di etichette: era una perdita di dato.
  */
-const FASI_SCEGLIBILI = ["concept", "prototipo", "approvato", "in_vendita"] as const;
+// ⭐ 11/09/2026 (segnalazione utente: «perché non riesco a mettere questo
+// prodotto come Archiviato?»). «Archiviato» mancava, e quindi dal modulo non si
+// poteva scegliere: restava solo il tasto rapido della scheda. Due strade per
+// lo stesso gesto non possono avere due elenchi diversi — è la stessa lezione
+// del difetto di stamattina, quando «Attesa approvazione» non c'era e salvando
+// il prodotto tornava «Concept». Salvando con questa fase il prodotto viene
+// archiviato **anche sul negozio** (`statoVolutoPerFase`).
+const FASI_SCEGLIBILI = ["concept", "prototipo", "approvato", "in_vendita", "archiviato"] as const;
 
 function fasiDaMostrare(attuale: string): string[] {
   const scelte: string[] = [...FASI_SCEGLIBILI];
@@ -245,6 +252,10 @@ export function FormProdottoNuovo({
   // «prodotto è sempre non fisico». Il valore lo mette già
   // `prodotto-per-il-modulo` (CAMPI_FISSI_DEL_PARTNER); qui si toglie la
   // possibilità di cambiarlo, perché non è una preferenza: è cosa il prodotto è.
+  // ⭐ 11/09/2026 (regola utente): un prodotto arrivato dall'app delivery si
+  // riconosce una volta sola e serve in due posti — i campi bloccati e le
+  // traduzioni.
+  const dallaPiattaforma = !!iniziale?.dallaPiattaforma;
   const bloccatiDalPartner = useMemo(
     () => new Set(iniziale?.dallaPiattaforma ? ["custom.is_unique", "custom.not_physical"] : []),
     [iniziale?.dallaPiattaforma],
@@ -1104,7 +1115,9 @@ export function FormProdottoNuovo({
                       ? " — va su Shopify, in bozza"
                       : f === "attesa_approvazione"
                         ? " — arrivato da un partner, in attesa"
-                        : ""}
+                        : f === "archiviato"
+                          ? " — esce dalla vendita, anche sul negozio"
+                          : ""}
                 </option>
               ))}
             </select>
@@ -1632,10 +1645,21 @@ export function FormProdottoNuovo({
                     ) : (
                       <>
                         <label className="pill-opt" style={{ cursor: "pointer", width: "fit-content" }}>
-                          <input type="checkbox" name={`traduci:${nomeSito}`} value="1" defaultChecked={!modifica} />
+                          {/* ⭐ 11/09/2026 (regola utente): **accesa da sola sui prodotti
+                              dell'app delivery**. Di norma in modifica parte spenta, e per
+                              un buon motivo: ritradurre costa e riscriverebbe sopra una
+                              traduzione che magari qualcuno ha rifinito a mano. Un prodotto
+                              del partner non ha quel passato — l'ha scritto lui in italiano e
+                              qui arriva per la prima volta, quindi una traduzione non c'è
+                              ancora e lasciar decidere ogni volta vuol dire pubblicarlo
+                              prima o poi solo in italiano. Resta una spunta: si toglie. */}
+                          <input type="checkbox" name={`traduci:${nomeSito}`} value="1" defaultChecked={!modifica || dallaPiattaforma} />
                           {modifica ? "Riscrivi le traduzioni" : "Traduci"} titolo e descrizione in {lingue.map((c: string) => ETICHETTA_LINGUA[c] ?? c).join(" e ")} (con l&apos;AI)
                         </label>
-                        <span className="cella-sub">Sono le lingue che {nomeSito} ha davvero attive: le altre Shopify le rifiuta, e il rifiuto fa cadere l&apos;intero lotto.</span>
+                        <span className="cella-sub">
+                          Sono le lingue che {nomeSito} ha davvero attive: le altre Shopify le rifiuta, e il rifiuto fa cadere l&apos;intero lotto.
+                          {modifica && dallaPiattaforma && " È accesa da sola perché il prodotto arriva dall'app delivery: l'ha scritto il partner in italiano e qui non è mai stato tradotto."}
+                        </span>
                       </>
                     )}
                     {linkTrad && (

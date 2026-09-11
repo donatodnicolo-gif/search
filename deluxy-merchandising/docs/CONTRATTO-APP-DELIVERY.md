@@ -136,6 +136,51 @@ parte una consegna e in quali province si vende è esattamente il genere di
 errore che nessuno rilegge: se sbagliamo, il prodotto si vende dove non si può
 consegnare. Meglio vuoto e visibile.
 
+## 2-quater. I QUATTRO CAMPI CHE NON ARRIVANO, contati (11/09/2026)
+
+Quattro domande dell'utente, tutte della stessa forma: «perché non ricevi X, se
+di là c'è?». Risposta misurata chiamando le due letture del canale app e
+guardando i 42 prodotti arrivati da lì. **Tre su quattro non arrivano perché
+nella lettura quel campo non esiste**, non perché lo ignoriamo.
+
+`GET /api/v1/app/partner` — 126 partner — manda **cinque campi e basta**:
+
+| campo | valorizzato |
+|---|---|
+| `id` | 126/126 |
+| `insegna` | 126/126 |
+| `province` | 122/126 |
+| `servizi` | 126/126 |
+| `citta` | **13/126** |
+
+`GET /api/v1/app/prodotti` — 30 righe — manda: `id`, `nome`, `prezzo`, `tipo`,
+`varianti`, `sku`, `tipologia`, `partnerId`, `partner`, `prezzoPubblico`.
+
+Da cui, campo per campo:
+
+| Campo del negozio | Arriva? | Perché |
+|---|---|---|
+| `custom.nations_availability` | ✅ **sì, già oggi** | si compone da `province` (122/126). È l'unico dei quattro che funziona: 3 dei 4 prodotti a cui abbiamo applicato il recupero ce l'hanno |
+| `custom.partner_address` | ❌ no | **nella lettura non c'è nessun campo indirizzo.** Quello che scriviamo oggi è la *città*, che è un ripiego — e c'è solo su 13 partner su 126 |
+| `custom.minimo_orario` | ❌ no | la lettura dei partner **non porta gli orari di apertura**. Il calcolo esiste già di là (`POST /api/v1/prodotti/disponibilita`, dal calendario del partner) ma scrive **su Shopify**: un prodotto in attesa non è su un negozio, quindi resta vuoto — 0 su 42 |
+| giorni / data di preparazione | ❌ no | non c'è nella lettura dei prodotti (né come `giorniMinimi` né come preavviso) |
+
+### Che cosa serve di là, in concreto
+
+1. **`/api/v1/app/partner`: aggiungere `indirizzo`** (via e civico) e **riempire
+   `citta`**, oggi vuota su 113 partner su 126. L'indirizzo di un partner **non
+   si indovina**: sbagliarlo vuol dire dire al cliente che ritira dove non si
+   ritira.
+2. **`/api/v1/app/partner`: aggiungere gli orari di apertura** — o, più
+   semplice, mettere `minimoOrario` e `giorniMinimi` **dentro
+   `/api/v1/app/prodotti`**, che è dove il calcolo serve. Di là il numero esiste
+   già: è lo stesso che il cron scrive su Shopify.
+3. **`/api/v1/app/prodotti`: aggiungere i giorni di preparazione** (il preavviso
+   che il partner dichiara sul prodotto).
+
+Finché non ci sono, qui non si inventano: i campi restano vuoti e il recupero lo
+dice invece di riempirli a occhio.
+
 ## 3. Che cosa manca DALLA PARTE DELLA PIATTAFORMA
 
 Due cose, e nessuna delle due si può fare da questa cartella (regola 4 del

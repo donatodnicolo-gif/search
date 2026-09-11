@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "./db";
 import { isoGiornoValido, mezzanotteRomaDi } from "./fuso";
 import { mancanzePerApprovare } from "./prodotti-dal-partner";
+import { archiviaSuiNegozi } from "./archivia-sui-negozi";
 
 // Helper: legge una stringa non vuota dal form
 function str(fd: FormData, k: string): string | null {
@@ -147,9 +148,24 @@ export async function cambiaFase(id: string, nuovaFase: string) {
     prisma.prodotto.update({ where: { id }, data: { fase: nuovaFase } }),
     prisma.tappaSviluppo.create({ data: { prodottoId: id, da: p.fase, a: nuovaFase, origine: "ui" } }),
   ]);
+
+  // ⭐⭐ 11/09/2026 (segnalazione utente: «perché non riesco a mettere questo
+  // prodotto come Archiviato?»). Lo era: la fase cambiava e la tappa si
+  // scriveva. Quello che non succedeva era **sul negozio** — «Torta Damianoooo»
+  // risultava `archiviato` qui e `ACTIVE` su Gifts, cioè ancora in vendita per
+  // il cliente. Un gesto che cambia solo la nostra etichetta non è archiviare.
+  let messaggio: string | null = null;
+  if (nuovaFase === "archiviato") {
+    const esito = await archiviaSuiNegozi(id);
+    if (esito.righe.length) messaggio = esito.righe.join(" · ");
+  }
+
   revalidatePath(`/prodotti/${id}`);
   revalidatePath("/sviluppo");
   revalidatePath("/prodotti");
+  // Il redirect solo quando c'è qualcosa da dire: senza, React riscrive la
+  // pagina in posto e lo scorrimento resta dov'era.
+  if (messaggio) redirect(`/prodotti/${id}?esito=` + encodeURIComponent(messaggio));
 }
 
 // ---------- Varianti ----------

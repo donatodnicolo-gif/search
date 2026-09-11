@@ -161,6 +161,30 @@ const vaSuShopify = (fase: string) => (FASI_SU_SHOPIFY as readonly string[]).inc
 const statoPerShopify = (fase: string, finestraAperta: boolean): "ACTIVE" | "DRAFT" =>
   fase === "in_vendita" && finestraAperta ? "ACTIVE" : "DRAFT";
 
+/**
+ * **Lo stato che il negozio deve avere, data la fase.**
+ *
+ * ⚠️⚠️ 11/09/2026 — segnalazione dell'utente: «perché non riesco a mettere
+ * questo prodotto come Archiviato?». Qui *era* archiviato — la fase cambiava e
+ * la tappa si scriveva — ma **sul negozio no**: misurato su «Torta Damianoooo»,
+ * fase `archiviato` da noi e `status: ACTIVE` su Gifts. Cioè il prodotto
+ * restava in vendita per il cliente, ed è per questo che il gesto sembrava non
+ * funzionare: funzionava, ma solo nel posto che non conta.
+ *
+ * La causa: «archiviato» non era fra le fasi che vanno su Shopify, e il ramo di
+ * ripiego sapeva solo mettere in bozza. Adesso la fase ha il suo stato.
+ * `undefined` = non toccare quello che c'è.
+ */
+function statoVolutoPerFase(
+  fase: string,
+  finestraAperta: boolean,
+  statoOra: string | null,
+): "ACTIVE" | "DRAFT" | "ARCHIVED" | undefined {
+  if (fase === "archiviato") return statoOra === "ARCHIVED" ? undefined : "ARCHIVED";
+  if (vaSuShopify(fase)) return statoPerShopify(fase, finestraAperta);
+  return statoOra === "ACTIVE" ? "DRAFT" : undefined;
+}
+
 /** Quello che il modulo manda, letto una volta per entrambe le azioni. */
 async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
   const nome = testo(fd, "nome");
@@ -430,7 +454,7 @@ type CacheTraduzioni = { perScheda?: Map<string, EsitoTradotto> };
 async function traduzioniDi(m: Modulo, cache: CacheTraduzioni, nomeNegozio: string) {
   const html = await descrizionePerNegozio(m, nomeNegozio);
   const mappa = (cache.perScheda ??= new Map<string, EsitoTradotto>());
-  const chiave = `${m.nome} ${html}`;
+  const chiave = `${m.nome}\u0000${html}`;
   const gia = mappa.get(chiave);
   if (gia) return gia;
   const fatto = await traduciSchedaHtml({ titolo: m.nome, html });
@@ -968,9 +992,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
     const token = await tokenDi(m.negozio.id).catch(() => null);
     if (!token) avvisi.push(`Il negozio ${m.negozio.nome} non sa autenticarsi: salvato solo qui.`);
     else {
-      const statoVoluto: "ACTIVE" | "DRAFT" | undefined = vuolePubblico
-        ? statoPerShopify(m.fase, m.finestraAperta)
-        : prima.statoShopify === "ACTIVE" ? "DRAFT" : undefined;
+      const statoVoluto = statoVolutoPerFase(m.fase, m.finestraAperta, prima.statoShopify);
       const r = await aggiornaProdottoSuShopify(token, {
         shopifyId,
         titolo: m.nome,
@@ -997,7 +1019,11 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
       }
       if (statoVoluto && !r.errori.some((e) => e.campo == null)) {
         statoShopify = statoVoluto;
-        shopifyStato = statoVoluto === "ACTIVE" ? "pubblicato" : "bozza";
+        // ⚠️ `shopifyStato` è una **nota nostra** con tre valori soli
+        // (non_pubblicato | bozza | pubblicato): un prodotto archiviato non è
+        // una bozza, e chiamarlo così sarebbe falso. Lo stato vero del negozio
+        // sta in `statoShopify`, che qui sopra riceve ARCHIVED.
+        shopifyStato = statoVoluto === "ACTIVE" ? "pubblicato" : statoVoluto === "ARCHIVED" ? "non_pubblicato" : "bozza";
       }
       entrate = (await completaSulNegozio({ ...m, collezioni: collezioniAggiunte.filter((c) => c.negozio === m.negozio.nome) }, token, shopifyId, mediaNuovi, cronaca, avvisi, traduzioni)).entrate;
       for (const x of collezioniTolte.filter((x) => x.collezione.negozio === m.negozio.nome)) {
@@ -1087,9 +1113,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
       // ⚠️ Le scelte ammesse cambiano da un negozio all'altro: quello che
       // si scarta va detto, altrimenti è una perdita silenziosa.
       for (const riga of scartiMetafield(mf, defs)) avvisi.push(`${n.nome}: ${riga}`);
-      const statoVoluto: "ACTIVE" | "DRAFT" | undefined = vuolePubblico
-        ? statoPerShopify(m.fase, m.finestraAperta)
-        : riga.statoShopify === "ACTIVE" ? "DRAFT" : undefined;
+      const statoVoluto = statoVolutoPerFase(m.fase, m.finestraAperta, riga.statoShopify);
       const r = await aggiornaProdottoSuShopify(token, {
         shopifyId: riga.shopifyId,
         titolo: m.nome,

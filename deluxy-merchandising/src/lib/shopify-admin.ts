@@ -281,7 +281,8 @@ export type AggiornamentoProdotto = {
   shopifyId: string;
   titolo?: string;
   descrizioneHtml?: string;
-  stato?: "ACTIVE" | "DRAFT";
+  /** ⭐ 11/09/2026: anche ARCHIVED — la fase «Archiviato» qui deve valere sul negozio. */
+  stato?: "ACTIVE" | "DRAFT" | "ARCHIVED";
   /** I tag: l'elenco completo, sostituisce quello del negozio. */
   tags?: string[];
   metafield?: { namespace: string; key: string; type: string; value: string }[];
