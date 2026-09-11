@@ -2,6 +2,102 @@
 
 Stato all'11/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
+## 🔴 11/09/2026 tarda sera — SECONDO GIRO (tutto pubblicato)
+
+Deploy **`px42uvwwt`** (l'ultimo), prima `2oknivq7m`; origin/`scout-ui` a `d9acceae`.
+
+### Due difetti che facevano perdere dati o clienti
+
+**1. Aprendo un prodotto col modulo, la fase tornava «Concept».** Segnalato
+dall'utente («fase prodotto sono ancora le vecchie»). L'elenco delle fasi nel
+modulo era scritto a mano e non conteneva «Attesa approvazione»: un `select` il
+cui valore non sta fra le sue opzioni **manda la prima al salvataggio**. È
+successo davvero — Torta Damianoooo alle 15:26 da `attesa_approvazione` a
+`concept`, «Modificato dal modulo». Ora la fase che il prodotto ha adesso sta
+sempre nell'elenco, anche se non è fra quelle che si scelgono.
+
+**2. «Pubblicato» non voleva dire «sulla vetrina».** Segnalato dall'utente («mi
+dice pubblicato ma su Shopify deluxy.it non lo trovo»). Il prodotto c'era,
+ACTIVE, con le sue varianti: mancava la **pubblicazione sul canale «Online
+Store»**, senza la quale il cliente non lo vede.
+
+Causa misurata: da **Shopify 2025-10** un prodotto creato via API non finisce
+più da solo sui canali. La prova sta nelle date — dei 9 prodotti che il modulo
+ha messo su Gifts, gli 8 creati prima del passaggio a 2025-10 (commit `e4c7687c`,
+10/09) sono in vetrina, l'unico creato dopo no.
+
+Ora dopo ogni creazione ACTIVE si controlla che il prodotto sia davvero in
+vetrina e si prova a pubblicarlo (`src/lib/shopify-vetrina.ts`).
+
+🔴 **Su Gifts, Flowers e Cake non si può**: il token non ha `read_publications`
+né `write_publications` (li ha solo Business Deluxy, che infatti ha 6 canali).
+Quando non si può, l'app **lo dice negli avvisi** col rimedio. **Da fare a mano:
+aggiungere quei due permessi alle app dei tre negozi**, altrimenti ogni prodotto
+nuovo nasce invisibile ai clienti.
+
+### Le regole sui campi dettate dall'utente, misurate sui dati veri
+
+| Regola | Come | Misura |
+|---|---|---|
+| «Da chi fatto» sui prodotti del partner | parte da `Creato dall'Artista: ` (lista JSON, spazio finale compreso), modificabile | 614 schede hanno quel campo, con tre soli valori |
+| «Orario Consegna» dedotto dall'ora minima | <12 tutte e tre le fasce, 12-15 pomeriggio e sera, ≥16 solo sera | 324 schede con tutti e due i campi: a 7/8/9/10 domina la tripletta (220), a 19 nove su nove «Sera» |
+| Prodotto nuovo | nasce col **tag «novità»** | 85 prodotti attivi lo portano |
+| Tendina dei partner | dice il **nome** quando lo sappiamo, l'id quando no | su 2.042 schede con partner ne conosciamo **uno**: l'app delivery non manda l'id numerico insieme all'insegna |
+| Indirizzo, città, province | riempiti dal **recupero dalla piattaforma** | applicato: 4 prodotti su 5 |
+
+Le province si traducono dalle sigle della piattaforma alle voci che i siti
+scrivono davvero (`ITALY-MILAN(MI)`), **imparate dalle 964 schede** che hanno
+quel campo: i nomi non seguono una regola (ROMA in italiano, MILAN in inglese,
+MONZA AND BRIANZA per esteso), quindi non si generano. Le sigle mai viste si
+lasciano fuori e si dicono.
+
+⭐ «guida l'AI» non sta più attaccato al nome nella tendina delle categorie
+(domanda dell'utente: «perché bouquet guida AI?» — sembrava parte del nome): si
+legge sotto il campo, solo per la categoria scelta.
+
+### Il minimo orario: sì, arriva già dall'app delivery
+
+Domanda dell'utente. **Risulta, ed è vero**: `POST /api/v1/prodotti/disponibilita`,
+il cron dei prodotti unici ogni mezz'ora, calcola giorni minimi e ora minima dal
+calendario del partner e li scrive sui metafield. La chiave `deluxy-platform` ha
+chiamato l'ultima volta alle **15:20 dell'11/09**, e **1.147 schede attive su
+1.275** hanno `custom.minimo_orario` (297 dei 346 prodotti «unico»).
+
+⚠️ Quella rotta scrive **su Shopify**: un prodotto ancora in attesa non è sul
+negozio, quindi lì i campi restano vuoti finché non si pubblica.
+
+### 🔴 Due difetti sulle traduzioni, diagnosticati e NON ancora corretti
+
+Segnalati dall'utente con due schermate. Misurati chiedendo a Shopify:
+
+1. **La traduzione perde le sezioni.** «Beauty Week Cake» su cakedesign.me: la
+   traduzione inglese c'è (titolo e descrizione) ma la descrizione è **379
+   caratteri senza nessun titolo di sezione** — e il tema costruisce una tab per
+   ogni titolo, quindi in inglese la pagina è un paragrafo unico. Traduciamo il
+   testo, non la scheda composta.
+2. **Le schede importate non sono tradotte affatto.** «Bouquet Cherry» su
+   deluxyflowers.com/en: **nessuna traduzione registrata**, pur avendo il
+   negozio `en` e `fr` attivi. Le tab si vedono, ma in italiano. Traduciamo solo
+   quello che nasce dal modulo; per lo storico non c'è un comando.
+
+Strumento per rifare la misura: `scripts/controlla-traduzioni.ts`.
+
+### Chiesto dall'utente e NON ancora cominciato
+
+1. **Ordinamenti**: vedere l'ordinamento sia in elenco sia **in griglia**, e
+   **drag & drop** per spostare, soprattutto in griglia.
+2. **Immagini diverse per negozio**: in creazione e modifica, un flag che —
+   scelto il negozio — permetta di caricare foto diverse per quel sito.
+3. Le due traduzioni qui sopra.
+
+### Strumenti nuovi (tutti di sola lettura tranne dove detto)
+
+`controlla-pubblicazione.ts` · `prova-canali.ts` · `conta-non-in-vetrina.ts` ·
+`pubblica-in-vetrina.ts` (`--prova`) · `prova-partner-piattaforma.ts` ·
+`controlla-traduzioni.ts` · `prova-lettura-piattaforma.ts` ·
+`recupera-dalla-piattaforma.ts` (scrive).
+
+
 ## 🔴 11/09/2026 sera — PUNTO DI RIPRESA (leggere prima di tutto)
 
 ✅ **PUBBLICATO** (utente: «fai push & deploy di tutte le app coinvolte»).
