@@ -191,6 +191,15 @@ export type PartnerDallaPiattaforma = {
   citta: string;
   province: string[];
   servizi: string[];
+  /**
+   * ⭐ 11/09/2026 (utente: «l'indirizzo del partner c'è su app delivery, come
+   * il resto: fattelo passare»). Vero: nel loro schema il partner ha
+   * `address` — è la rotta che non lo seleziona. Qui il campo è **facoltativo**
+   * apposta: il giorno in cui lo aggiungono al canale app entra da solo, senza
+   * toccare nulla da questa parte. Finché non arriva è `undefined`, e si ripiega
+   * sulla città dicendolo.
+   */
+  indirizzo?: string | null;
 };
 
 /** Tutti i partner attivi della piattaforma. Vuoto se non è configurata. */

@@ -181,6 +181,62 @@ Da cui, campo per campo:
 Finché non ci sono, qui non si inventano: i campi restano vuoti e il recupero lo
 dice invece di riempirli a occhio.
 
+### Il codice pronto, con i nomi veri del loro schema (11/09/2026)
+
+L'utente: «l'indirizzo del partner c'è su app delivery, come il resto: fattelo
+passare». **Ha ragione, ed è verificato nel loro schema** — non è un campo da
+inventare, è un campo che la rotta non seleziona:
+
+- `Partner.address String?` e `Partner.city String?` (più `latitude`,
+  `longitude`, `phone`) — `api/prisma/schema.prisma`, modello `Partner`
+- `Partner.openingHours OpeningHour[]` — gli orari di apertura ci sono
+- `Product.prepDays Int? // giorni di preparazione` — e anche
+  `ProductVariant.prepDays`
+
+La rotta sta in `api/src/app-api/app-api.module.ts`, nel metodo che risponde a
+`/app/partner`: oggi la `select` prende `id, insegna, city, provinces, services`
+e basta. **Due righe:**
+
+```ts
+      select: {
+        id: true,
+        insegna: true,
+        city: true,
+        address: true,            // ⬅ aggiungere
+        provinces: { select: { province: { select: { code: true } } } },
+        services: { select: { serviceTypeId: true } },
+      },
+    });
+    return righe.map((p) => ({
+      id: p.id,
+      insegna: p.insegna,
+      citta: p.city ?? '',
+      indirizzo: p.address ?? '', // ⬅ aggiungere
+      province: p.provinces.map((x) => x.province.code),
+      servizi: p.services.map((s) => s.serviceTypeId),
+    }));
+```
+
+**Da questa parte è già pronto**: `PartnerDallaPiattaforma.indirizzo` è
+facoltativo, e `campiDelPartner` usa **l'indirizzo se c'è, la città solo come
+ripiego — dicendolo**. Il giorno in cui la rotta lo manda, entra da solo: qui
+non va toccato niente.
+
+Restano, con gli stessi nomi veri:
+
+1. **`city` da riempire**: valorizzata su 13 partner su 126. L'indirizzo senza
+   città vale a metà.
+2. **Orari di apertura** in `/app/partner` (da `openingHours`), **oppure** —
+   più semplice e più utile — `minimoOrario` e `giorniMinimi` direttamente
+   dentro `/app/prodotti`: di là il numero esiste già, è lo stesso che il cron
+   della disponibilità scrive su Shopify.
+3. **`prepDays`** dentro `/app/prodotti` (e sulle varianti, dove c'è).
+
+⚠️ Una volta che arrivano, **non si mappano a occhio su un campo del negozio**:
+si fa come per le province, guardando che cosa i siti scrivono davvero sulle
+schede vive. Inventare il valore di un metafield vuol dire scrivere sul sito una
+cosa che il tema non sa leggere.
+
 ## 3. Che cosa manca DALLA PARTE DELLA PIATTAFORMA
 
 Due cose, e nessuna delle due si può fare da questa cartella (regola 4 del

@@ -41,7 +41,18 @@ async function campiDelPartner(
   const suo = elenco.partner.find((x) => x.id === partnerId);
   if (!suo) return { scritti, detto: ["il partner di questo prodotto non è fra quelli attivi della piattaforma"] };
 
-  if (!metafield["custom.partner_address"] && suo.citta) scritti["custom.partner_address"] = suo.citta;
+  // ⭐ 11/09/2026: **l'indirizzo vero se c'è, la città solo come ripiego** — e
+  // si dice quale dei due si è usato. Il campo si chiama «Indirizzo del
+  // partner»: scriverci il nome della città è un ripiego, non la risposta, e
+  // chi legge la scheda deve sapere quale delle due sta guardando.
+  const indirizzo = (suo.indirizzo ?? "").trim();
+  if (!metafield["custom.partner_address"]) {
+    if (indirizzo) scritti["custom.partner_address"] = indirizzo;
+    else if (suo.citta) {
+      scritti["custom.partner_address"] = suo.citta;
+      detto.push("l'indirizzo del partner non è nella lettura della piattaforma: ho messo la città come ripiego");
+    }
+  }
   if (!metafield["custom.citta"] && suo.citta) scritti["custom.citta"] = JSON.stringify([suo.citta]);
   if (!metafield["custom.nations_availability"] && suo.province?.length) {
     const { valore, fuori } = componiProvince(suo.province, await vociPerSigla());
