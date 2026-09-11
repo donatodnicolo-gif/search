@@ -2,6 +2,104 @@
 
 Stato all'11/09/2026. Una nuova sessione deve poter riprendere da qui senza contesto.
 
+## 🔴 11/09/2026 notte — TERZO GIRO: le tre cose chieste, fatte
+
+Le tre che l'utente aveva chiesto e che non erano cominciate («**Fai tutto**»).
+Committate; **non ancora pubblicate** (il deploy si fa quando lo chiede).
+
+### 1. Ordinamenti: elenco, griglia e **trascinamento**
+
+Elenco e griglia c'erano già (`/visual/<id>?vista=griglia`). Mancava il
+trascinamento, ed era la metà che serviva: spostare una scheda dal fondo
+all'inizio con le frecce vuol dire cinquanta clic.
+
+`src/components/FilaProdotti.tsx` è diventato un componente del browser
+(`"use client"`): l'ordine si vede cambiare mentre si tiene premuto, e quando
+si molla si salva da sé. Frecce, caselle e «alla posizione» restano dov'erano —
+servono da tastiera, sul telefono (dove il trascinamento HTML non esiste) e
+quando il prodotto sta fuori dalla pagina.
+
+Il salvataggio è `riordinaCollezione` in `src/lib/azioni-vetrina-shopify.ts`.
+⚠️ **Manda la sequenza, non «chi è andato dove»**, e riscrive **solo le
+posizioni che i prodotti a schermo occupavano**: la fila è tagliata a un
+massimo, e riscrivere tutta la collezione coi soli visibili avrebbe buttato via
+la coda. Provato sul vero (30 prodotti, sottoinsieme di 3): l'ordine mandato
+arriva identico, la coda non si muove, e rimettendo l'ordine di prima si torna
+al punto di partenza.
+
+### 2. Foto diverse per negozio, dietro una spunta
+
+Nel modulo (creazione e modifica), **con due o più siti scelti**, compare
+«Foto diverse per sito». Spenta — il caso normale — non cambia niente. Accesa,
+la galleria si apre a riquadri: «Per tutti i siti» e uno per negozio; quello che
+si carica col riquadro di un sito aperto vale **solo per quel sito**, e ogni
+foto si sposta fra «tutti» e un sito con una tendina, senza ricaricarla.
+
+⚠️ Il riquadro di un sito **mostra anche le foto comuni**: quello che quel sito
+riceve davvero è comuni + sue, in quest'ordine, ed è l'unico elenco in cui
+«principale» vuol dire la stessa cosa che vedrà il cliente.
+
+Sotto: colonna nuova `MediaProdotto.per` (vuoto = vale per tutti; diverso da
+`negozio`, che dice dove il file è **ospitato**). Applicata con `prisma db push`
+— una sola `ALTER TABLE … ADD COLUMN "per" TEXT`, additiva, verificata prima con
+`prisma migrate diff`. Spegnendo la spunta le serie separate **non si buttano**:
+tornano comuni.
+
+### 3. Traduzioni: tutti e due i difetti, corretti e verificati
+
+**(a) La traduzione perdeva i titoli delle sezioni.** Causa: si mandava al
+modello il **testo semplice** (`prodotto.descrizione`, o l'HTML con i tag tolti
+a forza di `replace`), e quello che tornava finiva in `body_html` con gli a capo
+trasformati in `<br>`. Il tema costruisce **una tab per ogni `<h6>`**: senza
+titoli, nessuna tab.
+
+Misura prima di scrivere una riga (`scripts/conta-traduzioni-mancanti.ts`):
+**307 schede attive** sui quattro negozi avevano l'inglese piatto mentre
+l'italiano ha i titoli — 150 Business Deluxy, 109 Gifts, 47 Cake, 1 Flowers.
+Non un caso limite: metà catalogo di un negozio.
+
+Correzione (`src/lib/traduzione-html.ts`): **i tag non si traducono affatto**.
+L'HTML si taglia in pezzi di testo, al modello vanno solo quelli, e si rimettono
+al loro posto. Il modello non vede un tag, quindi non può perderlo; e se rende
+un numero di pezzi diverso da quello mandato, quella lingua **perde la
+descrizione e si dice** invece di scrivere una scheda sfasata sul negozio.
+`traduciSchedaHtml` in `ai-traduzioni.ts`; `registraTraduzioniProdotto` non
+mette più `<br>` in una descrizione che è già HTML.
+
+Verificato sul vero: «Cheesecake» (Cake) riparata — l'inglese ha `<h6>Features`,
+`<h6>Customization`, `<h6>Ingredients and Allergens`, elenchi compresi.
+
+**(b) Le schede importate non erano tradotte affatto.** Qui la diagnosi di ieri
+era **incompleta**: il rastrello notturno esisteva già (`/api/cron/traduzioni`,
+04:40). Contando: **due sole** schede su 1.838 attive erano senza traduzione —
+«Bouquet Cherry» (creata alle 13:03 di oggi, dopo il giro della notte) e «Torta
+Damianoooo». Non mancava il meccanismo: mancava **il modo di dire «questa,
+adesso»**, e il rastrello non si accorgeva delle traduzioni sbagliate.
+
+Due aggiunte:
+- tasto **«🌐 Traduci ora sui negozi»** sulla scheda prodotto
+  (`src/lib/azioni-traduzioni.ts`): rilegge la scheda **dal negozio** — quella
+  che vede il cliente, non il nostro campo — e la riscrive nelle lingue che quel
+  negozio ha davvero attive;
+- il **rastrello notturno ripassa anche sulle traduzioni piatte**, non solo su
+  quelle mancanti (`daRiparare` nel suo esito), e c'è
+  `scripts/ripara-traduzioni-piatte.ts` per non aspettare otto notti.
+
+⭐ Due rifiniture nate dalla prova: il modello traduceva il **nome del
+prodotto** («Bouquet Cherry» → «Bouquet de cerises») e ogni tanto rendeva **una
+lingua su due** senza dirlo. Ora il titolo è dichiarato nome commerciale, e le
+lingue mancanti si richiedono una seconda volta; se ancora mancano, si dicono.
+
+Fatto intanto sui prodotti veri delle due segnalazioni: «Bouquet Cherry» (en+fr,
+titolo intatto), «007», «Cheesecake». **Restano ~305 schede piatte** da riparare
+col comando o col cron.
+
+### Da fare
+
+- `npx tsx scripts/ripara-traduzioni-piatte.ts --applica` a lotti sui quattro
+  negozi (spende in AI: decidere il ritmo).
+- **Push e deploy**: non fatti, in attesa di richiesta.
+
 ## 🔴 11/09/2026 tarda sera — SECONDO GIRO (tutto pubblicato)
 
 Deploy **`px42uvwwt`** (l'ultimo), prima `2oknivq7m`; origin/`scout-ui` a `d9acceae`.

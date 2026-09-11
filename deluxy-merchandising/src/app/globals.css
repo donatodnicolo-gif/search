@@ -565,6 +565,17 @@ tr.riga-cliccabile:hover, li.riga-cliccabile:hover { background: var(--fill); cu
 .media-voce .media-nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .media-voce.fallito { outline: 1px solid var(--red); }
 .media-voce .icon-btn { position: absolute; top: 2px; right: 2px; background: var(--surface); }
+/* ⭐ 11/09/2026: le foto diverse per sito. La spunta e i riquadri stanno
+   sopra la galleria, perché decidono **cosa** si sta guardando: metterli sotto
+   vorrebbe dire scoprire dopo aver caricato che la foto è finita nel posto
+   sbagliato. */
+.foto-per-sito { margin: 0 0 12px; }
+.riga-spunta { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.riga-spunta input { width: 16px; height: 16px; cursor: pointer; }
+.riquadri-sito { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.riquadri-sito .btn { padding: 5px 12px; font-size: 12.5px; }
+.riquadri-sito .btn.attivo { border-color: var(--gold, #B8963E); color: var(--text); font-weight: 600; }
+.media-voce .media-per { width: 108px; font-size: 11px; padding: 2px 4px; }
 
 /* Campi del negozio (metafield) nel modulo prodotto. */
 .mf-chiave { margin-left: 8px; font-size: 10.5px; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--text-tertiary); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
@@ -1023,6 +1034,37 @@ details.conferma-x[open] > summary { color: var(--orange, #C2721B); }
 .vetrina-card .vetrina-info { display: block; min-width: 0; }
 .vetrina-card .cella-nome { font-size: 13px; line-height: 1.25; display: block; }
 .vetrina-card .vetrina-azioni { display: flex; gap: 4px; justify-content: flex-end; }
+
+/* **Il trascinamento.** L'ordine di una vetrina si decide guardandola, e
+   spostare con le frecce una scheda dal fondo all'inizio vuol dire cinquanta
+   clic. Il cursore a manina dice che la scheda si prende; mentre è in mano
+   sbiadisce, così si vede il buco che lascia e dove sta andando. */
+.vetrina-presa { cursor: grab; }
+.vetrina-presa:active { cursor: grabbing; }
+.vetrina-in-mano { opacity: 0.38; outline: 2px dashed var(--gold, #B8963E); outline-offset: 2px; }
+/* La maniglia è il segnale che il trascinamento esiste: senza, nessuno prova. */
+.maniglia {
+  color: var(--text-tertiary);
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: grab;
+  user-select: none;
+}
+.fila-avviso {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 10px;
+}
+.fila-stato {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #6e6e73);
+  white-space: nowrap;
+}
+.fila-stato-ok { color: var(--green, #2e9e5b); }
 
 /* La griglia dei prodotti da aggiungere: stessa forma della vetrina, così si
    sceglie guardando le stesse immagini che poi si vedranno in fila. */

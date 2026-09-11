@@ -1009,3 +1009,30 @@ cd deluxy-merchandising && npx tsx scripts/classifica-da-tipo.ts
 
 - **Serve**: `DATABASE_URL` (+ `DIRECT_URL`) nell'`.env` dell'app
 - **Nota**: le famiglie sono **scritte nel file, decise da una persona** — spostare un tipo è cambiare una parola e rilanciare. Non sovrascrive chi è già stato classificato a mano, e i tipi senza famiglia vengono elencati invece di restare indietro in silenzio
+
+### conta-traduzioni-mancanti.ts — deluxy-merchandising
+**Conta le schede senza traduzione e quelle tradotte male.** Non scrive niente. Distingue due difetti che sembrano lo stesso: la scheda che in inglese è ancora in italiano (traduzione assente) e quella tradotta ma **piatta** — l'italiano ha i titoli di sezione, la traduzione no, e il tema di Shopify costruisce una tab per ogni titolo, quindi in inglese la pagina è un paragrafo unico.
+
+```bash
+# tutti i negozi
+cd deluxy-merchandising && npx tsx scripts/conta-traduzioni-mancanti.ts
+# uno solo
+cd deluxy-merchandising && npx tsx scripts/conta-traduzioni-mancanti.ts Cake
+```
+
+- **Serve**: `DATABASE_URL` (+ `DIRECT_URL`) nell'`.env` dell'app, e i token dei negozi collegati in Impostazioni
+- **Misura dell'11/09/2026**: 307 schede attive coi titoli in italiano e la traduzione piatta (150 Business Deluxy, 109 Gifts, 47 Cake, 1 Flowers); solo 2 senza nessuna traduzione
+
+### ripara-traduzioni-piatte.ts — deluxy-merchandising
+**Rifà le traduzioni che hanno perso i titoli delle sezioni** (quelle contate qui sopra). Traduce l'HTML tenendo i tag al loro posto, quindi le tab tornano. Il rastrello notturno (`/api/cron/traduzioni`) adesso le riprende da solo, ma a venti per negozio per notte: questo è il giro a mano per non aspettare.
+
+```bash
+# prova a secco: dice quante sono, non chiama l'AI e non scrive
+cd deluxy-merchandising && npx tsx scripts/ripara-traduzioni-piatte.ts
+cd deluxy-merchandising && npx tsx scripts/ripara-traduzioni-piatte.ts Cake --max=10
+# scrive davvero sul negozio (spende in AI)
+cd deluxy-merchandising && npx tsx scripts/ripara-traduzioni-piatte.ts Cake --max=10 --applica
+```
+
+- **Serve**: `DATABASE_URL`, `OPENAI_API_KEY`, token dei negozi con `write_translations`
+- **Attenzione**: senza `--applica` non fa niente; `--max` vale **per negozio**

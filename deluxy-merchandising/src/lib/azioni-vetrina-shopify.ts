@@ -431,3 +431,50 @@ export async function aggiungiProdottiACollezione(collezioneId: string, fd: Form
   revalidatePath(`/visual/${collezioneId}`);
   revalidatePath(`/collezioni/shopify/${collezioneId}`);
 }
+
+/**
+ * **L'ordine trascinato a mano**, dalla griglia o dall'elenco.
+ *
+ * Il browser manda solo i prodotti **che sono a schermo** (la fila è tagliata a
+ * un massimo): qui dentro non si riscrive tutta la collezione con quei pochi,
+ * si **rimettono quegli stessi id nelle posizioni che occupavano**. Così un
+ * trascinamento fra i primi cento non scavalca né perde i duecento che seguono,
+ * e non tocca gli archiviati che stanno in mezzo nel database ma non a schermo.
+ *
+ * Riceve l'ordine nuovo e non «chi è andato dove»: un trascinamento è una
+ * sequenza, e mandare la sequenza intera è l'unico modo di essere sicuri che
+ * quello che si vede e quello che si salva siano la stessa cosa.
+ */
+export async function riordinaCollezione(collezioneId: string, ordineVisibile: string[]) {
+  const visibili = ordineVisibile.map((s) => String(s ?? "").trim()).filter(Boolean);
+  if (visibili.length < 2) return;
+
+  const membri = await prisma.prodottoInCollezioneShopify.findMany({
+    where: { collezioneId, prodotto: FILTRO_IN_SCENA },
+    orderBy: [{ posizione: "asc" }, { prodotto: { nome: "asc" } }],
+    select: { prodottoId: true },
+  });
+  const ordine = membri.map((m) => m.prodottoId);
+
+  // Le caselle da riempire sono quelle che i prodotti trascinati occupavano.
+  const insieme = new Set(visibili);
+  const caselle: number[] = [];
+  ordine.forEach((pid, i) => {
+    if (insieme.has(pid)) caselle.push(i);
+  });
+  // Se qualcuno nel frattempo è uscito dalla collezione, le caselle sono meno
+  // degli id arrivati: si tengono solo quelli ancora membri, nell'ordine nuovo.
+  const nuovi = visibili.filter((pid) => ordine.includes(pid));
+  if (caselle.length !== nuovi.length) return;
+  caselle.forEach((casella, k) => {
+    ordine[casella] = nuovi[k];
+  });
+
+  await numeraPosizioni(collezioneId, ordine);
+  await prisma.collezioneShopify.update({
+    where: { id: collezioneId },
+    data: { ordineModificatoIl: new Date() },
+  });
+  revalidatePath(`/visual/${collezioneId}`);
+  revalidatePath(`/collezioni/shopify/${collezioneId}`);
+}

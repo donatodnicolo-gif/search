@@ -23,7 +23,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { traduciScheda } from "./ai-traduzioni";
+import { traduciSchedaHtml } from "./ai-traduzioni";
 import { TIPOLOGIE_VENDITA, etichettaCategoria } from "./dominio";
 import { prisma } from "./db";
 import { giornoRoma, isoGiornoValido, mezzanotteRomaDi } from "./fuso";
@@ -77,7 +77,14 @@ type MediaDalForm = {
   anteprima: string | null;
   stato: "pronto" | "in-elaborazione" | "fallito";
   nome: string;
+  /** Il negozio che OSPITA il file (Files di Shopify): un id di file vale solo lì. */
   negozio: string;
+  /**
+   * ⭐ 11/09/2026 (chiesto dall'utente): il negozio **per cui** vale la foto.
+   * Vuoto = vale per tutti i siti, ed è il caso normale. Serve quando lo stesso
+   * prodotto va su più negozi con immagini diverse — marchio, taglio, sfondo.
+   */
+  per?: string | null;
 };
 type VarianteDalForm = { nome: string; sku: string | null; prezzo: string; costo: string; giacenza: string; prezzoPartner?: string; note?: string };
 const partnerDa = (v: string | undefined): number | null => (v && v.trim() ? soldiDa(v) : null);
@@ -200,7 +207,12 @@ async function leggiModulo(fd: FormData, indietro: (e: string) => never) {
   if (collezioni.length !== collezioniId.length) indietro("Una delle collezioni scelte non esiste più: rifai l'import o scegline un'altra.");
   if (collezioni.some((c) => !negoziScelti.has(c.negozio))) indietro("Una delle collezioni scelte è di un negozio in cui il prodotto non si pubblica.");
 
-  const media = leggiJson<MediaDalForm[]>(fd, "mediaJson", []).filter((m) => m && m.shopifyFileId && m.stato !== "fallito" && m.negozio === negozioOk.nome);
+  // ⚠️ Una foto «per» un negozio che non è più fra quelli scelti non è di
+  // nessuno: si scarta qui invece di finire su tutti i siti per distrazione.
+  const media = leggiJson<MediaDalForm[]>(fd, "mediaJson", [])
+    .filter((m) => m && m.shopifyFileId && m.stato !== "fallito" && m.negozio === negozioOk.nome)
+    .filter((m) => !m.per || negoziScelti.has(m.per))
+    .map((m) => ({ ...m, per: m.per || null }));
   const variantiForm = leggiJson<VarianteDalForm[]>(fd, "variantiJson", []).filter((v) => v && v.nome?.trim());
   const nomeOpzione = testo(fd, "nomeOpzione") || "Formato";
   const controllaStock = fd.get("controllaStock") != null;
@@ -399,10 +411,31 @@ function prezzoBaseDa(m: Modulo, varianti: { prezzo: number }[]): number {
 }
 
 /** Le traduzioni si fanno UNA volta e si scrivono su ogni negozio: la cache passa di mano in mano. */
-type CacheTraduzioni = { valore?: Awaited<ReturnType<typeof traduciScheda>> };
-async function traduzioniDi(m: Modulo, cache: CacheTraduzioni) {
-  if (!cache.valore) cache.valore = await traduciScheda({ titolo: m.nome, descrizione: m.descrizione ?? "" });
-  return cache.valore;
+type EsitoTradotto = Awaited<ReturnType<typeof traduciSchedaHtml>>;
+type CacheTraduzioni = { perScheda?: Map<string, EsitoTradotto> };
+
+/**
+ * ⚠️⚠️ 11/09/2026 — **si traduce la scheda composta, non il campo descrizione.**
+ * Segnalazione dell'utente con la schermata: l'inglese di una torta su
+ * cakedesign.me è un paragrafo unico. Qui si mandava `m.descrizione`, cioè il
+ * testo libero: la scheda che va sul negozio invece è l'HTML di
+ * `descrizionePerNegozio`, coi `<h6>` da cui il tema costruisce le tab. Il
+ * cliente italiano vedeva cinque tab, quello inglese un muro di testo.
+ * Misurato: **307 schede attive** sui quattro negozi erano così.
+ *
+ * La cache resta, ma la chiave è **la scheda**: due negozi con la stessa
+ * descrizione composta pagano una chiamata sola, due negozi con sezioni
+ * diverse ne pagano due — perché sono due schede diverse.
+ */
+async function traduzioniDi(m: Modulo, cache: CacheTraduzioni, nomeNegozio: string) {
+  const html = await descrizionePerNegozio(m, nomeNegozio);
+  const mappa = (cache.perScheda ??= new Map<string, EsitoTradotto>());
+  const chiave = `${m.nome} ${html}`;
+  const gia = mappa.get(chiave);
+  if (gia) return gia;
+  const fatto = await traduciSchedaHtml({ titolo: m.nome, html });
+  mappa.set(chiave, fatto);
+  return fatto;
 }
 
 // **Gli INDIRIZZI delle foto, per gli altri negozi.**
@@ -427,6 +460,21 @@ async function traduzioniDi(m: Modulo, cache: CacheTraduzioni) {
 // prende l'indirizzo; se proprio non arriva si usa l'anteprima, che c'è già
 // durante l'elaborazione. E se non c'è nemmeno quella **si dice**: una scheda
 // senza foto su un negozio si vede subito, ma solo se qualcuno la guarda.
+/** Per la miniatura del catalogo: le comuni prima, poi quelle del principale. */
+function fotoComuniPrime(media: MediaDalForm[], nomePrincipale: string): MediaDalForm[] {
+  const foto = media.filter((x) => x.tipo === "immagine" && x.url);
+  return [...foto.filter((x) => !x.per), ...foto.filter((x) => x.per === nomePrincipale)];
+}
+
+/**
+ * Le foto che valgono **per un negozio**: quelle comuni più quelle marcate per
+ * lui. Con la spunta «foto diverse per sito» spenta il marchio non c'è e questo
+ * torna tutto, come prima.
+ */
+function fotoPerNegozio(media: MediaDalForm[], nomeNegozio: string): MediaDalForm[] {
+  return media.filter((x) => !x.per || x.per === nomeNegozio);
+}
+
 async function indirizziFoto(
   media: MediaDalForm[],
   negozioId: string,
@@ -479,7 +527,9 @@ async function completaSulNegozio(
   // quindi possono stare nei Files di un negozio diverso da questo. Quelle si
   // agganciano per **indirizzo** alla creazione, non per id: passarle qui
   // farebbe fallire l'aggancio di tutto il lotto, comprese le foto giuste.
-  const suoi = media.filter((x) => x.negozio === nomeNegozio);
+  // E **solo le foto di questo negozio**: con le serie separate accese, quelle
+  // marcate per un altro sito non devono comparire qui.
+  const suoi = media.filter((x) => x.negozio === nomeNegozio && (!x.per || x.per === nomeNegozio));
   if (suoi.length) {
     const r = await agganciaFileAlProdotto(negozioToken, suoi.map((x) => x.shopifyFileId), shopifyId);
     if (r.ok) cronaca.push(`${suoi.length} file agganciati al prodotto.`);
@@ -499,9 +549,10 @@ async function completaSulNegozio(
   // ⚠️ Si traduce **su questo negozio** solo se la sua spunta è accesa: le
   // lingue sono sue, e chi non le ha non deve pagare una chiamata all'AI.
   if (m.traduci && (m.traduciSu.size === 0 || m.traduciSu.has(m.negozio.nome))) {
-    const t = await traduzioniDi(m, traduzioni);
+    const t = await traduzioniDi(m, traduzioni, nomeNegozio);
     if (!t.ok) avvisi.push(`Traduzioni non fatte: ${t.errore}`);
     else {
+      if (t.avvisi?.length) avvisi.push(...t.avvisi);
       const r = await registraTraduzioniProdotto(negozioToken, shopifyId, t.traduzioni);
       if (r.scritte > 0) cronaca.push(`Traduzioni scritte sul negozio: ${r.scritte} voci.`);
       if (r.errori.length) avvisi.push(`Traduzioni rifiutate: ${r.errori.join(" · ")}`);
@@ -598,8 +649,9 @@ async function pubblicaSuAltroNegozio(
   // ⚠️ Si traduce **su questo negozio** solo se la sua spunta è accesa: le
   // lingue sono sue, e chi non le ha non deve pagare una chiamata all'AI.
   if (m.traduci && (m.traduciSu.size === 0 || m.traduciSu.has(negozio.nome))) {
-    const t = await traduzioniDi(m, traduzioni);
+    const t = await traduzioniDi(m, traduzioni, negozio.nome);
     if (t.ok) {
+      if (t.avvisi?.length) avvisi.push(...t.avvisi.map((x) => `${negozio.nome}: ${x}`));
       const r = await registraTraduzioniProdotto(token, esito.prodottoId, t.traduzioni);
       if (r.scritte > 0) cronaca.push(`${negozio.nome}: traduzioni scritte, ${r.scritte} voci.`);
       if (r.errori.length) avvisi.push(`${negozio.nome}: traduzioni rifiutate: ${r.errori.join(" · ")}`);
@@ -752,11 +804,17 @@ async function creaProdotto(fd: FormData, indietro: (e: string) => never, origin
     const stato = statoPerShopify(m.fase, m.finestraAperta);
     // Prodotto appena nato: le uniche foto sono quelle appena caricate nel
     // modulo, non c'e' ancora una scheda da cui ripescarne una.
-    const immaginiUrl = await indirizziFoto(m.media, m.negozio.id, null, cronaca, avvisi);
-    for (const n of m.altriNegozi) altri.push(await pubblicaSuAltroNegozio(m, n, { codice, varianti, prezzoBase, stato, immagini: immaginiUrl }, traduzioni, cronaca, avvisi));
+    // Un elenco per negozio: chi ha una serie sua riceve la sua, gli altri le
+    // comuni. Il file sta comunque nei Files del principale e si passa per URL.
+    for (const n of m.altriNegozi) {
+      const immaginiUrl = await indirizziFoto(fotoPerNegozio(m.media, n.nome), m.negozio.id, null, cronaca, avvisi);
+      altri.push(await pubblicaSuAltroNegozio(m, n, { codice, varianti, prezzoBase, stato, immagini: immaginiUrl }, traduzioni, cronaca, avvisi));
+    }
   }
 
-  const immagini = m.media.filter((x) => x.tipo === "immagine" && x.url);
+  // La miniatura del catalogo è una sola: si preferisce una foto **comune** —
+  // quella di un singolo sito rappresenta il prodotto meno bene.
+  const immagini = fotoComuniPrime(m.media, m.negozio.nome);
   const p = await prisma.prodotto.create({
     data: {
       codice,
@@ -798,7 +856,7 @@ async function creaProdotto(fd: FormData, indietro: (e: string) => never, origin
         ? { create: varianti.map((v, posizione) => ({ nome: v.nome, sku: v.sku, deltaPrezzo: (v.prezzo || prezzoBase) - prezzoBase, deltaCosto: v.costo ? v.costo - m.costo : 0, prezzoPartner: v.prezzoPartner, giacenza: v.giacenza, note: v.note || null, ordine: posizione })) }
         : undefined,
       media: m.media.length
-        ? { create: m.media.map((x, i) => ({ tipo: x.tipo, url: x.url, anteprima: x.anteprima, shopifyFileId: x.shopifyFileId, negozio: x.negozio, nome: x.nome, stato: x.stato, ordine: i })) }
+        ? { create: m.media.map((x, i) => ({ tipo: x.tipo, url: x.url, anteprima: x.anteprima, shopifyFileId: x.shopifyFileId, negozio: x.negozio, per: x.per ?? null, nome: x.nome, stato: x.stato, ordine: i })) }
         : undefined,
       // ⭐ 10/09/2026: i componenti del multiprodotto.
       componenti: m.componenti.length ? { create: m.componenti.map((c) => ({ componenteId: c.id, quantita: c.quantita })) } : undefined,
@@ -1013,7 +1071,8 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
   // prodotti arrivati dall'import non ci sono mai passati. Partendo dai soli
   // `media`, l'elenco delle foto era vuoto per quasi tutti, e la scheda
   // nasceva nuda sull'altro negozio: da lì la foto di scorta.
-  const immaginiUrl = await indirizziFoto(m.media, m.negozio.id, immagineDelProdotto, cronaca, avvisi);
+  // Si calcola dentro il giro, negozio per negozio: con le serie separate
+  // accese due siti non ricevono le stesse foto.
   for (const n of m.altriNegozi) {
     const riga = prima.pubblicazioni.find((r) => r.negozio === n.nome);
     if (riga?.shopifyId) {
@@ -1072,6 +1131,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
       });
     } else if (vuolePubblico) {
       const stato = statoPerShopify(m.fase, m.finestraAperta);
+      const immaginiUrl = await indirizziFoto(fotoPerNegozio(m.media, n.nome), m.negozio.id, immagineDelProdotto, cronaca, avvisi);
       altri.push(await pubblicaSuAltroNegozio(m, n, { codice, varianti, prezzoBase, stato, immagini: immaginiUrl }, traduzioni, cronaca, avvisi));
     }
   }
@@ -1099,7 +1159,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
   }
 
   // ---- Qui ----
-  const immagini = m.media.filter((x) => x.tipo === "immagine" && x.url);
+  const immagini = fotoComuniPrime(m.media, m.negozio.nome);
   await prisma.$transaction(async (tx) => {
     await tx.prodotto.update({
       where: { id },
@@ -1165,7 +1225,7 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
     if (mediaNuovi.length) {
       const base = prima.media.length;
       await tx.mediaProdotto.createMany({
-        data: mediaNuovi.map((x, i) => ({ prodottoId: id, tipo: x.tipo, url: x.url, anteprima: x.anteprima, shopifyFileId: x.shopifyFileId, negozio: x.negozio, nome: x.nome, stato: x.stato, ordine: base + i })),
+        data: mediaNuovi.map((x, i) => ({ prodottoId: id, tipo: x.tipo, url: x.url, anteprima: x.anteprima, shopifyFileId: x.shopifyFileId, negozio: x.negozio, per: x.per ?? null, nome: x.nome, stato: x.stato, ordine: base + i })),
       });
     }
     if (mediaTolti.length) await tx.mediaProdotto.deleteMany({ where: { id: { in: mediaTolti.map((y) => y.id) } } });

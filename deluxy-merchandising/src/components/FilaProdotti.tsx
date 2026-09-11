@@ -1,8 +1,12 @@
+"use client";
+
+import { useRef, useState, useTransition } from "react";
 import { euro } from "@/lib/dominio";
 import { SelezionaTutti } from "./SelezionaTutti";
 import {
   rimuoviProdottoDaCollezione,
   rimuoviSceltiDaCollezione,
+  riordinaCollezione,
   spostaInCollezione,
   spostaSceltiInCollezione,
 } from "@/lib/azioni-vetrina-shopify";
@@ -23,8 +27,9 @@ export type RigaFila = {
 };
 
 /**
- * **La fila dei prodotti di una collezione**: si spostano uno per uno con le
- * frecce, oppure **a gruppi** con le caselle e le azioni in blocco.
+ * **La fila dei prodotti di una collezione**: si spostano **trascinandoli**,
+ * uno per uno con le frecce, oppure **a gruppi** con le caselle e le azioni in
+ * blocco.
  *
  * Con sessanta righe spostarne dieci una alla volta vuol dire un centinaio di
  * clic: le caselle esistono per quello. La barra sta **in cima e in fondo**
@@ -42,6 +47,12 @@ export type RigaFila = {
  *
  * **Niente navigazione**: tutte le azioni sono server action senza `redirect`,
  * quindi React riscrive l'elenco in posto e lo scorrimento resta dov'era.
+ *
+ * **Perché è un componente del browser.** Il trascinamento è l'unico pezzo che
+ * chiede JavaScript: l'ordine si vede cambiare mentre si tiene premuto, e solo
+ * quando si molla si scrive sul database. Le frecce e le azioni in blocco
+ * restano dov'erano — servono da tastiera, sul telefono (dove il trascinamento
+ * HTML non esiste) e quando il prodotto da spostare sta fuori dalla pagina.
  */
 export function FilaProdotti({
   collezioneId,
@@ -67,22 +78,117 @@ export function FilaProdotti({
 }) {
   const quanti = totale ?? righe.length;
   const aGriglia = vista === "griglia";
+
+  // ── Il trascinamento ────────────────────────────────────────────────────────
+  // L'ordine mostrato vive qui finché si tiene premuto; il server lo riscrive
+  // appena si molla. `vivo` è la copia sempre aggiornata: `onDragEnd` arriva
+  // dopo l'ultimo `onDragOver` e deve poter leggere l'ordine finale senza
+  // aspettare che React abbia ridisegnato.
+  const [ordine, setOrdine] = useState<RigaFila[]>(righe);
+  const vivo = useRef<RigaFila[]>(righe);
+  const preso = useRef<number | null>(null);
+  const [inMano, setInMano] = useState<string | null>(null);
+  const [salvataggio, avvia] = useTransition();
+  const [esito, setEsito] = useState<string | null>(null);
+
+  // Quando il server manda una fila diversa (salvataggio finito, prodotto tolto,
+  // regola applicata) comanda lui: la copia locale si butta.
+  const chiaveServer = righe.map((r) => r.id).join(",");
+  const [chiaveVista, setChiaveVista] = useState(chiaveServer);
+  if (chiaveServer !== chiaveVista) {
+    setChiaveVista(chiaveServer);
+    setOrdine(righe);
+    vivo.current = righe;
+  }
+
+  function sistema(da: number, a: number) {
+    const c = [...vivo.current];
+    if (da < 0 || da >= c.length || a < 0 || a >= c.length) return;
+    const [x] = c.splice(da, 1);
+    c.splice(a, 0, x);
+    vivo.current = c;
+    setOrdine(c);
+  }
+
+  function molla() {
+    preso.current = null;
+    setInMano(null);
+    const nuovo = vivo.current.map((r) => r.prodottoId);
+    // Niente scrittura se si è tornati esattamente da dove si era partiti.
+    if (nuovo.join(",") === righe.map((r) => r.prodottoId).join(",")) return;
+    setEsito(null);
+    avvia(async () => {
+      await riordinaCollezione(collezioneId, nuovo);
+      setEsito("Ordine salvato");
+    });
+  }
+
+  const trascinabile = (i: number, vp: RigaFila) => ({
+    draggable: true,
+    onDragStart: (e: React.DragEvent) => {
+      preso.current = i;
+      setInMano(vp.prodottoId);
+      e.dataTransfer.effectAllowed = "move";
+      // Firefox non avvia il trascinamento senza dati nel pacchetto.
+      try {
+        e.dataTransfer.setData("text/plain", vp.prodottoId);
+      } catch {
+        /* qualche browser lo vieta fuori dal gesto: il trascinamento parte lo stesso */
+      }
+    },
+    onDragOver: (e: React.DragEvent) => {
+      if (preso.current === null) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      if (preso.current === i) return;
+      sistema(preso.current, i);
+      preso.current = i;
+    },
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      molla();
+    },
+    onDragEnd: () => molla(),
+  });
+
   return (
     <form>
       <BarraBlocco collezioneId={collezioneId} membriAMano={membriAMano} quanti={quanti} inElenco={righe.length} />
 
+      {/* Il trascinamento non si vede finché non lo si prova: va detto, insieme
+          a cosa fare quando non c'è (telefono, tastiera, prodotto fuori pagina). */}
+      <div className="fila-avviso" aria-live="polite">
+        <span className="page-sub" style={{ margin: 0 }}>
+          ⠿ Trascina {aGriglia ? "le schede" : "le righe"} per cambiare l&apos;ordine; si salva da sé quando molli. Da
+          tastiera e sul telefono restano le frecce e «alla posizione».
+        </span>
+        {salvataggio && <span className="fila-stato">Salvataggio…</span>}
+        {!salvataggio && esito && <span className="fila-stato fila-stato-ok">{esito}</span>}
+      </div>
+
       <div className={aGriglia ? "vetrina-griglia" : "vetrina-lista"}>
-        {righe.map((vp, i) => (
-          <div className={aGriglia ? "vetrina-card" : "vetrina-riga"} key={vp.id} id={`p-${vp.prodottoId}`}>
+        {ordine.map((vp, i) => (
+          <div
+            className={
+              (aGriglia ? "vetrina-card" : "vetrina-riga") +
+              " vetrina-presa" +
+              (inMano === vp.prodottoId ? " vetrina-in-mano" : "")
+            }
+            key={vp.id}
+            id={`p-${vp.prodottoId}`}
+            {...trascinabile(i, vp)}
+          >
             <label className="vetrina-scelta" title="Scegli per le azioni in blocco">
               <input type="checkbox" name="scelti" value={vp.prodottoId} />
             </label>
             <span className="vetrina-pos">{daPosizione + i + 1}</span>
             <span className={aGriglia ? "vetrina-foto" : "vetrina-mini"}>
-              {vp.prodotto.immagine ? <img src={vp.prodotto.immagine} alt="" /> : "❀"}
+              {vp.prodotto.immagine ? <img src={vp.prodotto.immagine} alt="" draggable={false} /> : "❀"}
             </span>
             <span className="vetrina-info">
-              <a href={`/prodotti/${vp.prodottoId}`} className="cella-nome">{vp.prodotto.nome}</a>
+              <a href={`/prodotti/${vp.prodottoId}`} className="cella-nome" draggable={false}>
+                {vp.prodotto.nome}
+              </a>
               {/* **Il segnaposto sta sul prodotto, non sulla posizione**: cosi'
                   spostando la riga si sposta con lei, senza doverlo rifare. */}
               {segnaManuali && vp.origine !== "regola" && (
@@ -97,6 +203,7 @@ export function FilaProdotti({
               </div>
             </span>
             <span className="vetrina-azioni">
+              <span className="maniglia" title="Trascina per spostare" aria-hidden="true">⠿</span>
               <button
                 className="icon-btn"
                 title="Sposta su"
@@ -110,7 +217,7 @@ export function FilaProdotti({
                 className="icon-btn"
                 title="Sposta giù"
                 type="submit"
-                disabled={i === righe.length - 1}
+                disabled={i === ordine.length - 1}
                 formAction={spostaInCollezione.bind(null, collezioneId, vp.prodottoId, "giu")}
               >
                 ↓

@@ -425,6 +425,11 @@ model MediaProdotto {
   anteprima     String?
   shopifyFileId String?
   negozio       String?
+  /// Il negozio **per cui** vale questa foto: vuoto = vale per tutti i siti.
+  /// Diverso da `negozio`, che dice dove il file è OSPITATO (nei Files di quel
+  /// negozio). Un prodotto pubblicato su più siti può avere una foto sola per
+  /// tutti (il caso normale) oppure una serie diversa per sito.
+  per           String?
   nome          String?
   stato         String   @default("pronto") // pronto | in-elaborazione | fallito
   ordine        Int      @default(0)

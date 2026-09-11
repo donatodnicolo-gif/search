@@ -45,7 +45,13 @@ export type MediaCaricato = {
   anteprima: string | null;
   stato: "pronto" | "in-elaborazione" | "fallito";
   nome: string;
+  /** Dove il file è OSPITATO (Files di Shopify di quel negozio). */
   negozio: string;
+  /**
+   * ⭐ 11/09/2026 (chiesto dall'utente): il sito **per cui** vale questa foto.
+   * Vuoto = vale per tutti. Si accende con la spunta «foto diverse per sito».
+   */
+  per?: string | null;
   errore?: string;
 };
 
@@ -342,6 +348,14 @@ export function FormProdottoNuovo({
   const [scrivendoSezioni, setScrivendoSezioni] = useState(false);
   const [erroreAi, setErroreAi] = useState<string | null>(null);
   const [media, setMedia] = useState<MediaCaricato[]>(iniziale?.media ?? []);
+  // ⭐ 11/09/2026 (utente): «in creazione e modifica prodotto consenti di
+  // caricare immagini differenti attraverso un flag una volta scelto il
+  // negozio». Spenta — cioè quasi sempre — non cambia niente: una serie sola
+  // per tutti i siti. Accesa, ogni sito può avere la sua, e quelle lasciate
+  // «per tutti» valgono dove non c'è una serie dedicata.
+  const [fotoPerSito, setFotoPerSito] = useState<boolean>(() => (iniziale?.media ?? []).some((m) => !!m.per));
+  /** Il riquadro aperto: "" = le foto comuni, altrimenti il nome del sito. */
+  const [sitoFoto, setSitoFoto] = useState<string>("");
   const [caricando, setCaricando] = useState(false);
   const [erroreMedia, setErroreMedia] = useState<string | null>(null);
   const [controllaStock, setControllaStock] = useState(iniziale?.controllaStock ?? false);
@@ -634,10 +648,22 @@ export function FormProdottoNuovo({
     .filter((c) => !c.negozio || c.negozio === negozio?.nome)
     .slice()
     .sort((a, b) => a.nome.localeCompare(b.nome, "it", { sensitivity: "base" }));
-  // Le foto sono del PRODOTTO, non del negozio che le ospita: si mostrano e si
-  // salvano tutte. Prima si filtravano per negozio e cambiando sito sparivano
+  // Le foto sono del PRODOTTO, non del negozio che le ospita: si **salvano**
+  // sempre tutte. Prima si filtravano per negozio e cambiando sito sparivano
   // dalla galleria — sembravano perse, ed erano solo nascoste.
-  const mediaDiQuestoNegozio = media;
+  //
+  // ⭐ 11/09/2026: con la spunta «foto diverse per sito» accesa la galleria si
+  // apre su un riquadro per volta. Un riquadro di sito **mostra anche le
+  // comuni**, e non per gentilezza: quello che quel sito riceve davvero è
+  // comuni + sue, in quest'ordine, quindi è l'unico elenco in cui «principale»
+  // vuol dire la stessa cosa che vedrà il cliente.
+  const sitoAperto = fotoPerSito && nomiNegoziScelti.includes(sitoFoto) ? sitoFoto : "";
+  const mediaDiQuestoNegozio = !fotoPerSito
+    ? media
+    : sitoAperto
+      ? media.filter((x) => !x.per || x.per === sitoAperto)
+      : media.filter((x) => !x.per);
+  const quanteFotoDi = (nome: string) => media.filter((x) => x.per === nome).length;
 
   /**
    * Accende o spegne un sito. **Se cambia il primo**, cambia il negozio
@@ -854,7 +880,10 @@ export function FormProdottoNuovo({
       setErroreMedia("Il file è stato caricato ma non so in quali Files sta: ricarica la pagina e riprova.");
       return;
     }
-    setMedia((m) => [...m, ...lista.map((x) => ({ ...x, negozio: dove }))]);
+    // Il file sta nei Files di `dove`; `per` dice invece a quale sito serve —
+    // col riquadro «per tutti» aperto, o la spunta spenta, resta vuoto.
+    const perSito = sitoAperto || null;
+    setMedia((m) => [...m, ...lista.map((x) => ({ ...x, negozio: dove, per: perSito }))]);
   }
 
   const puoPubblicare = !pubblico || ((negozio?.puoScrivere ?? false) && negoziAnche.every((n) => n.puoScrivere));
@@ -864,7 +893,10 @@ export function FormProdottoNuovo({
       {/* L'id della bozza: il salvataggio la COMPLETA invece di creare un
           secondo prodotto con lo stesso nome. */}
       {bozzaId && <input type="hidden" name="bozzaId" value={bozzaId} />}
-      <input type="hidden" name="mediaJson" value={JSON.stringify(mediaDiQuestoNegozio)} />
+      {/* ⚠️ Si manda `media`, non l'elenco filtrato: il riquadro aperto è solo
+          un modo di guardare: salvare quello che si vede vorrebbe dire buttare
+          le foto degli altri siti a ogni salvataggio. */}
+      <input type="hidden" name="mediaJson" value={JSON.stringify(media)} />
       <input type="hidden" name="negozioId" value={negozioId} />
       <input type="hidden" name="componentiJson" value={JSON.stringify(componenti.map((c) => ({ id: c.id, quantita: c.quantita })))} />
       <input type="hidden" name="negoziPubblicazioneJson" value={JSON.stringify(negoziAnche.map((n) => n.id))} />
@@ -1259,6 +1291,66 @@ export function FormProdottoNuovo({
           <b>{negozioOspite?.nome ?? "un negozio"}</b> su Shopify e alla pubblicazione arrivano su ogni sito scelto.
           La prima immagine è quella principale.
         </p>
+
+        {/* ⭐ 11/09/2026 (utente): «in creazione e modifica prodotto consenti di
+            caricare immagini differenti attraverso un flag una volta scelto il
+            negozio». La spunta compare **solo con due o più siti scelti**: con
+            un sito solo non vuol dire niente, e una spunta che non serve è una
+            domanda in più a cui rispondere ogni volta. */}
+        {nomiNegoziScelti.length > 1 && (
+          <div className="foto-per-sito">
+            <label className="riga-spunta">
+              <input
+                type="checkbox"
+                checked={fotoPerSito}
+                onChange={(e) => {
+                  const acceso = e.target.checked;
+                  setFotoPerSito(acceso);
+                  setSitoFoto("");
+                  // Spegnendola le serie separate non si buttano: tornano
+                  // **comuni**, cioè su tutti i siti. Perdere una foto per aver
+                  // tolto una spunta sarebbe un tranello.
+                  if (!acceso) setMedia((m) => m.map((x) => ({ ...x, per: null })));
+                }}
+              />
+              <span>
+                <b>Foto diverse per sito</b> — stesso prodotto, immagini diverse su ogni negozio
+              </span>
+            </label>
+            {fotoPerSito && (
+              <>
+                <div className="riquadri-sito" role="tablist" aria-label="Per quale sito">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={sitoAperto === ""}
+                    className={`btn btn-secondario${sitoAperto === "" ? " attivo" : ""}`}
+                    onClick={() => setSitoFoto("")}
+                  >
+                    Per tutti i siti ({media.filter((x) => !x.per).length})
+                  </button>
+                  {nomiNegoziScelti.map((nome) => (
+                    <button
+                      key={nome}
+                      type="button"
+                      role="tab"
+                      aria-selected={sitoAperto === nome}
+                      className={`btn btn-secondario${sitoAperto === nome ? " attivo" : ""}`}
+                      onClick={() => setSitoFoto(nome)}
+                    >
+                      {nome} ({quanteFotoDi(nome)})
+                    </button>
+                  ))}
+                </div>
+                <p className="page-sub" style={{ margin: "8px 0 0" }}>
+                  {sitoAperto
+                    ? <>Quello che carichi adesso vale <b>solo per {sitoAperto}</b>. Qui sotto ci sono anche le foto comuni: è l’elenco che {sitoAperto} riceve davvero, nell’ordine giusto.</>
+                    : <>Quello che carichi adesso vale <b>per tutti i siti</b> che non hanno una serie loro.</>}
+                </p>
+              </>
+            )}
+          </div>
+        )}
         <label
           className={`btn btn-secondario${caricando || !negozioOspite ? " disabilitato" : ""}`}
           aria-disabled={caricando || !negozioOspite}
@@ -1304,6 +1396,24 @@ export function FormProdottoNuovo({
                   {m.stato === "in-elaborazione" ? " · in elaborazione" : ""}
                   {m.stato === "fallito" ? ` · ${m.errore ?? "non riuscito"}` : ""}
                 </span>
+                {/* Spostare una foto fra «tutti» e un sito senza ricaricarla:
+                    il file è già su Shopify, ricaricarlo sarebbe un doppione. */}
+                {fotoPerSito && (
+                  <select
+                    className="media-per"
+                    aria-label={`Per quale sito vale «${m.nome}»`}
+                    value={m.per ?? ""}
+                    onChange={(e) => {
+                      const v = e.target.value || null;
+                      setMedia((x) => x.map((y) => (y.shopifyFileId === m.shopifyFileId ? { ...y, per: v } : y)));
+                    }}
+                  >
+                    <option value="">Tutti i siti</option>
+                    {nomiNegoziScelti.map((nome) => (
+                      <option key={nome} value={nome}>Solo {nome}</option>
+                    ))}
+                  </select>
+                )}
                 <button type="button" className="icon-btn" title="Togli dal prodotto (il file resta nei Files del negozio)" onClick={() => setMedia((x) => x.filter((y) => y.shopifyFileId !== m.shopifyFileId))}>
                   ×
                 </button>

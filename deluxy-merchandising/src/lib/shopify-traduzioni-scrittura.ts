@@ -42,7 +42,12 @@ export async function registraTraduzioniProdotto(
       voci.push({
         locale: t.locale,
         key: "body_html",
-        value: t.descrizione.replace(/\n/g, "<br>"),
+        // ⚠️ 11/09/2026: una descrizione che è **già HTML** (quella che tiene
+        // i titoli delle sezioni, e quindi le tab) non va toccata: mettendo un
+        // `<br>` a ogni a capo si spezzerebbe fra un tag e l'altro. Gli a capo
+        // si trasformano solo nel testo semplice, dove sono l'unica
+        // punteggiatura che c'è.
+        value: /<[a-z][^>]*>/i.test(t.descrizione) ? t.descrizione : t.descrizione.replace(/\n/g, "<br>"),
         translatableContentDigest: digestCorpo,
       });
     }

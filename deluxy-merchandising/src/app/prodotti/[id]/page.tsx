@@ -17,6 +17,7 @@ import { CAMPI_PRODOTTO } from "@/lib/campi-negozio";
 import { aggiornaProdotto, aggiungiVariante, cambiaFase, eliminaVariante, ripristinaImmagine, segnaShopify } from "@/lib/azioni";
 import { approvaProdotto } from "@/lib/azioni-approvazione";
 import { recuperaDallaPiattaforma } from "@/lib/azioni-piattaforma";
+import { traduciProdottoOra } from "@/lib/azioni-traduzioni";
 import { mancanzePerApprovare } from "@/lib/prodotti-dal-partner";
 import { separaAzione } from "@/lib/azioni-riconciliazione";
 import { cambiaComponenteAzione } from "@/lib/azioni-composti";
@@ -961,6 +962,20 @@ export default async function ProdottoPage({
                   Questo prodotto non è su nessun negozio. Ci va dal modulo, con la fase <b>Pubblico</b>.
                 </p>
               )}
+              {/* ⭐ 11/09/2026 (segnalazione utente: «questo è senza
+                  traduzioni»). Il modulo traduce ciò che crea e il rastrello
+                  notturno passa sul resto, ma di «questo, adesso» non c'era
+                  modo. Legge la scheda **dal negozio** — quella che vede il
+                  cliente — e la traduce nelle lingue che quel negozio ha
+                  davvero, tenendo i titoli delle sezioni (e quindi le tab). */}
+              {prodotto.pubblicazioni.some((r) => r.shopifyId) || prodotto.shopifyId ? (
+                <form action={traduciProdottoOra.bind(null, id)} style={{ marginTop: 14 }}>
+                  <button type="submit" className="btn btn-secondario">🌐 Traduci ora sui negozi</button>
+                  <span className="cella-sub" style={{ marginLeft: 12 }}>
+                    Rilegge la scheda dal negozio e riscrive le traduzioni nelle sue lingue attive.
+                  </span>
+                </form>
+              ) : null}
             </div>
             {/* Il SEO **è passato in Panoramica** (17/08/2026, chiesto
                 dall'utente): è un'informazione del prodotto, non un dettaglio

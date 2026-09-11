@@ -145,6 +145,9 @@ export function prodottoPerIlModulo(
         stato: x.stato === "fallito" ? "fallito" : x.stato === "in-elaborazione" ? "in-elaborazione" : "pronto",
         nome: x.nome ?? "",
         negozio: x.negozio ?? negozio?.nome ?? "",
+        // Vuoto = la foto vale per tutti i siti. Riaprendo il modulo le serie
+        // separate devono tornare come erano, non appiattirsi su «per tutti».
+        per: x.per ?? null,
       })),
     metafield,
     tags: (p.tagShopify ?? "").split(",").map((s) => s.trim()).filter(Boolean),

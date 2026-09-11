@@ -15,7 +15,8 @@
 // manca lo scope `read_locales` le lingue attive si deducono da quelle che
 // hanno già traduzioni: un locale spento non può averne.
 
-import { LINGUE_NEGOZIO, traduciScheda } from "./ai-traduzioni";
+import { LINGUE_NEGOZIO, traduciSchedaHtml } from "./ai-traduzioni";
+import { haTitoliDiSezione } from "./traduzione-html";
 import { graphqlNegozio } from "./shopify-scrittura";
 import { erroriGraphql } from "./shopify-errori";
 import { registraTraduzioniProdotto } from "./shopify-traduzioni-scrittura";
@@ -42,6 +43,8 @@ export type EsitoTraduzioniNegozio = {
   esaminati: number;
   daTradurre: number;
   tradotti: number;
+  /** Quanti fra i tradotti erano **da riparare**: avevano la traduzione, ma piatta. */
+  daRiparare: number;
   falliti: number;
   messaggi: string[];
 };
@@ -55,7 +58,7 @@ export type EsitoTraduzioniNegozio = {
  * notte che una corsa che finisce i soldi o il tempo della funzione a metà.
  */
 export async function completaTraduzioniDelNegozio(n: Negozio, max = 20): Promise<EsitoTraduzioniNegozio> {
-  const esito: EsitoTraduzioniNegozio = { negozio: n.nome, lingueAttive: [], esaminati: 0, daTradurre: 0, tradotti: 0, falliti: 0, messaggi: [] };
+  const esito: EsitoTraduzioniNegozio = { negozio: n.nome, lingueAttive: [], esaminati: 0, daTradurre: 0, tradotti: 0, daRiparare: 0, falliti: 0, messaggi: [] };
   const attive = await lingueAttiveDi(n);
   esito.lingueAttive = attive;
   if (attive.length === 0) {
@@ -64,7 +67,7 @@ export async function completaTraduzioniDelNegozio(n: Negozio, max = 20): Promis
   }
 
   const campi = attive.map((l) => `${alias(l)}: translations(locale:"${l}"){ key value }`).join(" ");
-  const daFare: { id: string; titolo: string; descrizione: string; mancanti: string[] }[] = [];
+  const daFare: { id: string; titolo: string; html: string; mancanti: string[]; riparazione: boolean }[] = [];
   let cursore: string | null = null;
   // Si scorre finché non si è riempito il lotto: i prodotti senza traduzione
   // possono stare in fondo al catalogo, e fermarsi alla prima pagina vorrebbe
@@ -80,19 +83,27 @@ export async function completaTraduzioniDelNegozio(n: Negozio, max = 20): Promis
     const d = r.corpo.data?.products as unknown as { pageInfo: { hasNextPage: boolean; endCursor: string }; nodes: Record<string, unknown>[] };
     for (const p of d.nodes) {
       esito.esaminati++;
+      const html = (p.descriptionHtml as string) ?? "";
+      const conTitoli = haTitoliDiSezione(html);
+      // ⭐⭐ 11/09/2026: non basta più «manca il titolo tradotto». Una scheda
+      // può avere la traduzione ed essere lo stesso sbagliata: se l'italiano
+      // ha i titoli delle sezioni e la traduzione no, il tema non costruisce
+      // le tab e il cliente inglese legge un muro di testo. Misurate così
+      // **307 schede attive** sui quattro negozi. Quindi il rastrello
+      // ripassa anche su quelle: sono da rifare, non da lasciare.
+      let riparazione = false;
       const mancanti = attive.filter((l) => {
         const t = (p[alias(l)] as { key: string; value: string | null }[] | undefined) ?? [];
-        return !t.some((x) => x.key === "title" && x.value && x.value.trim());
+        const titolo = t.find((x) => x.key === "title" && x.value && x.value.trim());
+        if (!titolo) return true;
+        if (!conTitoli) return false;
+        const corpo = t.find((x) => x.key === "body_html" && x.value && x.value.trim());
+        const piatta = !corpo || !haTitoliDiSezione(corpo.value as string);
+        if (piatta) riparazione = true;
+        return piatta;
       });
       if (mancanti.length === 0) continue;
-      if (daFare.length < max) {
-        daFare.push({
-          id: p.id as string,
-          titolo: p.title as string,
-          descrizione: ((p.descriptionHtml as string) ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
-          mancanti,
-        });
-      }
+      if (daFare.length < max) daFare.push({ id: p.id as string, titolo: p.title as string, html, mancanti, riparazione });
     }
     if (!d.pageInfo.hasNextPage) break;
     cursore = d.pageInfo.endCursor;
@@ -100,7 +111,9 @@ export async function completaTraduzioniDelNegozio(n: Negozio, max = 20): Promis
   esito.daTradurre = daFare.length;
 
   for (const p of daFare) {
-    const t = await traduciScheda({ titolo: p.titolo, descrizione: p.descrizione }, p.mancanti);
+    // Si manda l'HTML vero, non il testo spogliato: i tag non si traducono, si
+    // rimettono al loro posto (`traduzione-html.ts`).
+    const t = await traduciSchedaHtml({ titolo: p.titolo, html: p.html }, p.mancanti);
     if (!t.ok) {
       esito.falliti++;
       esito.messaggi.push(`«${p.titolo}»: ${t.errore}`);
@@ -108,9 +121,10 @@ export async function completaTraduzioniDelNegozio(n: Negozio, max = 20): Promis
       if (/401|quota|rate/i.test(t.errore)) { esito.messaggi.push("Interrotto: problema di chiave o quota."); break; }
       continue;
     }
+    if (t.avvisi?.length) esito.messaggi.push(...t.avvisi.map((x) => `«${p.titolo}»: ${x}`));
     const w = await registraTraduzioniProdotto({ dominio: n.dominio, token: n.token }, p.id, t.traduzioni);
     if (w.errori.length) { esito.falliti++; esito.messaggi.push(`«${p.titolo}»: ${w.errori.join("; ")}`); }
-    else esito.tradotti++;
+    else { esito.tradotti++; if (p.riparazione) esito.daRiparare++; }
     await attendi(400);
   }
   return esito;

@@ -50,13 +50,16 @@ export async function GET(req: NextRequest) {
       // Un negozio che si rompe non deve fermare gli altri: l'errore si
       // riporta e il giro prosegue.
       esiti.push({
-        negozio: n.nome, lingueAttive: [], esaminati: 0, daTradurre: 0, tradotti: 0, falliti: 1,
+        negozio: n.nome, lingueAttive: [], esaminati: 0, daTradurre: 0, tradotti: 0, daRiparare: 0, falliti: 1,
         messaggi: [e instanceof Error ? e.message : "Errore sconosciuto."],
       });
     }
   }
 
   const tradotti = esiti.reduce((a, e) => a + e.tradotti, 0);
+  // ⭐ 11/09/2026: quanti erano **riparazioni** (traduzione c'era, ma piatta):
+  // serve a vedere l'arretrato delle 307 schede calare notte dopo notte.
+  const riparati = esiti.reduce((a, e) => a + e.daRiparare, 0);
   const falliti = esiti.reduce((a, e) => a + e.falliti, 0);
-  return NextResponse.json({ ok: falliti === 0, tradotti, falliti, esiti });
+  return NextResponse.json({ ok: falliti === 0, tradotti, riparati, falliti, esiti });
 }
