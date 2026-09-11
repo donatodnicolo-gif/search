@@ -140,9 +140,23 @@ import { SavedViewsComponent } from '../core/saved-views.component';
                   @else if (p.approved) { <span class="pill s-ok">{{ 'products.approved' | translate }}</span> }
                   @else { <span class="pill s-wait">{{ 'products.pending' | translate }}</span> }
                 </div>
-                <a class="btn btn-secondary ordina" [routerLink]="['/deliveries/new']" [queryParams]="{ prodotto: p.id }">
-                  {{ 'products.creaOrdine' | translate }}
-                </a>
+                <!-- ⚠️ 11/09/2026 (segnalazione utente): nella griglia mancavano Modifica e Archivia.
+                     Le azioni sono le STESSE della tabella, e con lo stesso permesso: una vista che ne
+                     offre meno costringe a cambiare vista per lavorare, cioè non è una vista, è una
+                     vetrina. -->
+                <div class="azioni">
+                  <a class="act" [routerLink]="['/deliveries/new']" [queryParams]="{ prodotto: p.id }">
+                    {{ 'products.creaOrdine' | translate }}
+                  </a>
+                  @if (puoToccare(p)) {
+                    <a class="act" [routerLink]="['/products', p.id, 'edit']">{{ 'common.edit' | translate }}</a>
+                    @if (archived()) {
+                      <button type="button" class="act" (click)="setArchivedFlag(p, false)">{{ 'products.restore' | translate }}</button>
+                    } @else {
+                      <button type="button" class="act" (click)="setArchivedFlag(p, true)">{{ 'products.archive' | translate }}</button>
+                    }
+                  }
+                </div>
               </div>
             </article>
           } @empty {
@@ -245,7 +259,8 @@ import { SavedViewsComponent } from '../core/saved-views.component';
       .scheda-prodotto .nome { font-weight: 600; font-size: 14px; text-decoration: none; color: inherit; }
       .scheda-prodotto .sotto { font-size: 12px; color: var(--text-secondary); }
       .scheda-prodotto .riga-prezzo { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
-      .scheda-prodotto .ordina { margin-top: 4px; text-align: center; text-decoration: none; }
+      .scheda-prodotto .azioni { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+      .scheda-prodotto .azioni .act { cursor: pointer; }
       table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
       th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--hairline); white-space: nowrap; }
       th { font-weight: 500; color: var(--text-tertiary); font-size: 12px; }

@@ -268,6 +268,35 @@ export class ProductsService {
       platformDescriptions,
       ...scalar
     } = dto;
+
+    /**
+     * ⭐⭐ 11/09/2026 (regola utente): «un prodotto approvato e modificato torna da approvare».
+     *
+     * L'approvazione riguarda UN prodotto preciso: quel nome, quel prezzo, quelle foto, quelle varianti.
+     * Se la sostanza cambia, l'approvazione di prima non copre più quello che c'è adesso — e un prodotto
+     * che va in vendita con l'etichetta «approvato» addosso, ma con dentro un'altra cosa, è il modo più
+     * silenzioso di far uscire una scheda che nessuno ha guardato.
+     *
+     * ⚠️ Solo la SOSTANZA fa decadere l'approvazione. Cambiare la giacenza, archiviare, spegnere il
+     * prodotto o toccare una nota interna non cambia che cosa si vende: farlo tornare «da approvare»
+     * sarebbe una coda di lavoro finta, e le code finte insegnano a ignorare quelle vere.
+     * ⚠️ Se chi scrive dichiara `approved` (è l'ufficio che approva dal modulo, o Merchandising che
+     * comunica l'esito) comanda quello: se no approvare sarebbe impossibile, perché l'atto stesso di
+     * approvare farebbe scattare la revoca.
+     */
+    const SOSTANZA = [
+      'name', 'description', 'shortDesc', 'note', 'price', 'publicPrice', 'sku',
+      'categoryId', 'type', 'tipologiaVendita', 'prepDays', 'notPhysical',
+      'alternateName', 'useAlternateName', 'partnerId',
+    ] as const;
+    const scalarQualsiasi = scalar as Record<string, unknown>;
+    const precedente = product as unknown as Record<string, unknown>;
+    const cambiaSostanza =
+      SOSTANZA.some((k) => k in scalarQualsiasi && scalarQualsiasi[k] !== precedente[k]) ||
+      images !== undefined || variants !== undefined || components !== undefined;
+    const decadeApprovazione =
+      product.approved === true && cambiaSostanza && !('approved' in (dto as Record<string, unknown>));
+    if (decadeApprovazione) scalarQualsiasi['approved'] = false;
     // ⭐ 06/09/2026 (regola utente): la GIACENZA corretta a mano lascia una riga
     // di movimento «rettifica»: il saldo si puo' sempre rifare dai movimenti.
     if (scalar.stock !== undefined && scalar.stock !== (product as any).stock) {

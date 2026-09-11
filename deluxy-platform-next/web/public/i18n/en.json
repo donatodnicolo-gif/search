@@ -3736,7 +3736,7 @@
     "tuttiIDetentori": "← All",
     "aMagazzino": "In the Deluxy warehouse",
     "daStabilire": "Destination to be decided",
-    "suConsegne": "across {{n}} deliveries · last {{g}} days",
+    "suConsegne": "items, across {{n}} deliveries · last {{g}} days",
     "nessuno": "Nobody is holding goods right now.",
     "nessunProdotto": "No goods to show.",
     "nessunaConsegna": "No delivery in this phase.",
@@ -3772,8 +3772,8 @@
       "daStabilire": "to be decided"
     },
     "nessunoConRicerca": "No result for “{{q}}”.",
-    "arretrate": "Open deliveries with a past date",
-    "suConsegneSemplice": "across {{n}} deliveries",
+    "arretrate": "Goods stuck on overdue deliveries",
+    "suConsegneSemplice": "items, across {{n}} deliveries never closed",
     "cancellazioni": "Cancellation requested",
     "vista": {
       "partner": "Partners",

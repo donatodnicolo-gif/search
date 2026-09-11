@@ -3738,7 +3738,7 @@
     "tuttiIDetentori": "← Tutti",
     "aMagazzino": "A magazzino Deluxy",
     "daStabilire": "Destinazione da stabilire",
-    "suConsegne": "su {{n}} consegne · ultimi {{g}} giorni",
+    "suConsegne": "pezzi, in {{n}} consegne · ultimi {{g}} giorni",
     "nessuno": "Nessuno ha merce in questo momento.",
     "nessunProdotto": "Nessuna merce da mostrare.",
     "nessunaConsegna": "Nessuna consegna in questa fase.",
@@ -3774,8 +3774,8 @@
       "daStabilire": "da stabilire"
     },
     "nessunoConRicerca": "Nessun risultato per «{{q}}».",
-    "arretrate": "Consegne aperte con data passata",
-    "suConsegneSemplice": "su {{n}} consegne",
+    "arretrate": "Merce ferma su consegne scadute",
+    "suConsegneSemplice": "pezzi, in {{n}} consegne mai chiuse",
     "cancellazioni": "Cancellazione richiesta",
     "vista": {
       "partner": "Partner",
