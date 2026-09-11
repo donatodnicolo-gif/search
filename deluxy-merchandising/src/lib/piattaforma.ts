@@ -171,3 +171,49 @@ export async function leggiProdottoDallaPiattaforma(
     return { ok: false, messaggio: `La piattaforma ${motivo}.` };
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// **I partner, come li conosce la piattaforma.**
+//
+// 11/09/2026. Serve a riempire i campi del negozio che parlano del partner e
+// che nessuno ha voglia di ribattere: da dove parte la consegna
+// (`custom.partner_address`), in quali province si vende
+// (`custom.nations_availability`), la città (`custom.citta`) — e soprattutto a
+// **chiamare il partner per nome** invece che col suo numero.
+//
+// La rotta è `GET /api/v1/app/partner`: torna i partner attivi con insegna,
+// città e le sigle delle province servite. L'aggancio col nostro prodotto è il
+// `partnerPiattaformaId` (il cuid), che ci arriva quando il prodotto nasce.
+
+export type PartnerDallaPiattaforma = {
+  id: string;
+  insegna: string;
+  citta: string;
+  province: string[];
+  servizi: string[];
+};
+
+/** Tutti i partner attivi della piattaforma. Vuoto se non è configurata. */
+export async function leggiPartnerDallaPiattaforma(): Promise<
+  { ok: true; partner: PartnerDallaPiattaforma[] } | { ok: false; messaggio: string }
+> {
+  const conf = await configurazione();
+  if (!conf) return { ok: false, messaggio: "Piattaforma consegne non configurata (Impostazioni → Piattaforma consegne)." };
+  try {
+    const res = await fetch(`${conf.url}/api/v1/app/partner`, {
+      headers: { "x-api-key": conf.chiave },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) {
+      const testo = (await res.text().catch(() => "")).slice(0, 200);
+      return { ok: false, messaggio: `La piattaforma risponde HTTP ${res.status}${testo ? `: ${testo}` : ""}.` };
+    }
+    const corpo = (await res.json()) as PartnerDallaPiattaforma[] | { partner?: PartnerDallaPiattaforma[] };
+    const righe = Array.isArray(corpo) ? corpo : Array.isArray(corpo.partner) ? corpo.partner : [];
+    return { ok: true, partner: righe };
+  } catch (e) {
+    const nome = e instanceof Error ? e.name : "";
+    const motivo = nome === "TimeoutError" || nome === "AbortError" ? "non ha risposto entro 15 s" : `non è raggiungibile (${e instanceof Error ? e.message : String(e)})`;
+    return { ok: false, messaggio: `La piattaforma ${motivo}.` };
+  }
+}

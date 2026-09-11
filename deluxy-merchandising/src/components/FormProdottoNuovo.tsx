@@ -123,7 +123,27 @@ const ETICHETTA_LINGUA: Record<string, string> = { en: "inglese", fr: "francese"
 /** Come si chiamano gli stati di Shopify quando li legge una persona. */
 const ETICHETTA_STATO_NEGOZIO: Record<string, string> = { ACTIVE: "attivo", DRAFT: "bozza", ARCHIVED: "archiviato" };
 
-const FASI_SCELTA = ["concept", "prototipo", "approvato", "in_vendita"] as const;
+/**
+ * Le fasi che si possono **scegliere** nel modulo.
+ *
+ * Non sono tutte quelle che esistono (`FASI_PLM`): «Attesa approvazione» non si
+ * sceglie — ci si arriva perché il prodotto è arrivato da un partner — e
+ * «Archiviato» ha il suo comando sulla scheda.
+ *
+ * ⚠️⚠️ 11/09/2026 (segnalato dall'utente: «fase prodotto sono ancora le
+ * vecchie»). La fase che il prodotto **ha adesso** va nell'elenco comunque,
+ * anche se non è fra quelle scegliibili: un `select` il cui valore non è fra le
+ * sue opzioni non mostra niente e al salvataggio manda la **prima** — cioè
+ * aprendo col modulo un prodotto in attesa di approvazione, e salvando senza
+ * toccare la fase, quel prodotto tornava **Concept** in silenzio. Non era un
+ * difetto di etichette: era una perdita di dato.
+ */
+const FASI_SCEGLIBILI = ["concept", "prototipo", "approvato", "in_vendita"] as const;
+
+function fasiDaMostrare(attuale: string): string[] {
+  const scelte: string[] = [...FASI_SCEGLIBILI];
+  return scelte.includes(attuale) || !attuale ? scelte : [attuale, ...scelte];
+}
 
 /**
  * Una riga variante nuova. **Parte dal prezzo base del prodotto** (chiesto
@@ -1004,15 +1024,27 @@ export function FormProdottoNuovo({
           <div className="campo-modulo">
             <label htmlFor="fase">{modifica ? "Fase" : "Fase iniziale"}</label>
             <select id="fase" name="fase" value={fase} onChange={(e) => setFase(e.target.value)}>
-              {FASI_SCELTA.map((f) => (
+              {fasiDaMostrare(iniziale?.fase ?? "").map((f) => (
                 <option key={f} value={f}>
-                  {ETICHETTA_FASE[f]}
+                  {ETICHETTA_FASE[f] ?? f}
                   {/* ⭐ 09/09/2026: anche «approvato» crea la scheda sul
                       negozio, ma in bozza — il cliente non la vede. */}
-                  {f === "in_vendita" ? " — va su Shopify, visibile" : f === "approvato" ? " — va su Shopify, in bozza" : ""}
+                  {f === "in_vendita"
+                    ? " — va su Shopify, visibile"
+                    : f === "approvato"
+                      ? " — va su Shopify, in bozza"
+                      : f === "attesa_approvazione"
+                        ? " — arrivato da un partner, in attesa"
+                        : ""}
                 </option>
               ))}
             </select>
+            {fase === "attesa_approvazione" && (
+              <span className="cella-sub">
+                Il prodotto aspetta il sì: si approva dalla sua scheda, dove si legge anche che cosa manca. Da qui si può portare
+                avanti scegliendo un&apos;altra fase.
+              </span>
+            )}
             {modifica && iniziale?.shopifyId && fase !== "in_vendita" && (
               <span className="cella-sub">Togliendo «Pubblico» il prodotto torna bozza sul negozio: il cliente non lo vede più.</span>
             )}

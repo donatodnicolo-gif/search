@@ -35,6 +35,7 @@ import { elencoNegozi, tokenDi } from "./negozi";
 import { aggiornaProdottoSuShopify, cambiaStatoSuNegozio, creaProdottoSuShopify } from "./shopify-admin";
 import { colonneDaMetafield } from "./shopify-collezioni";
 import { agganciaFileAlProdotto, aggiungiProdottoACollezione, attendiFile, rimuoviProdottoDaCollezione } from "./shopify-media";
+import { assicuraInVetrina } from "./shopify-vetrina";
 import { registraTraduzioniProdotto } from "./shopify-traduzioni-scrittura";
 
 /**
@@ -604,6 +605,12 @@ async function pubblicaSuAltroNegozio(
       if (r.errori.length) avvisi.push(`${negozio.nome}: traduzioni rifiutate: ${r.errori.join(" · ")}`);
     }
   }
+  // ⭐ 11/09/2026: anche qui «attivo» non basta (vedi `shopify-vetrina.ts`).
+  if (dati.stato === "ACTIVE") {
+    const vetrina = await assicuraInVetrina(token, esito.prodottoId, negozio.nome);
+    if (vetrina.avviso) avvisi.push(vetrina.avviso);
+    else cronaca.push(`${negozio.nome}: in vetrina${vetrina.indirizzo ? ` (${vetrina.indirizzo})` : ""}.`);
+  }
   return { negozio: negozio.nome, shopifyId: esito.prodottoId, handle: esito.handle, statoShopify: dati.stato, errore: null, entrate };
 }
 
@@ -722,6 +729,16 @@ async function creaProdotto(fd: FormData, indietro: (e: string) => never, origin
       shopifyId = esito.prodottoId;
       handle = esito.handle;
       shopifyStato = stato === "ACTIVE" ? "pubblicato" : "bozza";
+      // ⭐⭐ 11/09/2026 — «attivo» non vuol dire «in vetrina»: da Shopify 2025-10
+      // un prodotto creato via API non si pubblica più da solo sul canale del
+      // negozio online. Si controlla, si prova a rimediare, e se non si può lo
+      // si dice: un prodotto che il cliente non vede non deve passare per
+      // pubblicato.
+      if (stato === "ACTIVE") {
+        const vetrina = await assicuraInVetrina(negozioToken, shopifyId, m.negozio.nome);
+        if (vetrina.avviso) avvisi.push(vetrina.avviso);
+        else cronaca.push(`In vetrina su ${m.negozio.nome}${vetrina.indirizzo ? `: ${vetrina.indirizzo}` : ""}.`);
+      }
       statoShopify = stato;
       if (esito.errori.length) avvisi.push(...esito.errori.map((e) => e.messaggio));
       if (!m.finestraAperta) cronaca.push(`Nasce come bozza: la finestra di pubblicazione si apre il ${m.dalIso}.`);
@@ -970,6 +987,16 @@ export async function aggiornaProdottoCompleto(id: string, fd: FormData) {
       shopifyId = esito.prodottoId;
       handle = esito.handle;
       shopifyStato = stato === "ACTIVE" ? "pubblicato" : "bozza";
+      // ⭐⭐ 11/09/2026 — «attivo» non vuol dire «in vetrina»: da Shopify 2025-10
+      // un prodotto creato via API non si pubblica più da solo sul canale del
+      // negozio online. Si controlla, si prova a rimediare, e se non si può lo
+      // si dice: un prodotto che il cliente non vede non deve passare per
+      // pubblicato.
+      if (stato === "ACTIVE") {
+        const vetrina = await assicuraInVetrina(negozioToken, shopifyId, m.negozio.nome);
+        if (vetrina.avviso) avvisi.push(vetrina.avviso);
+        else cronaca.push(`In vetrina su ${m.negozio.nome}${vetrina.indirizzo ? `: ${vetrina.indirizzo}` : ""}.`);
+      }
       statoShopify = stato;
       if (esito.errori.length) avvisi.push(...esito.errori.map((e) => e.messaggio));
       entrate = (await completaSulNegozio({ ...m, collezioni: m.collezioni.filter((c) => c.negozio === m.negozio.nome) }, negozioToken, shopifyId, m.media, cronaca, avvisi, traduzioni)).entrate;
