@@ -61,8 +61,9 @@ Postgres **`crm`** sul cluster condiviso.
   Customer Service, Calendario, Merchandising, database), coi nomi delle
   variabili da impostare; **soglie e cluster** dei clienti (spesa totale,
   spesa annua e frequenza stimate, punteggio): tutti i clienti restano
-  dentro, le soglie evidenziano; **Utenti**: si creano nel Hub (link diretto),
-  che è la loro casa unica.
+  dentro, le soglie evidenziano; **Utenti del CRM** (dall'11/09): chi entra,
+  «Nuovo utente», «Abilita al CRM» / «Togli dal CRM» — tutto passa dall'API
+  utenti del Hub (`HUB_KEYS_TOKEN`, scope `crm`), casa unica degli utenti.
 
 Nei messaggi (Componi mail e WhatsApp) si può proporre un prodotto o una
 collezione da **Merchandising** (`MERCH_URL`/`MERCH_API_KEY`, chiave di sola

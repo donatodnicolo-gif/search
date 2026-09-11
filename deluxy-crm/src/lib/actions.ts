@@ -11,6 +11,7 @@ import { aggiornaRicorrenza, proponiRicorrenza, schedaCliente, scriviPrivacy } f
 import { daOraItaliana } from "./ore";
 import { sostituisciVariabili } from "./variabili";
 import { MESI, TIPI_ATTIVITA, TIPI_RICORRENZA } from "./etichette";
+import { abilitaUtenteHub, creaUtenteHub } from "./hub-utenti";
 import { MAX_CLUSTER, normalizza, slug } from "./cluster";
 
 // Ogni action ricontrolla la sessione (il middleware non basta: una server
@@ -370,6 +371,45 @@ export async function salvaPunteggio(fd: FormData): Promise<void> {
 // Le soglie e i cluster (Impostazioni → Clienti del CRM). Le righe dei cluster
 // arrivano come campi indicizzati k<i>_nome, k<i>_colore, k<i>_spesaTotaleMin…
 // nell'ordine del form, che è anche l'ordine di priorità.
+// ---------------------------------------------------------------------------
+// Utenti del CRM (11/09): vivono nel Hub. Il CRM crea, abilita e toglie
+// passando dalla sua API; la password viaggia una volta sola verso il Hub,
+// che la sala e la conserva — qui non se ne tiene traccia.
+
+const PRESSO_UTENTI = "/impostazioni#utenti";
+
+function esitoUtenti(msg: string, ok: boolean): never {
+  redirect(`${PRESSO_UTENTI.replace("#", `?${ok ? "esito" : "errore"}=${encodeURIComponent(msg)}#`)}`);
+}
+
+export async function creaUtenteCrm(fd: FormData): Promise<void> {
+  const sessione = await richiediSessione();
+  // Dal Hub via SSO solo un admin gestisce gli utenti; con la password di team chiunque è dentro.
+  if (sessione && sessione.via === "sso" && sessione.ruolo !== "admin") esitoUtenti("Solo un amministratore del Hub crea utenti.", false);
+  const nome = testo(fd, "nome");
+  const email = testo(fd, "email").toLowerCase();
+  const password = String(fd.get("password") ?? "");
+  const ruolo = testo(fd, "ruolo") || "commerciale";
+  if (!nome || !email) esitoUtenti("Servono nome ed email.", false);
+  if (password.length < 8) esitoUtenti("La password deve avere almeno 8 caratteri.", false);
+  const r = await creaUtenteHub({ nome, email, password, ruolo });
+  if (!r.ok) esitoUtenti(r.errore, false);
+  revalidatePath("/impostazioni");
+  esitoUtenti(`${r.dati.nome} può entrare nel CRM con ${r.dati.email}.`, true);
+}
+
+export async function abilitaUtenteCrm(fd: FormData): Promise<void> {
+  const sessione = await richiediSessione();
+  if (sessione && sessione.via === "sso" && sessione.ruolo !== "admin") esitoUtenti("Solo un amministratore del Hub cambia gli accessi.", false);
+  const id = testo(fd, "id");
+  const abilitato = testo(fd, "abilitato") === "1";
+  if (!id) esitoUtenti("Manca l'utente.", false);
+  const r = await abilitaUtenteHub(id, abilitato);
+  if (!r.ok) esitoUtenti(r.errore, false);
+  revalidatePath("/impostazioni");
+  esitoUtenti(abilitato ? `${r.dati.nome} ora può entrare nel CRM.` : `${r.dati.nome} non entra più nel CRM (resta utente del Hub).`, true);
+}
+
 export async function salvaImpostazioniClienti(fd: FormData): Promise<void> {
   const sessione = await richiediSessione();
   const back = "/impostazioni#clienti";

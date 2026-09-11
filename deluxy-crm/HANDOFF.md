@@ -32,11 +32,20 @@ Richieste dell'utente dopo il deploy delle ricorrenze lette dal biglietto:
   dai membri; esito con le parole: quanti entrati, quanti c'erano già), chip
   «☰ nome lista» sotto il titolo nell'elenco eventi. `salvaEvento` sostituisce
   le liste collegate con quelle spuntate (solo id che esistono).
-- **Utenti da Impostazioni**: il Hub NON espone un'API utenti (solo
-  `/api/chiavi`, `/api/health`, `/api/posta`, `/api/presenze`), e gli utenti
-  hanno una casa sola (standard §7). Card «Utenti del CRM» in Impostazioni che
-  spiega e porta a `HUB_URL/utenti` (creare l'utente, abilitare l'app «crm»).
-  Se si vuole l'elenco DENTRO il CRM, serve un'API nel Hub (lavoro del Hub).
+- **Utenti da Impostazioni** («Procedi» dell'utente): il Hub ha ora
+  `/api/utenti?app=crm` (GET/POST/PATCH, token di servizio con scope `crm`,
+  `scoutwt/deluxy-hub/src/app/api/utenti/route.ts`). Nel CRM:
+  `src/lib/hub-utenti.ts` (utentiHub / creaUtenteHub / abilitaUtenteHub),
+  azioni `creaUtenteCrm` e `abilitaUtenteCrm`, card «Utenti del CRM» in
+  Impostazioni (tabella di chi entra + «Togli dal CRM», form «Nuovo utente»,
+  «Già nel Hub, fuori dal CRM» con «Abilita al CRM»). Solo un admin del Hub
+  (SSO) o chi è dentro con la password di team crea/abilita. Il token è in
+  `HUB_KEYS_TOKEN` (env Vercel del CRM + `.env` locale), emesso con
+  `node scripts/emetti-token.mjs deluxy-crm crm` nella cartella del Hub: lo
+  stesso token serve anche alla cassaforte (`chiavi-app.ts`). ⚠️ Il Hub vero
+  è `C:\Users\nicol\scoutwt\deluxy-hub` (branch scout-ui): la copia in
+  `app/deluxy-hub` è ferma a luglio. Provato: 10 utenti, 2 abilitati (admin +
+  Eva); 403 con scope sbagliato, 401 con token sbagliato.
 - Orders in produzione espone `tipoDa/motivoTipo/prova` (deploy
   `deluxy-orders-2z87d3f00`), quindi il pop-up del dettaglio ricorrenza
   (commit `23a46195`) mostra «come l'abbiamo dedotta» anche live.

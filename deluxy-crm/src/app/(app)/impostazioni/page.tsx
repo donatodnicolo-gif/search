@@ -7,7 +7,9 @@ import { chiaveApp } from "@/lib/chiavi-app";
 import { statoPasswordTeam } from "@/lib/password-team";
 import { sessioneCorrente } from "@/lib/sessione-server";
 import CardPasswordTeam from "@/components/CardPasswordTeam";
-import { salvaImpostazioniClienti } from "@/lib/actions";
+import { abilitaUtenteCrm, creaUtenteCrm, salvaImpostazioniClienti } from "@/lib/actions";
+import { utentiHub } from "@/lib/hub-utenti";
+import { dataIt } from "@/lib/etichette";
 import { statoMerch } from "@/lib/merchandising";
 import { COLORI_CLUSTER, descriviCluster, impostazioniClienti, MAX_CLUSTER } from "@/lib/cluster";
 
@@ -24,7 +26,7 @@ export default async function Impostazioni({
 }) {
   await dentroOppureFuori(); // revoca: sessione con password vecchia = fuori
   const sp = await searchParams;
-  const [orders, mail, mailConfig, cs, calKey, calUtente, hubToken, openaiKey, db, password, sessione, imp, merch] = await Promise.all([
+  const [orders, mail, mailConfig, cs, calKey, calUtente, hubToken, openaiKey, db, password, sessione, imp, merch, utenti] = await Promise.all([
     statoOrders(),
     statoMail(),
     configurazioneMail(),
@@ -41,6 +43,7 @@ export default async function Impostazioni({
     sessioneCorrente(),
     impostazioniClienti(),
     statoMerch(),
+    utentiHub(),
   ]);
   // Le righe del form dei cluster: quelle esistenti più due vuote, fino al tetto.
   const righeCluster = [...imp.cluster.map((k) => k as Partial<typeof k>), {}, {}].slice(0, MAX_CLUSTER);
@@ -49,6 +52,13 @@ export default async function Impostazioni({
   const passwordSoloLettura = Boolean(sessione && sessione.via === "sso" && sessione.ruolo !== "admin");
   const passwordAdminHub = Boolean(sessione && sessione.via === "sso" && sessione.ruolo === "admin");
   const openaiOk = Boolean(openaiKey);
+  // Gli utenti: chi entra nel CRM (admin del Hub o app «crm» abilitata) e gli
+  // altri del Hub, da abilitare con un click. Solo un admin del Hub (via SSO)
+  // li tocca; con la password di team la porta è quella di squadra.
+  const puoGestireUtenti = !sessione || sessione.via !== "sso" || sessione.ruolo === "admin";
+  const dentroCrm = utenti.ok ? utenti.dati.filter((u) => u.abilitato) : [];
+  const fuoriCrm = utenti.ok ? utenti.dati.filter((u) => !u.abilitato) : [];
+  const RUOLI_NOME: Record<string, string> = { admin: "Amministratore", commerciale: "Commerciale", partner: "Partner" };
 
   const Stato = ({ ok, testoOk, testoNo }: { ok: boolean; testoOk: string; testoNo: string }) => (
     <span
@@ -176,17 +186,138 @@ export default async function Impostazioni({
           </p>
         </div>
 
-        <div className="card" id="utenti">
-          <div className="card-titolo">Utenti del CRM</div>
-          <div className="card-sub">Chi entra nel CRM e con quale nome. Gli utenti hanno UNA casa: il Deluxy Hub.</div>
-          <p className="secondario piccolo" style={{ lineHeight: 1.6 }}>
-            Un utente si crea nel Hub (Utenti → Nuovo) e si abilita all&apos;app «CRM»: da quel momento entra da qui con
-            il suo accesso del Hub, e il suo nome firma attività, note e programmazioni. Qui non si duplica nulla:
-            si toglie o si cambia sempre nel Hub.
-          </p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-            <a className="btn" href={`${(process.env.HUB_URL ?? "https://deluxy-hub.vercel.app").replace(/\/$/, "")}/utenti`} target="_blank" rel="noreferrer">Crea o gestisci gli utenti nel Hub</a>
+        <div className="card tabella-card" id="utenti" style={{ gridColumn: "1 / -1" }}>
+          <div style={{ padding: "20px 20px 8px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+              <div className="card-titolo">Utenti del CRM</div>
+              <Stato ok={utenti.ok} testoOk="Collegato al Hub" testoNo="Hub non collegato" />
+            </div>
+            <div className="card-sub">
+              Chi entra nel CRM e con quale nome. Gli utenti hanno UNA casa, il Deluxy Hub: da qui si creano e si
+              abilitano passando dalla sua API, niente copie. Gli amministratori del Hub entrano sempre.
+            </div>
+            {!utenti.ok ? (
+              <p className="secondario piccolo" style={{ lineHeight: 1.6 }}>
+                {utenti.errore}
+                <br />
+                Serve un token di servizio del Hub con scope «crm»: Hub → Chiavi → «Token di servizio», poi{" "}
+                <code className="chip">HUB_KEYS_TOKEN</code> nelle variabili del CRM (o in cassaforte).
+              </p>
+            ) : null}
+            {sp.esito && sp.esito !== "ok" ? <div className="ok-card">{sp.esito}</div> : null}
           </div>
+
+          {utenti.ok ? (
+            <div className="tabella-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Utente</th>
+                    <th>Ruolo</th>
+                    <th>Stato</th>
+                    <th>Ultimo accesso</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dentroCrm.map((u) => (
+                    <tr key={u.id}>
+                      <td>
+                        <div className="cella-principale">{u.nome}</div>
+                        <div className="cella-sotto">{u.email}</div>
+                      </td>
+                      <td>{RUOLI_NOME[u.ruolo] ?? u.ruolo}</td>
+                      <td>
+                        <span className="badge colorato" style={{ ["--badge-colore" as string]: u.attivo ? "var(--green)" : "var(--red)" }}>
+                          <span className="dot" />
+                          {u.attivo ? "Attivo" : "Disattivato"}
+                        </span>
+                      </td>
+                      <td className="secondario piccolo">{u.ultimoAccesso ? dataIt(u.ultimoAccesso, true) : "mai"}</td>
+                      <td style={{ textAlign: "right" }}>
+                        {u.ruolo === "admin" ? (
+                          <span className="terziario piccolo">entra sempre</span>
+                        ) : puoGestireUtenti ? (
+                          <form action={abilitaUtenteCrm}>
+                            <input type="hidden" name="id" value={u.id} />
+                            <input type="hidden" name="abilitato" value="0" />
+                            <button className="btn ghost mini" type="submit">Togli dal CRM</button>
+                          </form>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))}
+                  {dentroCrm.length === 0 ? (
+                    <tr><td colSpan={5} className="secondario piccolo">Nessun utente abilitato al CRM, per ora.</td></tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+
+          {utenti.ok && puoGestireUtenti ? (
+            <div className="griglia due" style={{ padding: 20, borderTop: "1px solid var(--line)" }}>
+              <div>
+                <div className="card-titolo" style={{ fontSize: 14 }}>Nuovo utente</div>
+                <div className="card-sub">Nasce nel Hub, già abilitato al CRM. La password gliela dai tu; la cambia lui dal Hub.</div>
+                <form action={creaUtenteCrm}>
+                  <div className="form-riga">
+                    <div className="campo">
+                      <label>Nome <span className="ob">*</span></label>
+                      <input type="text" name="nome" required placeholder="Maria Rossi" />
+                    </div>
+                    <div className="campo">
+                      <label>Email <span className="ob">*</span></label>
+                      <input type="email" name="email" required placeholder="maria@deluxy.it" />
+                    </div>
+                  </div>
+                  <div className="form-riga">
+                    <div className="campo">
+                      <label>Password iniziale <span className="ob">*</span> <span className="aiuto">(almeno 8 caratteri)</span></label>
+                      <input type="password" name="password" required minLength={8} autoComplete="new-password" />
+                    </div>
+                    <div className="campo">
+                      <label>Ruolo</label>
+                      <select name="ruolo" defaultValue="commerciale">
+                        <option value="commerciale">Commerciale</option>
+                        <option value="partner">Partner</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="form-piede">
+                    <button className="btn" type="submit">Crea l&apos;utente</button>
+                  </div>
+                </form>
+              </div>
+              <div>
+                <div className="card-titolo" style={{ fontSize: 14 }}>Già nel Hub, fuori dal CRM</div>
+                <div className="card-sub">Un click e entrano anche qui.</div>
+                {fuoriCrm.length === 0 ? (
+                  <p className="terziario piccolo">Tutti gli utenti del Hub entrano già nel CRM.</p>
+                ) : (
+                  <div className="timeline">
+                    {fuoriCrm.map((u) => (
+                      <div className="timeline-voce" key={u.id}>
+                        <div className="timeline-corpo">
+                          <div className="timeline-titolo">{u.nome}</div>
+                          <div className="timeline-quando">{u.email} · {RUOLI_NOME[u.ruolo] ?? u.ruolo}{u.attivo ? "" : " · disattivato"}</div>
+                        </div>
+                        <form action={abilitaUtenteCrm} style={{ alignSelf: "center" }}>
+                          <input type="hidden" name="id" value={u.id} />
+                          <input type="hidden" name="abilitato" value="1" />
+                          <button className="btn ghost mini" type="submit">Abilita al CRM</button>
+                        </form>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : utenti.ok ? (
+            <p className="secondario piccolo" style={{ padding: "0 20px 20px" }}>
+              Per creare o abilitare utenti serve un amministratore del Hub.
+            </p>
+          ) : null}
         </div>
 
         <div className="card" id="clienti" style={{ gridColumn: "1 / -1" }}>
