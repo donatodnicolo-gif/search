@@ -21,38 +21,70 @@ import { graphqlNegozio, negozioConToken } from '@/lib/shopify-negozio'
 //     «non riuscito» che nasconde il motivo.
 
 export type EsitoRimborsoShopify =
-  | { stato: 'ok'; refundId: string; importo: number; totaleRimborsato: number }
+  | {
+      stato: 'ok'
+      refundId: string
+      /** Nei nostri soldi (valuta del negozio). */
+      importo: number
+      /** Quello che riceve il cliente, nella valuta con cui ha pagato. */
+      importoCliente: number
+      valutaCliente: string
+      totaleRimborsato: number
+    }
   /** L'ordine non vive qui (archivio di Orders): da qui non si può rimborsare. */
   | { stato: 'senza-ordine'; messaggio: string }
-  /** L'ordine è in una valuta diversa da quella del negozio. */
+  /**
+   * L'ordine è in valuta straniera e Shopify non dice quanto vale nella valuta
+   * del cliente: senza quel numero non si rende niente.
+   * ⚠️ Fino all'11/09/2026 qui finiva OGNI ordine estero: vedi il blocco
+   * «IL CLIENTE HA PAGATO IN DOLLARI» più sotto.
+   */
   | { stato: 'valuta'; messaggio: string }
   /** Più di quanto Shopify può ancora rendere. */
   | { stato: 'troppo'; messaggio: string }
   | { stato: 'errore'; messaggio: string }
+
+type Soldi = { amount?: string; currencyCode?: string } | null
+type Coppia = { shopMoney?: Soldi; presentmentMoney?: Soldi } | null
 
 type Transazione = {
   id: string
   kind: string
   status: string
   gateway: string
-  amountSet?: { shopMoney?: { amount?: string; currencyCode?: string } | null } | null
+  amountSet?: Coppia
   parentTransaction?: { id: string } | null
 }
 
+/** Il numero dentro un `...Money`, o zero. */
+function n(s: Soldi | undefined): number {
+  return Number(s?.amount ?? '0') || 0
+}
+
+// ⚠️⚠️ Ogni cifra si chiede DUE volte: `shopMoney` è quello che vede il
+// negozio (euro: i nostri numeri, il nostro tetto), `presentmentMoney` è
+// quello che ha pagato il cliente (dollari, sterline…). Su un ordine estero i
+// due non coincidono, e il rimborso Shopify lo vuole nella valuta del cliente.
 const QUERY_ORDINE = `query Ordine($id: ID!) {
   order(id: $id) {
     id
     name
     currencyCode
     presentmentCurrencyCode
-    netPaymentSet { shopMoney { amount currencyCode } }
+    netPaymentSet {
+      shopMoney { amount currencyCode }
+      presentmentMoney { amount currencyCode }
+    }
     totalRefundedSet { shopMoney { amount } }
     transactions(first: 30) {
       id
       kind
       status
       gateway
-      amountSet { shopMoney { amount currencyCode } }
+      amountSet {
+        shopMoney { amount currencyCode }
+        presentmentMoney { amount currencyCode }
+      }
       parentTransaction { id }
     }
   }
@@ -73,6 +105,15 @@ function euro(v: number): string {
   return v.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })
 }
 
+/** Come euro(), ma nella valuta che ha usato davvero il cliente. */
+function inValuta(v: number, valuta: string): string {
+  try {
+    return v.toLocaleString('it-IT', { style: 'currency', currency: valuta || 'EUR' })
+  } catch {
+    return `${v.toFixed(2)} ${valuta}`
+  }
+}
+
 /** In centesimi interi: i confronti sui soldi non si fanno sui float. */
 function cent(v: number): number {
   return Math.round(v * 100)
@@ -87,8 +128,19 @@ function cent(v: number): number {
 export type Preparato = {
   stato: 'ok'
   ordineNome: string
+  /** Quanto Shopify può ancora rendere, nei NOSTRI soldi (valuta del negozio). */
   restante: number
+  /** La valuta del negozio: quella dei numeri che si vedono nell'app. */
   valuta: string
+  /**
+   * ⭐ 11/09/2026 — Quanto riceve DAVVERO il cliente, nella valuta con cui ha
+   * pagato. Su un ordine italiano è lo stesso numero di sopra; su #2846 sono
+   * 160,00 $ contro i 138,20 € che vediamo noi.
+   */
+  importoCliente: number
+  valutaCliente: string
+  /** Il cliente ha pagato in una valuta diversa dalla nostra. */
+  conversione: boolean
   shopifyId: string
   negozioId: string
   transazioni: { orderId: string; parentId: string; gateway: string; kind: string; amount: string }[]
@@ -140,8 +192,8 @@ export async function preparaRimborso(opzioni: {
         name?: string
         currencyCode?: string
         presentmentCurrencyCode?: string
-        netPaymentSet?: { shopMoney?: { amount?: string; currencyCode?: string } | null } | null
-        totalRefundedSet?: { shopMoney?: { amount?: string } | null } | null
+        netPaymentSet?: Coppia
+        totalRefundedSet?: Coppia
         transactions?: Transazione[]
       } | null
     }
@@ -151,22 +203,38 @@ export async function preparaRimborso(opzioni: {
   const o = letto.data?.order
   if (!o) return { stato: 'errore', messaggio: 'Shopify non trova questo ordine.' }
 
-  // ⚠️ Valuta di presentazione diversa da quella del negozio: l'importo che
-  // Shopify vuole non è quello che abbiamo noi, e sbagliarlo vuol dire rendere
-  // la cifra sbagliata a una persona vera. Meglio fermarsi e dirlo.
-  if (o.presentmentCurrencyCode && o.currencyCode && o.presentmentCurrencyCode !== o.currencyCode) {
-    return {
-      stato: 'valuta',
-      messaggio: `L’ordine ${o.name} è stato pagato in ${o.presentmentCurrencyCode} mentre il negozio incassa in ${o.currencyCode}: questo rimborso va fatto da Shopify.`,
-    }
-  }
+  // ── IL CLIENTE HA PAGATO IN DOLLARI ──
+  //
+  // ⚠️⚠️ 11/09/2026, dopo il «non si può superare questo problema?»
+  // dell'utente sull'ordine #2846. Fino a stamattina un ordine in valuta
+  // straniera si fermava qui con «va fatto da Shopify»: una porta chiusa, e
+  // qualcuno doveva andare a mano nell'admin. Il motivo del blocco però era
+  // giusto — Shopify il rimborso lo vuole nella valuta del CLIENTE, e mandargli
+  // il nostro numero in euro vorrebbe dire rendere 138,20 $ invece di 160,00 $.
+  //
+  // La strada è dire a Shopify il numero giusto, non rinunciare:
+  //   · ogni cifra si legge due volte (`shopMoney` per noi, `presentmentMoney`
+  //     per il cliente) e il rimborso si dichiara nella valuta del cliente;
+  //   · il TETTO resta nei nostri soldi, che sono quelli su cui si è deciso;
+  //   · se si rende tutto il residuo, la cifra del cliente NON si converte: si
+  //     prende quella che Shopify ha già scritto — zero arrotondamenti;
+  //   · se si rende una parte, si usa il cambio DI QUESTO ORDINE (il rapporto
+  //     fra i due importi che Shopify ha registrato quel giorno), mai un cambio
+  //     di mercato preso altrove.
+  //
+  // ⚠️ Resta un paletto: senza i numeri in valuta del cliente non si prova a
+  // indovinare. Meglio la porta chiusa di un rimborso sbagliato a una persona.
+  const valutaCliente = o.presentmentCurrencyCode || o.currencyCode || 'EUR'
+  const valuta = o.netPaymentSet?.shopMoney?.currencyCode || o.currencyCode || 'EUR'
+  const conversione = valutaCliente !== valuta
 
   // Quanto Shopify può ANCORA rendere: pagato meno già rimborsato. È il numero
   // che conta, e non è il nostro: l'ordine può essere stato rimborsato altrove
   // mentre la richiesta aspettava.
-  const restante = Number(o.netPaymentSet?.shopMoney?.amount ?? '0') || 0
+  const restante = n(o.netPaymentSet?.shopMoney)
+  const restanteCliente = n(o.netPaymentSet?.presentmentMoney)
   if (cent(importo) > cent(restante)) {
-    const gia = Number(o.totalRefundedSet?.shopMoney?.amount ?? '0') || 0
+    const gia = n(o.totalRefundedSet?.shopMoney)
     return {
       stato: 'troppo',
       messaggio: `Su ${o.name} si può ancora rendere ${euro(restante)}${
@@ -174,6 +242,20 @@ export async function preparaRimborso(opzioni: {
       }: il rimborso di ${euro(importo)} non parte.`,
     }
   }
+  if (conversione && cent(restanteCliente) <= 0) {
+    return {
+      stato: 'valuta',
+      messaggio: `L’ordine ${o.name} è stato pagato in ${valutaCliente} ma Shopify non dice quanto resta da rendere in ${valutaCliente}: questo rimborso va fatto dall’admin di Shopify.`,
+    }
+  }
+
+  // Quanto riceve il cliente. Tutto il residuo → la cifra di Shopify così
+  // com'è; una parte → in proporzione, col cambio di questo ordine.
+  const importoCliente = !conversione
+    ? importo
+    : cent(importo) >= cent(restante)
+      ? restanteCliente
+      : Math.round((cent(importo) * cent(restanteCliente)) / cent(restante)) / 100
 
   // ── Su quale incasso si rende ──
   //
@@ -182,23 +264,34 @@ export async function preparaRimborso(opzioni: {
   // rimborso va agganciato alla transazione con cui ha pagato (`parentId` +
   // `gateway`), e quella transazione può essere già stata rimborsata in parte:
   // il residuo si calcola togliendo i REFUND che le pendono sotto.
+  // ⚠️ I residui si tengono in DUE valute: quella del cliente è quella con cui
+  // si parla a Shopify, quella del negozio serve a scrivere messaggi che
+  // l'operatore riconosce.
   const tutte = o.transactions ?? []
-  const resi = new Map<string, number>()
+  const resi = new Map<string, { nostri: number; cliente: number }>()
   for (const t of tutte) {
     if (t.kind !== 'REFUND') continue
     if (t.status !== 'SUCCESS' && t.status !== 'PENDING') continue
     const padre = t.parentTransaction?.id
     if (!padre) continue
-    resi.set(padre, (resi.get(padre) ?? 0) + (Number(t.amountSet?.shopMoney?.amount ?? '0') || 0))
+    const prima = resi.get(padre) ?? { nostri: 0, cliente: 0 }
+    resi.set(padre, {
+      nostri: prima.nostri + n(t.amountSet?.shopMoney),
+      cliente: prima.cliente + n(t.amountSet?.presentmentMoney),
+    })
   }
   const incassi = tutte
     .filter((t) => (t.kind === 'SALE' || t.kind === 'CAPTURE') && t.status === 'SUCCESS')
-    .map((t) => ({
-      id: t.id,
-      gateway: t.gateway,
-      residuo: (Number(t.amountSet?.shopMoney?.amount ?? '0') || 0) - (resi.get(t.id) ?? 0),
-    }))
-    .filter((t) => cent(t.residuo) > 0)
+    .map((t) => {
+      const reso = resi.get(t.id) ?? { nostri: 0, cliente: 0 }
+      return {
+        id: t.id,
+        gateway: t.gateway,
+        residuo: n(t.amountSet?.shopMoney) - reso.nostri,
+        residuoCliente: n(t.amountSet?.presentmentMoney) - reso.cliente,
+      }
+    })
+    .filter((t) => cent(t.residuo) > 0 && cent(t.residuoCliente) > 0)
     // Dal più capiente: così un rimborso si spezza sul minor numero di incassi.
     .sort((a, b) => b.residuo - a.residuo)
 
@@ -209,13 +302,25 @@ export async function preparaRimborso(opzioni: {
       messaggio: `Gli incassi rimborsabili di ${o.name} coprono ${euro(disponibile)}: il rimborso di ${euro(importo)} non parte.`,
     }
   }
+  const disponibileCliente = incassi.reduce((s, t) => s + t.residuoCliente, 0)
+  // ⚠️ Due centesimi di tolleranza: il cambio arrotonda, e un rimborso non
+  // deve fallire per un cent. Oltre, è un vero «non ci stanno».
+  if (cent(disponibileCliente) + 2 < cent(importoCliente)) {
+    return {
+      stato: 'troppo',
+      messaggio: `Gli incassi rimborsabili di ${o.name} coprono ${inValuta(disponibileCliente, valutaCliente)}: il rimborso di ${inValuta(importoCliente, valutaCliente)} non parte.`,
+    }
+  }
 
-  const valuta = o.netPaymentSet?.shopMoney?.currencyCode || o.currencyCode || 'EUR'
   const transazioni: { orderId: string; parentId: string; gateway: string; kind: string; amount: string }[] = []
-  let daCoprire = cent(importo)
+  // ⚠️⚠️ Da qui in giù i numeri sono NELLA VALUTA DEL CLIENTE: è quella che
+  // `RefundInput.currency` dichiara, ed è quella in cui Shopify legge gli
+  // importi delle transazioni. Mischiarle vorrebbe dire rendere 138,20 $.
+  let daCoprire = Math.min(cent(importoCliente), cent(disponibileCliente))
+  const reso = daCoprire / 100
   for (const t of incassi) {
     if (daCoprire <= 0) break
-    const quota = Math.min(daCoprire, cent(t.residuo))
+    const quota = Math.min(daCoprire, cent(t.residuoCliente))
     transazioni.push({
       orderId: ordine.shopifyId,
       parentId: t.id,
@@ -231,6 +336,9 @@ export async function preparaRimborso(opzioni: {
     ordineNome: o.name ?? ordine.numero,
     restante,
     valuta,
+    importoCliente: reso,
+    valutaCliente,
+    conversione,
     shopifyId: ordine.shopifyId,
     negozioId: ordine.negozioId,
     transazioni,
@@ -275,7 +383,10 @@ export async function rimborsaSuShopify(opzioni: {
       // col tono del negozio, e da noi il cliente ha già una persona che gli
       // sta parlando. Si accende con la spunta, per chi la vuole.
       notify: Boolean(opzioni.avvisaCliente),
-      currency: pronto.valuta,
+      // ⚠️⚠️ La valuta del CLIENTE, non la nostra: su un ordine estero Shopify
+      // legge gli importi qui sotto in questa valuta. Con `pronto.valuta`
+      // (euro) renderebbe 138,20 dollari al posto di 160,00.
+      currency: pronto.valutaCliente,
       // Si rende un IMPORTO, non delle righe: per Shopify è una differenza fra
       // il calcolato e il reso, e va dichiarato il perché o rifiuta.
       discrepancyReason: 'CUSTOMER',
@@ -299,6 +410,8 @@ export async function rimborsaSuShopify(opzioni: {
     stato: 'ok',
     refundId: refund.id,
     importo: opzioni.importo,
+    importoCliente: pronto.importoCliente,
+    valutaCliente: pronto.valutaCliente,
     totaleRimborsato: Number(refund.totalRefundedSet?.shopMoney?.amount ?? '0') || 0,
   }
 }

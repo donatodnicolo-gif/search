@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { utenteCorrente } from '@/lib/sessione'
-import { rimborsaSuShopify } from '@/lib/rimborso-shopify'
+import { preparaRimborso, rimborsaSuShopify } from '@/lib/rimborso-shopify'
 
 export const dynamic = 'force-dynamic'
 // Due chiamate a Shopify (lettura dell'ordine e rimborso): i 10 secondi di suo
@@ -22,6 +22,44 @@ type Params = { params: Promise<{ id: string }> }
 //   4. l'importo lo ricontrolla Shopify su `netPayment` (vedi la libreria);
 //   5. se qualcosa va storto la riga torna `approvato` con scritto il motivo —
 //      non resta né a metà né "fatta" per finta.
+/**
+ * ⭐ 11/09/2026 — L'ANTEPRIMA, senza rimborsare.
+ *
+ * ⚠️⚠️ Nasce con gli ordini in valuta straniera: da oggi un ordine pagato in
+ * dollari si rimborsa da qui, ma il cliente riceve DOLLARI — 160,00 $ dove noi
+ * scriviamo 138,20 €. Chi preme il bottone deve leggere la cifra vera prima di
+ * premerlo, non dopo. `preparaRimborso` fa tutti i controlli e non chiama la
+ * mutazione: qui non esce niente.
+ */
+export async function GET(_req: NextRequest, { params }: Params) {
+  const { id } = await params
+  const io = await utenteCorrente()
+  if (!io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
+  if (io.ruolo !== 'admin') {
+    return NextResponse.json({ errore: 'Serve un amministratore.' }, { status: 403 })
+  }
+  const richiesta = await db.rimborso.findUnique({ where: { id } })
+  if (!richiesta) return NextResponse.json({ errore: 'Rimborso non trovato.' }, { status: 404 })
+
+  const pronto = await preparaRimborso({
+    ordineId: richiesta.ordineId,
+    importo: richiesta.importo,
+  })
+  if (!('transazioni' in pronto)) {
+    return NextResponse.json({ ok: false, stato: pronto.stato, messaggio: pronto.messaggio })
+  }
+  return NextResponse.json({
+    ok: true,
+    ordineNome: pronto.ordineNome,
+    restante: pronto.restante,
+    valuta: pronto.valuta,
+    importoCliente: pronto.importoCliente,
+    valutaCliente: pronto.valutaCliente,
+    conversione: pronto.conversione,
+    incassi: pronto.transazioni.length,
+  })
+}
+
 export async function POST(req: NextRequest, { params }: Params) {
   const { id } = await params
   const io = await utenteCorrente()
@@ -94,7 +132,14 @@ export async function POST(req: NextRequest, { params }: Params) {
   const rimborso = await db.rimborso.update({
     where: { id },
     data: {
-      esito: `Rimborsato su Shopify da ${io.nome} il ${quando.toLocaleString('it-IT')} · ${esito.refundId}${prima}`,
+      // ⚠️ Su un ordine estero si scrive anche quanto ha ricevuto il cliente
+      // nella SUA valuta: fra sei mesi, davanti a una contestazione, «138,20 €»
+      // da solo non spiegherebbe i 160,00 $ visti sull'estratto conto.
+      esito: `Rimborsato su Shopify da ${io.nome} il ${quando.toLocaleString('it-IT')}${
+        esito.valutaCliente && esito.valutaCliente !== 'EUR'
+          ? ` · il cliente riceve ${esito.importoCliente.toFixed(2)} ${esito.valutaCliente}`
+          : ''
+      } · ${esito.refundId}${prima}`,
     },
   })
   return NextResponse.json({ rimborso, refundId: esito.refundId })

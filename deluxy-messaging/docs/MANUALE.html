@@ -613,6 +613,49 @@
         <div class="log">
           <div class="log-item">
             <span class="when">11/09/2026</span>
+            <span class="what"><b>Un ordine pagato in dollari adesso si rimborsa da qui.</b> Segnalato
+              dall'utente sull'ordine #2846 («non si può superare questo problema?»): la pagina si fermava con
+              «l'ordine è stato pagato in USD mentre il negozio incassa in EUR: questo rimborso va fatto da
+              Shopify», e qualcuno doveva andare a mano nell'admin. Il motivo del blocco però era giusto:
+              <b>Shopify il rimborso lo vuole nella valuta del cliente</b>, e mandargli il nostro numero in euro
+              vorrebbe dire rendere 138,20 <b>dollari</b> invece di 160,00. Adesso l'app legge ogni cifra due volte
+              — quella del negozio e quella del cliente — e dichiara a Shopify quella giusta. Chi preme
+              «Rimborsa su Shopify» su un ordine estero <b>legge prima del clic</b> quanto riceverà davvero il
+              cliente: «Ha pagato in USD: riceve 160,00 $ (il cambio è quello di quest'ordine, non di oggi)».
+              Se si rende tutto il residuo non si converte niente, si prende la cifra che Shopify ha già scritto;
+              se si rende una parte si usa il cambio di <i>quell'ordine</i>, non un cambio di mercato di oggi.
+              Nell'esito resta scritto anche quanto ha ricevuto il cliente nella sua valuta. Gli ordini in euro
+              non cambiano di una virgola.</span>
+          </div>
+          <div class="log-item">
+            <span class="when">11/09/2026</span>
+            <span class="what"><b>Rimborsi: adesso c'è lo Storico.</b> Richiesta dell'utente («crea una sezione
+              storico dove far andare i rimborsi approvati o meno»). Sopra la ricerca ci sono tre sezioni:
+              <b>Da lavorare</b> (da approvare, e approvati con i soldi ancora dentro), <b>Storico</b> (finiti:
+              rimborsati, rifiutati, annullati) e <b>Tutti</b> per cercare. Accanto al nome c'è quanti ce ne sono.
+              <b>Un rimborso approvato ma non ancora reso NON va in storico</b>: la decisione è presa, ma i soldi
+              al cliente non sono usciti, e toglierlo dalla coda vorrebbe dire promettere un rimborso e poi
+              dimenticarselo. Passa in storico quando è «Rimborsato». La tendina degli stati resta, e ora filtra
+              <i>dentro</i> la sezione scelta.</span>
+          </div>
+          <div class="log-item">
+            <span class="when">11/09/2026</span>
+            <span class="what"><b>Aprendo un reclamo si avvisa chi ha consegnato.</b> Richiesta dell'utente («se
+              all'ordine è associato una consegna su app delivery invia una segnalazione all'app delivery di
+              vedere il reclamo»). Quando si apre un reclamo, l'app cerca nella piattaforma consegne se
+              quell'ordine è una consegna vera — il ponte è il <b>numero d'ordine più il marchio</b>, perché lo
+              stesso numero esiste su più negozi — e le manda una segnalazione agganciata a quella consegna.
+              <b>Non manda la colpa né il giudizio</b>: quelli si decidono qui, e scriverli di là prima che
+              qualcuno abbia deciso sarebbe una condanna senza processo. Si manda che c'è un reclamo e che cosa
+              dice il cliente. Parte una volta sola per reclamo, e nel messaggio di conferma si legge com'è
+              andata: «✓ Segnalata alla piattaforma…» oppure il motivo per cui non è partita.
+              <b>⚠️ Serve ancora la sua metà nella piattaforma consegne</b> (<code>POST
+              /api/v1/app/segnalazioni</code>): finché non c'è, il Customer Service lo dice a chiare lettere
+              («la piattaforma consegne non ha ancora la rotta delle segnalazioni: avvisa a voce») invece di far
+              finta che il messaggio sia partito.</span>
+          </div>
+          <div class="log-item">
+            <span class="when">11/09/2026</span>
             <span class="what"><b>Rimborsi: in tabella c'è scritto cosa si fa davvero.</b> Richiesta dell'utente,
               nata da una domanda vera: «cosa succede se faccio approva?». Le due azioni della pagina si
               somigliano e fanno cose opposte — <b>approvare</b> registra una decisione e non muove un euro,

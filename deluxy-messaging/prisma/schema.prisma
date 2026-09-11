@@ -1149,6 +1149,16 @@ model Reclamo {
   stato       String @default("aperto") // aperto | in_lavorazione | risolto | chiuso
   esito       String @default("") @db.Text // com'è andata a finire
 
+  /// ⭐ 11/09/2026 — LA SEGNALAZIONE ALLA PIATTAFORMA CONSEGNE (utente: «se
+  /// all'ordine è associato una consegna su app delivery invia una segnalazione
+  /// all'app delivery di vedere il reclamo»).
+  /// ⚠️ `segnalatoIl` è la GUARDIA: una volta sola per reclamo. Riaprire e
+  /// risalvare un reclamo non deve riempire di doppioni la bacheca di chi
+  /// consegna. `segnalazioneEsito` dice com'è andata — o perché non è partita,
+  /// che è l'informazione che serve quando qualcuno chiede «l'avete avvisata?».
+  segnalatoIl       DateTime?
+  segnalazioneEsito String    @default("") @db.Text
+
   risoltoIl    DateTime?
   creatoIl     DateTime  @default(now())
   aggiornatoIl DateTime  @updatedAt

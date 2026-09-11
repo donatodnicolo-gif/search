@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { segnalaReclamoAllaPiattaforma } from '@/lib/segnala-reclamo'
 import type { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import {
@@ -187,7 +188,20 @@ export async function POST(req: NextRequest) {
   const reclamo = c.id
     ? await db.reclamo.update({ where: { id: c.id }, data: dati })
     : await db.reclamo.create({ data: dati })
-  return NextResponse.json({ reclamo })
+
+  // ── «GUARDA CHE C'È UN RECLAMO» ──
+  //
+  // ⚠️⚠️ Utente, 11/09/2026: «se all'ordine è associato una consegna su app
+  // delivery invia una segnalazione all'app delivery di vedere il reclamo».
+  // Parte solo quando il reclamo NASCE: risalvarlo non deve riempire di
+  // doppioni la bacheca di chi consegna (e `segnalatoIl` fa comunque da
+  // guardia). È best-effort e non lancia: se la piattaforma non risponde, il
+  // reclamo resta salvato e il perché resta scritto nel reclamo stesso.
+  const segnalazione = c.id ? null : await segnalaReclamoAllaPiattaforma(reclamo.id, _io.nome ?? '')
+  return NextResponse.json({
+    reclamo: segnalazione ? { ...reclamo, segnalazioneEsito: segnalazione.esito } : reclamo,
+    segnalazione,
+  })
 }
 
 export async function DELETE(req: NextRequest) {

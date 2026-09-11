@@ -7,6 +7,8 @@ import {
   controllaImporto,
   rimborsoImpegna,
   statoRimborsoValido,
+  STATI_DA_LAVORARE,
+  STATI_STORICO,
   tipoRimborso,
 } from '@/lib/rimborsi'
 
@@ -28,7 +30,10 @@ export async function GET(req: NextRequest) {
   const dove: Prisma.RimborsoWhereInput = {}
   if (ordineId) dove.ordineId = ordineId
   // `aperti` = da approvare o approvati ma non ancora pagati: la vista di lavoro.
-  if (stato === 'aperti') dove.stato = { in: ['richiesto', 'approvato'] }
+  if (stato === 'aperti') dove.stato = { in: [...STATI_DA_LAVORARE] }
+  // ⭐ Lo storico: deciso e chiuso — reso, rifiutato, annullato. Un approvato
+  // non ancora reso resta nel lavoro (vedi `rimborsoStorico`).
+  else if (stato === 'storico') dove.stato = { in: [...STATI_STORICO] }
   else if (stato) dove.stato = stato
   // La scorciatoia di periodo (§8-bis), sulla DATA DELLA RICHIESTA.
   // ⚠️ Sta QUI e non nel browser: l'elenco è tagliato a 300.

@@ -6833,3 +6833,24 @@ tr.riga-click:focus-visible {
 tr.riga-apribile { cursor: pointer; }
 tr.riga-apribile:hover > td { background: var(--fill); }
 tr.riga-apribile:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+
+/* ── Le note DENTRO una riga di conferma (rimborsi) ──
+   ⚠️ Non sono `.avviso-errore`: quelle stanno in cima alla pagina e portano un
+   margine sotto. Queste vivono in una colonna già spaziata, dentro una cella di
+   tabella, e devono restare strette. */
+.nota-conferma {
+  border-radius: var(--radius-s, 8px);
+  padding: 6px 10px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+/* La cifra che vedrà il cliente in valuta straniera: si guarda, non allarma. */
+.nota-valuta {
+  background: var(--gold-soft, rgba(184, 150, 62, 0.12));
+  color: #6b551f;
+}
+/* Il rimborso non partirebbe: qui ci si ferma. */
+.nota-stop {
+  background: rgba(215, 0, 21, 0.08);
+  color: var(--red);
+}

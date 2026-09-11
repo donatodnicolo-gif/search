@@ -438,12 +438,24 @@ export function ReclamiLista({ prefill, apri }: { prefill?: PrefillReclamo; apri
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bozza.id ? bozza : { ...bozza, id: undefined }),
       })
-      const d = (await res.json().catch(() => ({}))) as { errore?: string }
+      const d = (await res.json().catch(() => ({}))) as {
+        errore?: string
+        segnalazione?: { mandata: boolean; esito: string } | null
+      }
       if (!res.ok) {
         setErrore(d.errore || 'Salvataggio non riuscito.')
         return
       }
-      setAvviso(bozza.id ? 'Reclamo aggiornato.' : 'Reclamo aperto.')
+      // ⭐⭐ 11/09/2026 — Se l'ordine è una consegna in piattaforma, aprendo il
+      // reclamo si avvisa chi ha consegnato (utente: «invia una segnalazione
+      // all'app delivery di vedere il reclamo»). Si DICE com'è andata:
+      // «è stata avvisata» e «non è stata avvisata, avvisa a voce» sono due
+      // mondi diversi per chi poi deve rispondere al cliente.
+      const s = d.segnalazione
+      setAvviso(
+        (bozza.id ? 'Reclamo aggiornato.' : 'Reclamo aperto.') +
+          (s?.esito ? ` ${s.mandata ? '✓' : '⚠'} ${s.esito}` : '')
+      )
       setBozza(VUOTO)
       setFormAperto(false)
       await carica()

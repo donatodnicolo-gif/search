@@ -59,6 +59,16 @@ cd deluxy-scout && SUPABASE_PAT=<pat> node scripts/allinea-supabase.mjs
 - **Serve**: `SUPABASE_PAT` (https://supabase.com/dashboard/account/tokens); opzionale `SUPABASE_REF`
 - **Nota**: la lista di migrazioni e funzioni sta in cima allo script — **aggiungerci le nuove**, altrimenti restano non applicate. È già successo che una schermata risultasse vuota solo perché la Edge Function non era stata rideployata, senza che niente lo dicesse.
 
+### applica-reclamo-segnalato.mjs — deluxy-messaging
+Aggiunge a `Reclamo` (schema `messaging`) le due colonne della **segnalazione alla piattaforma consegne**: `segnalatoIl` (la guardia contro il doppio invio — risalvare un reclamo non deve riempire di doppioni la bacheca di chi consegna) e `segnalazioneEsito` (com'è andata, o perché non è partita). `ALTER TABLE … ADD COLUMN IF NOT EXISTS`, direttamente in produzione.
+
+```bash
+cd deluxy-messaging && node scripts/applica-reclamo-segnalato.mjs
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` dell'app
+- **Nota**: idempotente. Eseguito l'11/09/2026: 12 reclami in archivio, nessuno segnalato (la segnalazione parte dai prossimi).
+
 ### applica-fornitore-pagamento.mjs — deluxy-messaging
 Aggiunge la colonna `fornitore` a `RichiestaPagamento` (schema `messaging`): chi **prepara** l'ordine, separato dall'**intestatario del conto**, che è il nome a cui esce il bonifico e può essere diverso (ditta individuale, società che incassa per il negozio). Le righe vecchie restano vuote = vale l'intestatario. Come le altre `applica-*.mjs` di questa app (`applica-migrazione-vendite`, `applica-migrazione-liste-prodotto`, `applica-non-consegnata-id`): `ALTER TABLE … ADD COLUMN IF NOT EXISTS`, direttamente in produzione.
 
@@ -68,6 +78,36 @@ cd deluxy-messaging && node scripts/applica-fornitore-pagamento.mjs
 
 - **Serve**: `DATABASE_URL` nel `.env` dell'app
 - **Nota**: idempotente; stampa quante richieste non hanno il fornitore separato. Eseguito il 07/09/2026: 92.
+
+### ispeziona-valuta-ordine.mts — deluxy-messaging
+**Sola lettura.** Di un ordine dice che cosa ha pagato il cliente (valuta di presentazione) e che cosa vede il negozio (valuta del negozio), incasso per incasso. Serve quando un rimborso non torna: su #2846 il cliente ha pagato **160,00 USD** e il negozio incassa **138,20 EUR**, ed è da lì che nasce la conversione in `rimborso-shopify.ts`.
+
+```bash
+cd deluxy-messaging && npx tsx scripts/ispeziona-valuta-ordine.mts 2846
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` (le credenziali Shopify si leggono dal DB)
+- **Nota**: non scrive niente, né qui né su Shopify.
+
+### prova-rimborso-valuta.mts — deluxy-messaging
+Prova il rimborso su un ordine in **valuta straniera** senza rimborsare: controlla che a Shopify si mandi il numero del **cliente** (160,00 USD) e non il nostro (138,20 EUR), che metà ordine faccia metà nella sua valuta, che oltre il residuo si fermi, e che gli ordini in euro non cambino di una virgola.
+
+```bash
+cd deluxy-messaging && npx tsx scripts/prova-rimborso-valuta.mts
+```
+
+- **Serve**: `DATABASE_URL` nel `.env`
+- **Nota**: usa `preparaRimborso`, che NON chiama la mutazione: non esce un euro. 9/9 l'11/09/2026.
+
+### prova-segnala-reclamo.mts — deluxy-messaging
+Prova il canale **«guarda che c'è un reclamo»** verso la piattaforma consegne: per gli ultimi reclami cerca la consegna col numero d'ordine **più il marchio**, poi bussa alla rotta delle segnalazioni. Non tocca i nostri reclami (non scrive l'esito in banca) e, se di là la rotta non c'è, la piattaforma risponde 404 e non nasce niente.
+
+```bash
+cd deluxy-messaging && npx tsx scripts/prova-segnala-reclamo.mts
+```
+
+- **Serve**: `DATABASE_URL` nel `.env`; la chiave della piattaforma in Impostazioni (o `PIATTAFORMA_API_KEY`)
+- **Nota**: l'11/09/2026 8 reclami su 8 avevano una consegna di là, e `POST /api/v1/app/segnalazioni` rispondeva **404** — la metà della piattaforma è ancora da scrivere.
 
 ### imposta-orari-deluxy.mts — deluxy-messaging
 Scrive (o riscrive) le regole di consegna di **deluxy.it** e **business.deluxy.it** nella tabella `OrarioNegozio` del Customer Service: `REGOLE_DELUXY` (oggi a 2 ore dalla seconda fascia dopo quella in corso, limite 20:00, domani a 2 ore, oltre a 1 ora, finestra 08–22), aperti tutti i giorni, nessuna chiusura. Salta i negozi che hanno già orari scritti da un amministratore, salvo `--anche-se-scritta`. Eseguito il 10/09/2026 (Deluxy e Business).

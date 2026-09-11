@@ -419,6 +419,48 @@ export async function portaVenditaInConsegna(
   )
 }
 
+/**
+ * ⭐ 11/09/2026 — MANDA UNA SEGNALAZIONE alla piattaforma consegne (utente: «se
+ * all'ordine è associato una consegna su app delivery invia una segnalazione
+ * all'app delivery di vedere il reclamo»).
+ *
+ * ⚠️⚠️ Il caso vero: il cliente reclama su un ordine che di là è una consegna
+ * vera, con un valet e un partner. Finora quel reclamo restava tutto da questa
+ * parte: chi ha consegnato non sapeva che qualcuno si fosse lamentato, e lo
+ * scopriva settimane dopo dal giudizio. La segnalazione è una riga nella LORO
+ * bacheca — tipo `reclamo`, agganciata alla consegna — che dice: guarda questo.
+ *
+ * ⚠️ NON manda il giudizio e non attribuisce la colpa: quella si decide qui, e
+ * scriverla di là prima che qualcuno l'abbia decisa sarebbe una condanna senza
+ * processo. La segnalazione dice che c'è un reclamo e che cosa dice il cliente.
+ *
+ * ⚠️ Best-effort: chi chiama NON deve fermarsi se questa fallisce. Un reclamo
+ * che non si salva perché un'altra app non risponde è un danno peggiore.
+ */
+export type SegnalazioneReclamo = {
+  /** La consegna di là a cui si aggancia. */
+  deliveryId: string
+  oggetto: string
+  testo: string
+  /** Il nostro riferimento: «reclamo:<id>», per non crearne due. */
+  riferimento: string
+  /** Chi l'ha aperto da questa parte, per nome. */
+  apertaDaNome?: string
+}
+
+export async function segnalaReclamoInPiattaforma(
+  s: SegnalazioneReclamo
+): Promise<EsitoPiattaforma<{ id?: string }>> {
+  return scrivi<{ id?: string }>('/api/v1/app/segnalazioni', {
+    tipo: 'reclamo',
+    deliveryId: s.deliveryId,
+    oggetto: s.oggetto.slice(0, 200),
+    testo: s.testo.slice(0, 4000),
+    riferimento: s.riferimento,
+    apertaDaNome: s.apertaDaNome ?? '',
+  })
+}
+
 // ⚠️ Gli stati e i loro nomi stanno in `piattaforma-stati.ts`, che non importa
 // né la rete né le impostazioni: lo usa anche la scheda dell'ordine, che è un
 // componente client. Qui si ri-esportano, così chi sta sul server ha tutto da

@@ -5,7 +5,9 @@ import { ChipsPeriodo } from './ChipsPeriodo'
 import { DettaglioOrdine } from './DettaglioOrdine'
 import type { Periodo } from '@/lib/periodo'
 import {
+  STATI_DA_LAVORARE,
   STATI_RIMBORSO,
+  STATI_STORICO,
   avvisoPagamento,
   azioneRimborso,
   coloreStatoRimborso,
@@ -34,6 +36,41 @@ type Rimborso = {
   esito: string
   creatoIl: string
 }
+
+/**
+ * Quello che risponde `GET /api/rimborsi/[id]/shopify`: che cosa succederebbe
+ * a premere «Conferma il rimborso», senza che succeda.
+ */
+type Anteprima = {
+  ok?: boolean
+  /** Quando `ok` è falso: perché il rimborso non partirebbe. */
+  stato?: string
+  messaggio?: string
+  ordineNome?: string
+  restante?: number
+  valuta?: string
+  /** Quanto riceve il cliente, nella valuta con cui ha pagato. */
+  importoCliente?: number
+  valutaCliente?: string
+  /** Il cliente ha pagato in una valuta diversa da quella del negozio. */
+  conversione?: boolean
+  incassi?: number
+}
+
+/**
+ * ⭐ 11/09/2026 — LE DUE SEZIONI (utente: «crea una sezione storico dove far
+ * andare i rimborsi approvati o meno»).
+ *
+ * ⚠️⚠️ «Approvato» NON è storico: la decisione è presa, ma i soldi al cliente
+ * non sono ancora usciti. Toglierlo dalla coda vorrebbe dire promettere un
+ * rimborso e poi dimenticarsene — il caso che questa pagina esiste per evitare.
+ * Passa in storico quando è «Rimborsato».
+ */
+const VISTE = [
+  { chiave: 'aperti' as const, nome: 'Da lavorare', spiega: 'Da approvare, e approvati con i soldi ancora dentro' },
+  { chiave: 'storico' as const, nome: 'Storico', spiega: 'Finiti: rimborsati, rifiutati, annullati' },
+  { chiave: 'tutti' as const, nome: 'Tutti', spiega: 'Ogni richiesta, per cercare' },
+]
 
 export type PrefillRimborso = {
   ordineId?: string
@@ -76,6 +113,8 @@ export function RimborsiLista({
 }) {
   const [rimborsi, setRimborsi] = useState<Rimborso[]>([])
   const [perStato, setPerStato] = useState<Record<string, { conteggio: number; importo: number }>>({})
+  /** Che cosa succederebbe premendo «Conferma il rimborso» (vedi caricaAnteprima). */
+  const [anteprima, setAnteprima] = useState<(Anteprima & { id: string }) | null>(null)
   const [importoDaPagare, setImportoDaPagare] = useState(0)
   const [caricato, setCaricato] = useState(false)
   const [bozza, setBozza] = useState<typeof VUOTO>(VUOTO)
@@ -86,7 +125,18 @@ export function RimborsiLista({
 
   const [q, setQ] = useState('')
   const [qCercata, setQCercata] = useState('')
-  const [filtroStato, setFiltroStato] = useState('aperti')
+  /**
+   * ⭐ 11/09/2026 — DUE SEZIONI (utente: «crea una sezione storico dove far
+   * andare i rimborsi approvati o meno»): «Da lavorare» è la coda (da
+   * approvare, e approvati con i soldi ancora dentro), «Storico» è quello che
+   * è finito — reso, rifiutato, annullato. «Tutti» resta per cercare.
+   * ⚠️ Un approvato non ancora reso NON va in storico: la decisione c'è, ma il
+   * cliente aspetta ancora i suoi soldi.
+   */
+  const [vista, setVista] = useState<'aperti' | 'storico' | 'tutti'>('aperti')
+  /** Il filtro fine dentro la vista ('' = tutti gli stati della vista). */
+  const [soloStato, setSoloStato] = useState('')
+  const filtroStato = soloStato || (vista === 'tutti' ? '' : vista)
   // La scorciatoia di periodo (Libro v1.9 §8-bis), sulla DATA DELLA RICHIESTA
   // (`creatoIl`). ⚠️ Filtra il SERVER: l'elenco è tagliato a 300.
   const [periodo, setPeriodo] = useState<Periodo>('')
@@ -270,6 +320,27 @@ export function RimborsiLista({
       await carica()
     }
   }
+  /**
+   * ⭐ 11/09/2026 — L'ANTEPRIMA del rimborso, chiesta al server quando si apre
+   * la riga di conferma.
+   *
+   * ⚠️⚠️ Serve agli ordini in valuta straniera: l'app scrive 138,20 € perché
+   * quello incassa il negozio, ma il cliente ha pagato 160,00 $ e 160,00 $
+   * riceve. La cifra vera va letta PRIMA del clic. Se l'anteprima non arriva il
+   * bottone resta com'era: non si blocca un rimborso perché una lettura in più
+   * è andata storta.
+   */
+  async function caricaAnteprima(id: string) {
+    setAnteprima(null)
+    try {
+      const res = await fetch(`/api/rimborsi/${id}/shopify`)
+      const d = (await res.json().catch(() => ({}))) as Anteprima
+      if (res.ok) setAnteprima({ ...d, id })
+    } catch {
+      /* l'anteprima è un di più: si tace e si lascia la conferma di sempre */
+    }
+  }
+
   async function elimina(id: string) {
     await fetch('/api/rimborsi?id=' + encodeURIComponent(id), { method: 'DELETE' })
     await carica()
@@ -278,12 +349,19 @@ export function RimborsiLista({
   const daApprovare = perStato['richiesto']?.conteggio ?? 0
   const approvati = perStato['approvato']?.conteggio ?? 0
   const eseguiti = perStato['eseguito'] ?? { conteggio: 0, importo: 0 }
-  const filtriAttivi = !!(qCercata || periodo || filtroStato !== 'aperti')
+  const filtriAttivi = !!(qCercata || periodo || soloStato || vista !== 'aperti')
 
   // Quanto resta rimborsabile sull'ordine in bozza (solo indicativo: il tetto
   // vero lo ricontrolla il server, che vede anche le altre richieste).
   const residuo = bozza.importoOrdine
   const chiesto = Number(bozza.importo) || 0
+  // ⚠️ I conteggi delle sezioni arrivano da `perStato`, che l'API calcola su
+  // TUTTE le righe e non sul filtro: un numero che cambia col filtro non
+  // direbbe quanto lavoro c'è.
+  const quanti = (stati: readonly string[]) =>
+    stati.reduce((s, x) => s + (perStato[x]?.conteggio ?? 0), 0)
+  const contaDaLavorare = quanti(STATI_DA_LAVORARE)
+  const contaStorico = quanti(STATI_STORICO)
 
   return (
     <main>
@@ -435,6 +513,35 @@ export function RimborsiLista({
           richiesta di rimborso. */}
       <ChipsPeriodo valore={periodo} cambia={setPeriodo} campo="la data della richiesta" />
 
+      {/* ── LE DUE SEZIONI ──
+          ⚠️ Prima c'era solo la tendina, e lo storico si raggiungeva scegliendo
+          uno stato alla volta: «com'è finita quella richiesta di settembre» era
+          una domanda senza una schermata. Le chip dicono anche QUANTE sono. */}
+      {/* ⚠️ Le pillole sono quelle dell'app (`stato-pill` + `attuale`, Libro
+          UX&UI v1.9 §8-bis): non si apre un secondo sistema di chip. A
+          differenza del periodo, qui una vista è sempre accesa — non esiste
+          «nessuna sezione», e ripremerla non la spegne. */}
+      <div className="filtri-passi riga-chips-scorri">
+        <span className="etichetta-ordina">Sezione</span>
+        {VISTE.map((v) => (
+          <button
+            key={v.chiave}
+            type="button"
+            className={`stato-pill${vista === v.chiave ? ' attuale' : ''}`}
+            aria-pressed={vista === v.chiave}
+            title={v.spiega}
+            onClick={() => {
+              setVista(v.chiave)
+              setSoloStato('')
+            }}
+          >
+            {v.nome}
+            {v.chiave === 'aperti' && contaDaLavorare ? ` (${contaDaLavorare})` : ''}
+            {v.chiave === 'storico' && contaStorico ? ` (${contaStorico})` : ''}
+          </button>
+        ))}
+      </div>
+
       <div className="barra-ricerca">
         <input
           type="search"
@@ -443,13 +550,13 @@ export function RimborsiLista({
           placeholder="Cerca per ordine, cliente o motivo…"
           aria-label="Cerca rimborsi"
         />
-        <select
-          value={filtroStato}
-          onChange={(e) => setFiltroStato(e.target.value)}
-          aria-label="Stato"
-        >
-          <option value="aperti">Da lavorare</option>
-          <option value="">Tutti gli stati</option>
+        {/* ⚠️ La tendina filtra DENTRO la sezione scelta: le viste stanno nelle
+            chip qui sopra, e due controlli che dicono la stessa cosa in due modi
+            diversi sono il modo di non sapere più che cosa si sta guardando. */}
+        <select value={soloStato} onChange={(e) => setSoloStato(e.target.value)} aria-label="Stato">
+          <option value="">
+            {vista === 'aperti' ? 'Ogni stato da lavorare' : vista === 'storico' ? 'Ogni stato chiuso' : 'Ogni stato'}
+          </option>
           {STATI_RIMBORSO.map((s) => (
             <option key={s.chiave} value={s.chiave}>
               Solo: {s.nome}
@@ -461,7 +568,8 @@ export function RimborsiLista({
             className="bottone secondario"
             onClick={() => {
               setQ('')
-              setFiltroStato('aperti')
+              setVista('aperti')
+              setSoloStato('')
               setPeriodo('')
             }}
           >
@@ -474,9 +582,11 @@ export function RimborsiLista({
         <div className="vuoto">Carico…</div>
       ) : rimborsi.length === 0 ? (
         <div className="vuoto">
-          {filtriAttivi
-            ? 'Nessun rimborso corrisponde ai filtri.'
-            : 'Nessun rimborso da lavorare. Se ne apre uno dal pulsante “Rimborso” su un ordine.'}
+          {vista === 'storico' && !soloStato && !qCercata && !periodo
+            ? 'Nello storico non c’è ancora niente: qui finiscono i rimborsi resi, rifiutati o annullati.'
+            : filtriAttivi
+              ? 'Nessun rimborso corrisponde ai filtri.'
+              : 'Nessun rimborso da lavorare. Se ne apre uno dal pulsante “Rimborso” su un ordine.'}
         </div>
       ) : (
         <div className="tabella-wrap">
@@ -566,6 +676,25 @@ export function RimborsiLista({
                           <strong>{r.ordineNumero || 'questo ordine'}</strong>, sul metodo con cui
                           ha pagato.
                         </span>
+                        {/* ⭐⭐ 11/09/2026 — LA CIFRA CHE VEDE IL CLIENTE.
+                            Su un ordine pagato in dollari l'app scrive euro, ma
+                            sull'estratto conto del cliente tornano dollari: la
+                            conferma lo dice PRIMA del clic, non l'esito dopo. */}
+                        {anteprima && anteprima.id === r.id && anteprima.ok && anteprima.conversione ? (
+                          <span className="nota-conferma nota-valuta">
+                            Ha pagato in {anteprima.valutaCliente}: riceve{' '}
+                            <strong>
+                              {soldi(anteprima.importoCliente ?? 0, anteprima.valutaCliente || 'USD')}
+                            </strong>{' '}
+                            (il cambio è quello di quest’ordine, non di oggi).
+                          </span>
+                        ) : null}
+                        {anteprima && anteprima.id === r.id && anteprima.ok === false ? (
+                          // ⚠️ Il motivo si legge PRIMA di premere: premere e
+                          // leggere l'errore dopo lascia il dubbio se i soldi
+                          // siano usciti.
+                          <span className="nota-conferma nota-stop">{anteprima.messaggio}</span>
+                        ) : null}
                         <label style={{ display: 'inline-flex', gap: 6, alignItems: 'center', fontSize: 13 }}>
                           <input
                             type="checkbox"
@@ -650,6 +779,7 @@ export function RimborsiLista({
                             onClick={() => {
                               setRimborsoDi(r.id)
                               setAvvisaCliente(false)
+                              void caricaAnteprima(r.id)
                             }}
                             title="Rende davvero i soldi sul metodo con cui ha pagato"
                           >

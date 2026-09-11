@@ -41,6 +41,25 @@ export function rimborsoAperto(stato: string): boolean {
   return stato === 'richiesto' || stato === 'approvato'
 }
 
+/**
+ * ⭐ 11/09/2026 — LO STORICO (utente: «crea una sezione storico dove far andare
+ * i rimborsi approvati o meno»): le richieste su cui non c'è più niente da
+ * fare — rese, rifiutate, annullate.
+ *
+ * ⚠️⚠️ Un rimborso APPROVATO ma non ancora reso NON sta qui: la decisione è
+ * presa, ma i soldi al cliente non sono usciti, e toglierlo dalla vista di
+ * lavoro vorrebbe dire promettere un rimborso e poi dimenticarlo — che è
+ * esattamente il caso che questa pagina esiste per non far succedere. Passa
+ * nello storico quando è «Rimborsato».
+ */
+export function rimborsoStorico(stato: string): boolean {
+  return stato === 'eseguito' || stato === 'rifiutato' || stato === 'annullato'
+}
+
+/** Gli stati che compongono le due viste, per le query e i conteggi. */
+export const STATI_DA_LAVORARE = ['richiesto', 'approvato'] as const
+export const STATI_STORICO = ['eseguito', 'rifiutato', 'annullato'] as const
+
 // ── Controlli sull'importo ──────────────────────────────────────────────────
 //
 // I soldi non si arrotondano a occhio: gli importi arrivano da Shopify come
