@@ -640,7 +640,9 @@ select[multiple] { min-height: 80px; }
 input[type="file"] { font: inherit; font-size: 13px; }
 .modale-pannello.stretta { width: min(92vw, 440px); }
 .modale-azioni { padding: 16px 20px 20px; }
-.modale-azioni form { display: flex; justify-content: flex-end; }
+/* Solo la conferma (un bottone a destra): un form a più campi dentro la modale
+   (dettaglio ricorrenza, 11/09) diventava una riga schiacciata. */
+.modale-conferma form { display: flex; justify-content: flex-end; }
 /* Titoli di sezione dentro un form lungo (Libro §4: sopra gli 8 campi). */
 .sezione-form { font-size: 13px; margin: 18px 0 10px; padding-top: 12px; border-top: 1px solid var(--hairline); }
 .sezione-form:first-child { border-top: 0; padding-top: 0; margin-top: 0; }

@@ -23,7 +23,9 @@ export default function ConfermaElimina({
 }) {
   return (
     <Modale bottone={etichetta} titolo={titolo} sotto={conseguenza} className={`btn rosso${mini ? " mini" : ""}`} stretta>
-      <div className="modale-azioni">{children}</div>
+      {/* `modale-conferma`: solo qui il form è UN bottone da allineare a destra (il
+          dettaglio ricorrenza usa lo stesso contenitore con un form a più campi). */}
+      <div className="modale-azioni modale-conferma">{children}</div>
     </Modale>
   );
 }

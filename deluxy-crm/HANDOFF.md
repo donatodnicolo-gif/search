@@ -50,6 +50,13 @@ Richieste dell'utente dopo il deploy delle ricorrenze lette dal biglietto:
   `deluxy-orders-2z87d3f00`), quindi il pop-up del dettaglio ricorrenza
   (commit `23a46195`) mostra «come l'abbiamo dedotta» anche live.
 
+Bug visto dall'utente dopo il deploy (screenshot del pop-up in Calendario): il
+form «Correggi» del dettaglio ricorrenza era una riga schiacciata (etichette e
+campi sovrapposti, testo fuori dalla finestra). Causa: `.modale-azioni form
+{display:flex}` nato per il bottone unico di ConfermaElimina, ereditato dal
+form a più campi. Ora la regola vale solo per `.modale-conferma`
+(ConfermaElimina); il dettaglio ricorrenza resta in colonna. Deployato.
+
 Trappola nuova: gli script Python nello scratchpad hanno un percorso > 260
 caratteri e `python file.py` fallisce (ENOENT): lanciarli con
 `python - < file.py` (bash apre il file, Python legge stdin).
