@@ -269,7 +269,7 @@ interface PropostaVendita {
         </div>
         <div class="intervallo">
           <label class="dal"><span>{{ 'deliveries.filter.from' | translate }}</span>
-            <input class="field" type="date" [(ngModel)]="dateFilter" (ngModelChange)="reload()" />
+            <input class="field" type="date" [(ngModel)]="dateFilter" (ngModelChange)="scegliDal($event)" />
           </label>
           <label class="al"><span>{{ 'deliveries.filter.to' | translate }}</span>
             <input class="field" type="date" [(ngModel)]="dateTo" [min]="dateFilter" (ngModelChange)="reload()" />
@@ -2116,6 +2116,24 @@ export class DeliveriesListComponent {
   }
   oggi(): string { return this.giorno(0); }
   domani(): string { return this.giorno(1); }
+
+  /**
+   * ⭐ 11/09/2026 (regola utente): «quando nei filtri seleziono una data "dal", quella "al" si riempie
+   * in automatico con oggi».
+   *
+   * Senza il secondo estremo il filtro non è un intervallo ma un «da questa data in avanti», e porta
+   * dentro anche le consegne FUTURE: scegliendo il primo del mese si vedono pure quelle programmate per
+   * le settimane prossime, che quasi mai è ciò che si sta cercando. Riempiendo «al» con oggi, il periodo
+   * si chiude da solo sul passato, che è la lettura normale.
+   *
+   * ⚠️ Se «al» è già stato scelto NON si tocca: chi ha messo una data di fine l'ha voluta, e
+   * sovrascrivergliela mentre sposta l'inizio gli cambierebbe la domanda sotto le mani.
+   * ⚠️ Se svuota «dal» non si riempie niente: significa «tutte le date».
+   */
+  scegliDal(valore: string): void {
+    if (valore && !this.dateTo) this.dateTo = this.oggi();
+    this.reload();
+  }
 
   /** Scelta rapida: stringa vuota = tutte le date. */
   vaiA(data: string): void {
