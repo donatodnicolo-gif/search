@@ -842,6 +842,9 @@ export async function creaOrdineDalCrm(
               .map((r) => `${r.quantita > 1 ? `${r.quantita}× ` : ""}${r.titolo ?? "prodotto dal catalogo"}`)
               .join(", "),
             corpo.consegna.data ? `Consegna ${corpo.consegna.data}${corpo.consegna.fascia ? ` (${corpo.consegna.fascia})` : ""}` : "",
+            corpo.destinatario ? `Riceve ${[corpo.destinatario.nome, corpo.destinatario.cognome].filter(Boolean).join(" ")}` : "",
+            corpo.anonima ? "Consegna anonima" : "",
+            corpo.eccezioneOrari ? `Eccezione orari concordata: ${corpo.eccezioneOrari}` : "",
             esito.inviato ? "Shopify ha mandato la mail col link." : "",
           ]
             .filter(Boolean)

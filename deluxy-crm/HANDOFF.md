@@ -50,6 +50,37 @@ Richieste dell'utente dopo il deploy delle ricorrenze lette dal biglietto:
   `deluxy-orders-2z87d3f00`), quindi il pop-up del dettaglio ricorrenza
   (commit `23a46195`) mostra «come l'abbiamo dedotta» anche live.
 
+**Nuovo ordine con TUTTE le opzioni del Customer Service** (utente, 11/09, dal
+modulo live: «le fasce orarie devono essere dei negozi o a inserimento
+manuale; copia tutte le opzioni da app customer service (costi di consegna,
+IVA, ecc.) chiedi espressamente all'app quali ha»). Nel CS (`scoutwt/
+deluxy-messaging`) due rotte nuove per le altre app: **`GET /api/v1/nuovo-
+ordine/opzioni?negozio=`** (fasce dagli orari del negozio: `primoGiornoAperto`,
+griglia `oltre`, `calendario` dei prossimi 45 giorni con ok/motivo/fasce;
+voci di spedizione usate; metodi di pagamento visti; `iva` con la
+spiegazione; l'elenco `campi` dei facoltativi che il POST accetta) e
+**`POST /api/v1/nuovo-ordine/tariffe`** (tariffe del sito per indirizzo +
+righe, più la stima fuori zona: stesso conto della schermata interna, ora in
+`src/lib/tariffe-con-stima.ts`); il **POST `/api/v1/nuovo-ordine`** accetta
+anche `destinatario`, `anonima`, `consensoMarketing`, `aggiungiIva`,
+`eccezioneOrari`. Nel CRM: `lib/nuovo-ordine.ts` (`opzioniCS`, `tariffeCS`,
+tipi), proxy `api/interno/opzioni-ordine` e `api/interno/tariffe`,
+`FormNuovoOrdine.tsx` riscritto: giorno con motivo se chiuso (e «Eccezione
+concordata» con motivo), fascia dalle fasce del giorno o «Flessibile: la
+scrivo io», riceve un'altra persona, consegna anonima, consenso marketing
+(acceso), spedizione fra voci usate / tariffe del sito per l'indirizzo
+(chieste al CS con 0,7 s di attesa dopo l'ultima modifica) / stima fuori zona
+con «Usa la stima» / senza / a mano, mezzo di pagamento con i metodi visti,
+IVA come spunta con la spiegazione del CS. Misure in locale (CS locale):
+opzioni 0,6–1,1 s per negozio; tariffe Milano 2,1 s (15 €), Bergamo 3,4 s
+(80 € del sito + stima 75 € = 15 + 58,9 km × 1 €). ⚠️ **Il CS in produzione
+NON ha ancora queste rotte** (ultimo deploy CS di 14 ore prima, con due
+funzioni dell'altra sessione — orari negozi e modifica bozza — committate ma
+non pubblicate): il modulo live dice «Il Customer Service non dice le sue
+opzioni…» e resta usabile a mano finché il CS non si pubblica. Non l'ho
+pubblicato io: pubblicherebbe anche il lavoro dell'altra sessione, non ancora
+visto a schermo.
+
 Bug visto dall'utente dopo il deploy (screenshot del pop-up in Calendario): il
 form «Correggi» del dettaglio ricorrenza era una riga schiacciata (etichette e
 campi sovrapposti, testo fuori dalla finestra). Causa: `.modale-azioni form

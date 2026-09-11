@@ -31,6 +31,36 @@ export type ProdottoCS = {
 
 export type SpedizioneCS = { titolo: string; prezzo: number; usata: number };
 
+// Le OPZIONI del modulo, dette dal Customer Service (11/09/2026: «copia tutte le
+// opzioni da app customer service, chiedi espressamente all'app quali ha»).
+// Fasce dagli orari del negozio (o storiche se non ha orari scritti), voci di
+// spedizione usate, metodi di pagamento, IVA, e l'elenco dei campi facoltativi.
+export type GiornoCS = { data: string; quando: string; ok: boolean; motivo: string; fasce: string[] };
+export type OpzioniCS = {
+  negozio: { id: string; nome: string; dominio: string };
+  fasce: { configurato: boolean; primoGiornoAperto: string | null; oltre: string[]; calendario: GiornoCS[]; storiche?: string[] };
+  spedizioni: SpedizioneCS[];
+  tariffe: { come: string; corpo: string; nota: string };
+  metodiPagamento: { nome: string; usato: number }[];
+  iva: { aggiungibile: boolean; predefinito: boolean; spiegazione: string };
+  campi: { nome: string; tipo: string; spiegazione: string }[];
+};
+
+export type TariffaCS = { titolo: string; prezzo: number; valuta: string };
+export type StimaCS = { partenza: string; km: number; base: number; baseTitolo: string; euroPerKm: number; prezzo: number };
+export type RichiestaTariffeCS = {
+  negozioId: string;
+  indirizzo: { indirizzo: string; citta: string; cap: string; provincia: string; paese: string };
+  righe: RigaNuovoOrdine[];
+};
+export type RispostaTariffeCS = {
+  tariffe: TariffaCS[];
+  stima?: StimaCS | null;
+  stimaStato?: string;
+  stimaKm?: number | null;
+  stimaPartenza?: string;
+};
+
 export type RigaNuovoOrdine = { variantId?: string; titolo?: string; prezzo?: number; quantita: number };
 
 export type DatiCreazione = {
@@ -51,6 +81,12 @@ export type DatiCreazione = {
   spedizione: { titolo: string; prezzo: number };
   pagamento: "link" | "pagato";
   mezzoPagamento: string;
+  // I campi facoltativi, gli stessi della schermata interna del CS (11/09).
+  destinatario?: { nome: string; cognome: string; telefono: string };
+  anonima?: boolean;
+  consensoMarketing?: boolean;
+  aggiungiIva?: boolean;
+  eccezioneOrari?: string;
   operatore?: { id: string; nome: string };
 };
 
@@ -88,6 +124,29 @@ export async function prodottiCS(negozio: string, q: string) {
   return leggi<{ stato: "ok" | "senza-permesso" | "errore"; prodotti?: ProdottoCS[]; messaggio?: string }>(
     `/api/v1/nuovo-ordine/prodotti?negozio=${encodeURIComponent(negozio)}&q=${encodeURIComponent(q)}`,
   );
+}
+
+export async function opzioniCS(negozio: string) {
+  return leggi<OpzioniCS>(`/api/v1/nuovo-ordine/opzioni?negozio=${encodeURIComponent(negozio)}`);
+}
+
+export async function tariffeCS(corpo: RichiestaTariffeCS): Promise<{ ok: true; dati: RispostaTariffeCS } | { ok: false; errore: string }> {
+  const k = await chiave();
+  if (!k) return { ok: false, errore: "Manca MESSAGGI_API_KEY." };
+  try {
+    const res = await fetch(`${await base()}/api/v1/nuovo-ordine/tariffe`, {
+      method: "POST",
+      headers: { "x-api-key": k, "Content-Type": "application/json" },
+      body: JSON.stringify(corpo),
+      // Shopify più Google per la stima: più respiro.
+      signal: AbortSignal.timeout(30_000),
+    });
+    const dati = (await res.json().catch(() => null)) as (RispostaTariffeCS & { errore?: string }) | null;
+    if (!res.ok) return { ok: false, errore: dati?.errore ?? `Il Customer Service risponde ${res.status}.` };
+    return { ok: true, dati: dati ?? { tariffe: [] } };
+  } catch {
+    return { ok: false, errore: "Il Customer Service non risponde (timeout o rete)." };
+  }
 }
 
 export async function spedizioniCS(negozio: string) {

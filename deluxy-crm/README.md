@@ -41,7 +41,12 @@ Postgres **`crm`** sul cluster condiviso.
 - **Performance** — valore, cluster, segmenti, siti, città, classifiche
   (legge fino a 3000 clienti per spesa e lo dice).
 - **Nuovo ordine** — cerca il cliente e apre il modulo dell'ordine (passa dal
-  Customer Service).
+  Customer Service). Dall'11/09 il modulo chiede al CS **tutte le sue
+  opzioni** (`/api/v1/nuovo-ordine/opzioni`): fasce dagli orari del negozio
+  per il giorno scelto (o scritte a mano), eccezione concordata per un giorno
+  chiuso, destinatario diverso, consegna anonima, consenso marketing,
+  spedizione fra voci usate, tariffe del sito per l'indirizzo e stima fuori
+  zona, metodi di pagamento visti, IVA come scelta.
 - **Eventi** — occasioni speciali con lista invitati
   (da invitare → invitato → confermato → partecipato), invito via mail
   personalizzata, capienza, propagazione al Calendario; **liste collegate**
