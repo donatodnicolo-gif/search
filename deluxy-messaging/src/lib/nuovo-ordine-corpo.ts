@@ -51,8 +51,21 @@ export function datiDaCorpo(
     eccezioneOrari: String(d.eccezioneOrari ?? ''),
     // ⭐ 11/09/2026: tre scelte, non più due. Quello che non si riconosce
     // resta `link`, che è l'unica che non muove soldi né fa nascere un ordine.
+    // ⭐ 11/09/2026: `metodo` è la terza scelta (Impostazioni → Metodi di
+    // pagamento). `alla-consegna` resta accettato: è la parola vecchia del
+    // contrassegno, da cui passano ancora il CRM e la rotta /api/v1.
+    // ⚠️ Tutto ciò che non si riconosce diventa `link`: la scelta che non fa
+    // uscire né entrare niente finché il cliente non paga davvero.
     pagamento:
-      d.pagamento === 'pagato' ? 'pagato' : d.pagamento === 'alla-consegna' ? 'alla-consegna' : 'link',
+      d.pagamento === 'pagato'
+        ? 'pagato'
+        : d.pagamento === 'metodo'
+          ? 'metodo'
+          : d.pagamento === 'alla-consegna'
+            ? 'alla-consegna'
+            : 'link',
+    // ⚠️ Solo l'ID: le specifiche le rilegge il server dal database.
+    metodoId: String(d.metodoId ?? ''),
     mezzoPagamento: d.mezzoPagamento ?? '',
     // ⚠️ Di suo l'IVA NON si aggiunge: solo se il modulo la chiede esplicitamente.
     aggiungiIva: d.aggiungiIva === true,

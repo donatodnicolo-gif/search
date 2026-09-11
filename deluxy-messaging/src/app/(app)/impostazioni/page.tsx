@@ -190,6 +190,23 @@ export default async function PaginaImpostazioni({
             </a>
           </div>
 
+          {/* ⭐ 11/09/2026 — i metodi di pagamento del modulo Nuovo ordine
+              (richiesta utente: «consentimi su impostazioni di stabilire per
+              ogni metodo che viene elencato le specifiche»). La pagina è a
+              parte perché è un elenco che cresce; da qui ci si arriva. */}
+          <div className="card">
+            <h2>Metodi di pagamento</h2>
+            <p className="descrizione">
+              I modi di pagare che si scelgono in <strong>Nuovo ordine</strong> sotto «Altri metodi di
+              pagamento», e per ognuno che cosa succede davvero: se l&apos;ordine nasce da incassare o
+              già pagato, quando il pagamento è dovuto, che cosa si dice al cliente e che cosa resta
+              scritto per chi consegna.
+            </p>
+            <a className="bottone secondario" href="/metodi-pagamento">
+              Vai a Metodi di pagamento
+            </a>
+          </div>
+
           <div className="card">
             <h2>Google Contacts</h2>
             <p className="descrizione">

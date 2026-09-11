@@ -1,5 +1,30 @@
 # Handoff — Deluxy Customer Service
 
+> ⭐ **11/09/2026 sera (4) — I METODI DI PAGAMENTO SI IMPOSTANO.** In locale, **non deployato**.
+>
+> Utente: «in nuovo ordine la terza opzione è altri metodi di pagamento: consentimi su impostazioni di stabilire per ogni metodo che viene elencato le specifiche».
+>
+> **Prima** i metodi erano sette parole scritte nel codice (Contanti alla consegna, POS alla consegna, Bonifico, Contanti, POS, PayPal, Altro) e portavano **un comportamento solo**: qualunque cosa si scegliesse, l'ordine nasceva allo stesso modo e il nome finiva in una riga di nota. Ma «bonifico anticipato» e «contanti alla consegna» non sono due parole per la stessa cosa.
+>
+> **Adesso** una riga di `MetodoPagamento` dice **quattro specifiche**, e ognuna cambia qualcosa di vero:
+> 1. **come nasce l'ordine** — `da-incassare` (Shopify «in attesa di pagamento») o `pagato`;
+> 2. **quando è dovuto** — `consegna` (FULFILLMENT) o `ricevuta` (RECEIPT): sono i termini di pagamento, ed è ciò che impedisce a un ordine di nascere pagato;
+> 3. **che cosa si dice al cliente** (`istruzioni`: l'IBAN, «paga al valet») — si legge nel modulo **prima** del clic e finisce nella nota;
+> 4. **che cosa resta scritto** — `notaConsegna` per chi consegna e `attributo` per le macchine (`Pagamento_Alla_Consegna` è quello che in piattaforma fa nascere la «Vendita con Pagamento alla Consegna»).
+>
+> **Dove**: nuova pagina **Impostazioni → Metodi di pagamento** (`/metodi-pagamento`, voce in Configurazione + card in `/impostazioni`), rotta `/api/metodi-pagamento` (lettura per tutti gli operatori, **scrittura solo admin**: quelle righe decidono se un ordine nasce pagato). In **Nuovo ordine** la terza scelta è «**Altri metodi di pagamento**» con la tendina dei metodi e, sotto, le specifiche in chiaro; il bottone dice «Crea da incassare» o «Crea come pagato» secondo il metodo.
+>
+> ⚠️⚠️ **Dal browser arriva SOLO l'id**: le specifiche si rileggono dal database (`metodoPerOrdine`). Mandarle nel corpo vorrebbe dire lasciare al browser la decisione se l'ordine nasce pagato. Un metodo **spento o tolto** mentre il modulo era aperto ferma la creazione con un messaggio, invece di far nascere l'ordine con una regola ritirata.
+> ⚠️ **Compatibilità**: `pagamento: 'alla-consegna'` resta accettato (CRM e `/api/v1`) e vale come il contrassegno di prima (`METODO_CONTRASSEGNO`). La rotta `/api/v1/nuovo-ordine/opzioni` espone ora anche `metodiOrdine` con le specifiche, e accetta `metodoId`.
+> ⚠️ **«Contanti alla consegna» e «POS alla consegna» non stanno più nella tendina di «ha già pagato»**: non sono modi in cui il cliente *ha* pagato, e tenerli in tutte e due faceva registrare come incassati dei soldi che chi consegna deve ancora prendere.
+> ⚠️ Un metodo che fa nascere l'ordine **pagato** non può avere una riga per chi consegna: la validazione lo rifiuta (non c'è niente da incassare).
+>
+> **Migrazione già applicata** (`node scripts/applica-metodi-pagamento.mjs`, additiva, idempotente): tabella creata e **seminati 6 metodi** con le specifiche che il codice applicava davvero. ⚠️ Il «Bonifico anticipato» ha le istruzioni **da riempire**: l'IBAN lo scrive l'amministratore in Impostazioni, non lo script (un IBAN in un file del repo è un segreto in chiaro).
+>
+> ✅ `tsc` pulito, `next build` completato, `scripts/prova-metodi-pagamento.mts` **13/13** (specifiche seminate, validazione, rilettura dal DB, e i termini di pagamento veri di Deluxy, Cake e Flowers; Business non ha token e si salta).
+> ⚠️ **Non visto nel browser** (il dev locale chiede il login) e **non deployato**.
+> ⚠️ **Deviazione nota**: le tre conferme di Nuovo ordine usano ancora `window.confirm`, vietato dal Libro UX §7 nel codice nuovo. La terza l'ho scritta uguale alle due che c'erano: tre scelte parallele con due stili di finestra sarebbero peggio. Da convertire tutte e tre a `<Conferma>` in un giro dedicato.
+
 > ⚠️⚠️ **11/09/2026 sera (3) — «RIMBORSATO» NON VOLEVA DIRE «I SOLDI SONO USCITI».** In locale, **non deployato**.
 >
 > Domanda dell'utente: «il 2846 è tornato tra gli ordini aperti perché? lo abbiam rimborsato». **Non è tornato, e il rimborso non è ancora uscito.** Misurato su Shopify alle 18:36:

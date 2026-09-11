@@ -117,6 +117,26 @@ cd deluxy-messaging && npx tsx scripts/ispeziona-valuta-ordine.mts 2846
 - **Serve**: `DATABASE_URL` nel `.env` (le credenziali Shopify si leggono dal DB)
 - **Nota**: non scrive niente, né qui né su Shopify.
 
+### applica-metodi-pagamento.mjs — deluxy-messaging
+**Migrazione additiva** (`CREATE TABLE IF NOT EXISTS`): la tabella dei **metodi di pagamento** con le loro specifiche — come nasce l'ordine (da incassare / già pagato), quando è dovuto il pagamento, che cosa si dice al cliente, la riga per chi consegna e l'attributo per le macchine. Al primo giro **semina i sei metodi** che fino all'11/09/2026 stavano scritti nel codice del modulo, con le specifiche che il codice applicava davvero; un secondo giro non ricrea quello che qualcuno ha tolto.
+
+```bash
+cd deluxy-messaging && node scripts/applica-metodi-pagamento.mjs
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` dell'app
+- **Nota**: applicato in produzione l'11/09/2026 (6 righe). ⚠️ Le **coordinate del bonifico non le scrive lo script**: le mette l'amministratore in Impostazioni → Metodi di pagamento. Un IBAN in un file del repo è un segreto in chiaro.
+
+### prova-metodi-pagamento.mts — deluxy-messaging
+**Sola lettura.** Prova i metodi di pagamento senza creare nessun ordine: che le specifiche seminate dicano quello che promettono, che la validazione rifiuti i casi storti (nome vuoto, attributo con spazi, «già pagato» con la riga per chi consegna), che un metodo si rilegga **dal database** e che uno spento o inventato non si serva, e che ogni negozio abbia davvero i **termini di pagamento** di Shopify — senza i quali un ordine «da incassare» nascerebbe pagato.
+
+```bash
+cd deluxy-messaging && npx tsx scripts/prova-metodi-pagamento.mts
+```
+
+- **Serve**: `DATABASE_URL` nel `.env` (le credenziali Shopify si leggono dal DB)
+- **Nota**: non chiama `creaOrdine`, quindi non nasce nessun ordine. 13/13 l'11/09/2026 (Business Deluxy saltato: niente token).
+
 ### ispeziona-rimborso-ordine.mts — deluxy-messaging
 **Sola lettura.** Di un ordine dice se il rimborso è **davvero uscito** oppure è solo registrato: stato dell'ordine su Shopify, quanto è stato reso, e per ogni rimborso lo stato della transazione REFUND (`SUCCESS` = soldi usciti, `PENDING` = il gateway non ha ancora chiuso, nessuna transazione = rimborso solo contabile). Nasce da #2846 (11/09/2026): `refundCreate` era andato a buon fine e l'app diceva «Rimborsato», ma la transazione era rimasta **PENDING** per ore — `totalRefunded` a 0,00, ordine ancora «Pagato» e quindi ancora fra quelli da lavorare. Sembrava tornato indietro da solo.
 

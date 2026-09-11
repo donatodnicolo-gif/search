@@ -19,6 +19,8 @@ import { db } from './db'
 import { orarioConfigurato } from './orari-negozi'
 import { giornoSelezionabile, oggiIso, scriviDataBreve } from './orari-regole'
 import { decifra } from './crypto'
+import { metodoPerOrdine } from './metodi-pagamento'
+import { METODO_CONTRASSEGNO, type Metodo } from './metodi-regole'
 
 const VERSIONE = '2025-01'
 
@@ -411,7 +413,17 @@ export type DatiNuovoOrdine = {
    * era segnarlo pagato quando pagato non era — e da lì in avanti nessuno
    * sapeva più che c'erano dei soldi da prendere.
    */
-  pagamento: 'link' | 'pagato' | 'alla-consegna'
+  pagamento: 'link' | 'pagato' | 'metodo' | 'alla-consegna'
+  /**
+   * ⭐ 11/09/2026 — QUALE metodo, quando `pagamento` è `metodo`: l'id della riga
+   * di Impostazioni → Metodi di pagamento (utente: «consentimi su impostazioni
+   * di stabilire per ogni metodo che viene elencato le specifiche»).
+   *
+   * ⚠️⚠️ Dal modulo arriva SOLO l'id: le specifiche si rileggono dal database.
+   * Sono loro a decidere se l'ordine nasce pagato, e una specifica che viaggia
+   * nel corpo della richiesta è una specifica che chiunque può riscrivere.
+   */
+  metodoId?: string
   /**
    * La consegna e ANONIMA: chi riceve non deve sapere da parte di chi.
    * ⚠️ Viaggia in tre posti — nota dell ordine, attributo Consegna_Anonima e
@@ -490,7 +502,7 @@ export type EsitoNuovoOrdine =
  *   pagamento manuale, e senza quella riga non si saprebbe più.
  */
 type BozzaPreparata =
-  | { ok: true; n: Negozio; t: string; input: Record<string, unknown> }
+  | { ok: true; n: Negozio; t: string; input: Record<string, unknown>; metodo: Metodo | null }
   | { ok: false; errore: string }
 
 /**
@@ -525,24 +537,69 @@ type BozzaPreparata =
  * PAGATO, e chi chiama deve poterlo fermare invece di dichiarare incassati dei
  * soldi che nessuno ha preso.
  */
-const terminiPerNegozio = new Map<string, string | null>()
+const terminiPerNegozio = new Map<string, { consegna: string | null; ricevuta: string | null }>()
 
-async function terminiAllaConsegna(n: Negozio, t: string): Promise<string | null> {
-  const gia = terminiPerNegozio.get(n.id)
-  if (gia !== undefined) return gia
-  const r = await graphql<{
-    data?: { paymentTermsTemplates?: { id: string; paymentTermsType?: string }[] }
-  }>(n, t, `{ paymentTermsTemplates { id paymentTermsType } }`).catch(() => ({}) as never)
-  const tutti = r.data?.paymentTermsTemplates ?? []
-  const scelto =
-    tutti.find((x) => x.paymentTermsType === 'FULFILLMENT')?.id ??
-    tutti.find((x) => x.paymentTermsType === 'RECEIPT')?.id ??
-    null
-  terminiPerNegozio.set(n.id, scelto)
-  return scelto
+/**
+ * ⭐ 11/09/2026 — I DUE MODELLI, non più uno solo: da quando i metodi si
+ * impostano (Impostazioni → Metodi di pagamento) un metodo può dire «dovuto
+ * alla consegna» (FULFILLMENT) oppure «alla ricezione» (RECEIPT), ed erano due
+ * cose che il codice non sapeva distinguere.
+ *
+ * ⚠️ Si ripiega sull'altro se quello chiesto manca: meglio termini leggermente
+ * diversi che un ordine nato PAGATO. Se non c'è nessuno dei due si torna
+ * `null`, e chi chiama si ferma.
+ */
+async function terminiDelNegozio(n: Negozio, t: string, quando: 'consegna' | 'ricevuta'): Promise<string | null> {
+  let gia = terminiPerNegozio.get(n.id)
+  if (gia === undefined) {
+    const r = await graphql<{
+      data?: { paymentTermsTemplates?: { id: string; paymentTermsType?: string }[] }
+    }>(n, t, `{ paymentTermsTemplates { id paymentTermsType } }`).catch(() => ({}) as never)
+    const tutti = r.data?.paymentTermsTemplates ?? []
+    gia = {
+      consegna: tutti.find((x) => x.paymentTermsType === 'FULFILLMENT')?.id ?? null,
+      ricevuta: tutti.find((x) => x.paymentTermsType === 'RECEIPT')?.id ?? null,
+    }
+    terminiPerNegozio.set(n.id, gia)
+  }
+  return quando === 'ricevuta' ? (gia.ricevuta ?? gia.consegna) : (gia.consegna ?? gia.ricevuta)
+}
+
+/**
+ * ⭐ 11/09/2026 — IL METODO DI QUESTO ORDINE, con le sue specifiche.
+ *
+ * Tre strade, e la terza è quella che tiene in piedi il passato:
+ * · `pagamento: 'metodo'` → si rilegge la riga dal database (mai dal modulo);
+ * · `pagamento: 'alla-consegna'` → è la vecchia parola del contrassegno, da cui
+ *   passano ancora il CRM e la rotta `/api/v1`: vale il metodo di ripiego, cioè
+ *   esattamente quello che facevano prima;
+ * · tutto il resto → nessun metodo (link, o «ha già pagato»).
+ */
+async function metodoDellOrdine(d: DatiNuovoOrdine): Promise<Metodo | null | 'sparito'> {
+  if (d.pagamento === 'metodo') {
+    const m = await metodoPerOrdine(d.metodoId ?? '')
+    return m ?? 'sparito'
+  }
+  if (d.pagamento === 'alla-consegna') {
+    return { ...METODO_CONTRASSEGNO, nome: d.mezzoPagamento.trim() || 'Contanti alla consegna' }
+  }
+  return null
 }
 
 async function preparaBozza(d: DatiNuovoOrdine): Promise<BozzaPreparata> {
+  // ⭐ 11/09/2026 — IL METODO PRIMA DI TUTTO: da lui dipendono la nota, gli
+  // attributi e — soprattutto — se l'ordine nasce pagato o da incassare.
+  // ⚠️⚠️ Uno SPARITO ferma tutto: se la riga è stata spenta o tolta mentre la
+  // schermata era aperta, l'ordine nascerebbe con una regola che non c'è più —
+  // e il caso peggiore è che nasca pagato senza che nessuno abbia incassato.
+  const metodo = await metodoDellOrdine(d)
+  if (metodo === 'sparito') {
+    return {
+      ok: false,
+      errore:
+        'Il metodo di pagamento scelto non c’è più (l’hanno spento o tolto in Impostazioni): ricarica il modulo e scegline un altro.',
+    }
+  }
   const n = await negozio(d.negozioId)
   if (!n) return { ok: false, errore: 'Negozio non trovato.' }
   const t = await token(n)
@@ -610,11 +667,19 @@ async function preparaBozza(d: DatiNuovoOrdine): Promise<BozzaPreparata> {
     // QUESTA, non lo stato finanziario di Shopify, e deve sapere che deve
     // tornare con dei soldi. L'importo non si ricopia qui — lo sa Shopify, e un
     // numero scritto due volte prima o poi diverge.
-    d.pagamento === 'alla-consegna'
-      ? `DA INCASSARE ALLA CONSEGNA${
-          d.mezzoPagamento.trim() ? ` — ${d.mezzoPagamento.trim()}` : ''
-        }: l'ordine non è pagato.`
+    // ⭐ 11/09/2026 — LE RIGHE DEL METODO, come le ha scritte chi l'ha impostato
+    // (Impostazioni → Metodi di pagamento). Sono due, e servono a due persone
+    // diverse: la prima a chi consegna, la seconda al cliente.
+    // ⚠️ L'importo non si ricopia in nessuna delle due — lo sa Shopify, e un
+    // numero scritto due volte prima o poi diverge.
+    metodo && metodo.comeNasce === 'da-incassare'
+      ? metodo.notaConsegna.trim() ||
+        `DA INCASSARE ALLA CONSEGNA${metodo.nome.trim() ? ` — ${metodo.nome.trim()}` : ''}: l'ordine non è pagato.`
       : '',
+    metodo && metodo.comeNasce === 'pagato'
+      ? `Pagato con: ${metodo.nome.trim()} (registrato dal servizio clienti)`
+      : '',
+    metodo && metodo.istruzioni.trim() ? `Pagamento — ${metodo.nome.trim()}: ${metodo.istruzioni.trim()}` : '',
   ]
     .filter(Boolean)
     .join('\n')
@@ -642,8 +707,12 @@ async function preparaBozza(d: DatiNuovoOrdine): Promise<BozzaPreparata> {
       // piattaforma consegne — che su un ordine in contrassegno fa nascere
       // «Vendita con Pagamento alla Consegna» e dice al valet quanto incassare.
       // Nella nota c'è per le persone, qui per le macchine.
-      ...(d.pagamento === 'alla-consegna'
-        ? [{ key: 'Pagamento_Alla_Consegna', value: d.mezzoPagamento.trim() || 'Si' }]
+      // ⭐ 11/09/2026: l'attributo lo dice il METODO (Impostazioni), non più il
+      // codice. `Pagamento_Alla_Consegna` resta quello del contrassegno — è il
+      // nome che in piattaforma fa nascere la «Vendita con Pagamento alla
+      // Consegna» — ma un metodo può portarne un altro, o nessuno.
+      ...(metodo && metodo.attributo.trim()
+        ? [{ key: metodo.attributo.trim(), value: metodo.nome.trim() || 'Si' }]
         : []),
     ],
     // ⚠️⚠️ L'IVA È UNA SCELTA. Su Deluxy e Flowers i prezzi sono IVA esclusa,
@@ -708,10 +777,10 @@ async function preparaBozza(d: DatiNuovoOrdine): Promise<BozzaPreparata> {
       : {}),
   }
 
-  // ⭐ I termini di pagamento, solo per il contrassegno: sono ciò che fa nascere
-  // un ordine DA INCASSARE invece di uno pagato.
-  if (d.pagamento === 'alla-consegna') {
-    const termini = await terminiAllaConsegna(n, t)
+  // ⭐ I termini di pagamento, per i metodi che fanno nascere l'ordine DA
+  // INCASSARE: sono loro — e solo loro — a impedire che nasca pagato.
+  if (metodo && metodo.comeNasce === 'da-incassare') {
+    const termini = await terminiDelNegozio(n, t, metodo.quandoDovuto)
     if (!termini) {
       return {
         ok: false,
@@ -722,13 +791,13 @@ async function preparaBozza(d: DatiNuovoOrdine): Promise<BozzaPreparata> {
     input.paymentTerms = { paymentTermsTemplateId: termini }
   }
 
-  return { ok: true, n, t, input }
+  return { ok: true, n, t, input, metodo }
 }
 
 export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> {
   const preparata = await preparaBozza(d)
   if (!preparata.ok) return preparata
-  const { n, t, input } = preparata
+  const { n, t, input, metodo } = preparata
 
   const creata = await graphql<{
     data?: {
@@ -855,10 +924,10 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
 
   // ── LA BOZZA DIVENTA UN ORDINE ──
   //
-  // Due casi, e la mutazione è la stessa: «già pagato» fa nascere un ordine
-  // PAGATO, «alla consegna» uno DA INCASSARE. La differenza l'ha già fatta
-  // `preparaBozza` mettendo i termini di pagamento sulla bozza — qui non si
-  // decide più niente.
+  // Due casi, e la mutazione è la stessa: senza termini di pagamento nasce un
+  // ordine PAGATO, con i termini uno DA INCASSARE. La differenza l'ha già fatta
+  // `preparaBozza` leggendo le specifiche del metodo — qui non si decide più
+  // niente.
   //
   // ⚠️ Si rilegge `displayFinancialStatus`: è l'unica prova che i termini hanno
   // fatto effetto. Se un contrassegno tornasse PAID vorrebbe dire che Shopify
@@ -898,7 +967,7 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
   // ferma niente (l'ordine ormai c'è), ma chi guarda lo deve sapere subito,
   // perché un ordine «pagato» per sbaglio non lo incassa più nessuno.
   const soldiNonPresi =
-    d.pagamento === 'alla-consegna' &&
+    metodo?.comeNasce === 'da-incassare' &&
     ordineNato?.displayFinancialStatus &&
     ordineNato.displayFinancialStatus !== 'PENDING'
       ? ` ⚠️ Attenzione: Shopify lo dà come «${ordineNato.displayFinancialStatus}» invece che da incassare — controllalo prima di farlo partire.`
@@ -911,6 +980,7 @@ export async function creaOrdine(d: DatiNuovoOrdine): Promise<EsitoNuovoOrdine> 
     valuta,
     invitoInviato: false,
     negozioNome: n.nome,
+    metodoNome: metodo?.nome ?? '',
   })
   return {
     ok: true,
@@ -959,13 +1029,15 @@ export async function aggiornaBozza(
   if (d.pagamento === 'pagato') {
     return { ok: false, errore: 'Per chiuderla come pagata usa «Segna pagata» nell’elenco delle bozze.' }
   }
-  // ⚠️ «Alla consegna» non è uno stato che una bozza possa prendere: è un
-  // ordine già nato, e un ordine non si modifica da qui.
-  if (d.pagamento === 'alla-consegna') {
+  // ⚠️ Un metodo non è uno stato che una bozza possa prendere: sia «da
+  // incassare» sia «già pagato» fanno nascere un ORDINE, e un ordine non si
+  // modifica da qui. Vale per la parola vecchia (`alla-consegna`) e per quella
+  // nuova (`metodo`).
+  if (d.pagamento === 'alla-consegna' || d.pagamento === 'metodo') {
     return {
       ok: false,
       errore:
-        'Una bozza non diventa «da incassare alla consegna»: quello è un ordine che nasce già così. Modifica la bozza e mandale il link, oppure annullala e rifai l’ordine come contrassegno.',
+        'Una bozza non diventa un ordine con un metodo di pagamento: quello è un ordine che nasce già così. Modifica la bozza e mandale il link, oppure annullala e rifai l’ordine con il metodo che ti serve.',
     }
   }
 
@@ -1092,6 +1164,8 @@ async function segnaOrdineCreato(
     valuta: string
     invitoInviato: boolean
     negozioNome: string
+    /** Il nome del metodo scelto, quando l'ordine nasce da un metodo. */
+    metodoNome?: string
   }
 ): Promise<void> {
   try {
@@ -1102,7 +1176,11 @@ async function segnaOrdineCreato(
         negozioId: d.negozioId,
         negozioNome: extra.negozioNome,
         pagamento: d.pagamento,
-        mezzoPagamento: d.pagamento === 'pagato' ? d.mezzoPagamento : '',
+        // ⭐ 11/09/2026: col metodo si scrive il suo NOME. Prima, su un ordine
+        // che non era «già pagato», la colonna restava vuota: nell'elenco delle
+        // bozze non si sapeva più con che accordo fosse partito.
+        mezzoPagamento:
+          d.pagamento === 'pagato' ? d.mezzoPagamento : (extra.metodoNome ?? ''),
         bozzaId: extra.bozzaId,
         bozzaNome: extra.bozzaNome,
         ordineNumero: extra.ordineNumero,

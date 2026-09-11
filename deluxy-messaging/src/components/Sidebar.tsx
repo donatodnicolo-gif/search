@@ -156,6 +156,10 @@ export function Sidebar({
               { href: '/negozi', nome: 'Negozi', icona: iconaNegozi },
               // ⭐ 10/09/2026: giorni di apertura, fasce orarie e chiusure di ogni negozio (richiesta utente).
               { href: '/orari-negozi', nome: 'Orari negozi', icona: iconaCalendario },
+              // ⭐ 11/09/2026: i metodi di pagamento del modulo Nuovo ordine e le
+              // loro specifiche — come nasce l'ordine, quando è dovuto, cosa resta
+              // scritto (richiesta utente).
+              { href: '/metodi-pagamento', nome: 'Metodi di pagamento', icona: iconaImpostazioni },
               { href: '/numeri-whatsapp', nome: 'Numeri WhatsApp', icona: iconaChat },
               { href: '/account-meta', nome: 'Facebook e Instagram', icona: iconaChat },
               { href: '/aspetto-widget', nome: 'Widget dei siti', icona: iconaChat },

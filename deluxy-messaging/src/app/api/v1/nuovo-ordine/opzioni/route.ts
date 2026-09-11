@@ -4,6 +4,7 @@ import { orariDeiNegozi } from '@/lib/orari-negozi'
 import { adessoRoma, calendarioConsegna, etichettaFascia, fasceIntere, primoGiornoAperto } from '@/lib/orari-regole'
 import { fascePerNegozio } from '@/lib/fasce-consegna'
 import { metodiPagamentoDelNegozio, spedizioniDelNegozio } from '@/lib/nuovo-ordine'
+import { metodiDisponibili } from '@/lib/metodi-pagamento'
 
 export const dynamic = 'force-dynamic'
 // Due chiamate a Shopify (spedizioni usate, metodi di pagamento): respiro.
@@ -44,14 +45,29 @@ export async function GET(req: NextRequest) {
 
   const adesso = adessoRoma()
   // ⚠️ Shopify può non rispondere: le fasce e i campi non devono cadere con lui.
-  const [spedizioni, metodiPagamento] = await Promise.all([
+  const [spedizioni, metodiPagamento, metodiOrdine] = await Promise.all([
     spedizioniDelNegozio(negozioId).catch(() => []),
     metodiPagamentoDelNegozio(negozioId).catch(() => []),
+    // ⭐ 11/09/2026 — I METODI IMPOSTATI DA NOI (Impostazioni → Metodi di
+    // pagamento), da non confondere con `metodiPagamento` qui sopra, che sono
+    // i mezzi VERI letti dagli ordini di Shopify. Questi dicono che cosa
+    // succede; quelli dicono che cosa è successo.
+    metodiDisponibili(negozioId).catch(() => []),
   ])
 
   return NextResponse.json(
     {
       negozio: { id: n.negozio.id, nome: n.negozio.nome, dominio: n.negozio.dominio },
+      // ⭐ La terza scelta del pagamento, con le sue specifiche: chi costruisce
+      // un modulo (il CRM) deve poter dire al suo utente che cosa succederà,
+      // non solo elencare dei nomi.
+      metodiOrdine: metodiOrdine.map((m) => ({
+        id: m.id,
+        nome: m.nome,
+        comeNasce: m.comeNasce,
+        quandoDovuto: m.quandoDovuto,
+        istruzioni: m.istruzioni,
+      })),
       fasce: n.configurato
         ? {
             configurato: true,
@@ -97,15 +113,21 @@ export async function GET(req: NextRequest) {
         { nome: 'aggiungiIva', tipo: 'boolean', spiegazione: "Aggiungere l'IVA sopra ai prezzi (vedi iva)." },
         {
           nome: 'pagamento',
-          tipo: '"link" | "pagato" | "alla-consegna"',
+          tipo: '"link" | "pagato" | "metodo" | "alla-consegna"',
           spiegazione:
-            'Link di pagamento (resta bozza finché non paga), ordine che nasce pagato, oppure ⭐ «alla-consegna»: l’ordine nasce subito e resta DA INCASSARE (su Shopify «in attesa di pagamento», con l’importo dovuto). I soldi li prende chi consegna.',
+            'Link di pagamento (resta bozza finché non paga), ordine che nasce pagato, oppure ⭐ «metodo»: si sceglie una riga di metodiOrdine e l’ordine si comporta come dicono le sue specifiche (di solito nasce DA INCASSARE, su Shopify «in attesa di pagamento»). «alla-consegna» resta accettato e vale come il contrassegno di prima.',
+        },
+        {
+          nome: 'metodoId',
+          tipo: 'string',
+          spiegazione:
+            '⭐ Con pagamento = "metodo": l’id di una riga di metodiOrdine. Si manda solo l’id — le specifiche le rilegge il Customer Service dal suo database, perché decidono se l’ordine nasce pagato.',
         },
         {
           nome: 'mezzoPagamento',
           tipo: 'string',
           spiegazione:
-            'Con che mezzo ha pagato o pagherà: vale con pagamento = pagato e con alla-consegna. Le voci vere del negozio stanno in metodiPagamento qui sopra; per il contrassegno si usa «Contanti alla consegna» o «POS alla consegna», che su Shopify non esistono come gateway perché quei soldi non passano di lì.',
+            'Con che mezzo HA pagato: vale con pagamento = "pagato". Le voci vere del negozio stanno in metodiPagamento qui sopra. ⚠️ Per come pagherà non si usa più questo campo: si sceglie un metodo (metodoId), che porta con sé le sue specifiche.',
         },
       ],
     },

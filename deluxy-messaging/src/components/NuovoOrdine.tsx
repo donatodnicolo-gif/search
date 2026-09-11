@@ -3,6 +3,7 @@
 import { numeroWhatsApp } from '@/lib/whatsapp-link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { chiediJson, frasePerEsito } from '@/lib/leggi-json'
+import { descriviMetodo, type Metodo } from '@/lib/metodi-regole'
 import { fascePerNegozio } from '@/lib/fasce-consegna'
 import { adessoRoma, fasceDelGiorno, fasceIntere, etichettaFascia, giornoSelezionabile, type OrarioNegozioDati } from '@/lib/orari-regole'
 
@@ -305,8 +306,13 @@ export function NuovoOrdine({
   const [clienteCercato, setClienteCercato] = useState(false)
   const [biglietto, setBiglietto] = useState('')
 
-  const [pagamento, setPagamento] = useState<'link' | 'pagato' | 'alla-consegna'>('link')
+  const [pagamento, setPagamento] = useState<'link' | 'pagato' | 'metodo'>('link')
   const [mezzo, setMezzo] = useState('')
+  // ⭐ 11/09/2026 — I METODI IMPOSTATI (Impostazioni → Metodi di pagamento) e
+  // quello scelto. Sono la terza scelta del pagamento: non più una parola sola
+  // scritta nel codice, ma righe con le loro specifiche.
+  const [metodiOrdine, setMetodiOrdine] = useState<Metodo[]>([])
+  const [metodoId, setMetodoId] = useState('')
   /**
    * I metodi che QUESTO negozio usa davvero, chiesti ai suoi ordini.
    *
@@ -444,6 +450,24 @@ export function NuovoOrdine({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bozzaId])
+
+  // ⭐ 11/09/2026 — I metodi IMPOSTATI da noi, per questo negozio: quelli che
+  // valgono per tutti più quelli di questo negozio soltanto.
+  // ⚠️ Si rileggono a ogni cambio di negozio come i mezzi di Shopify, e per la
+  // stessa ragione: un metodo può essere di un negozio solo.
+  useEffect(() => {
+    if (!negozioId) return
+    chiediJson<{ metodi?: Metodo[] }>(
+      '/api/metodi-pagamento?negozio=' + encodeURIComponent(negozioId)
+    ).then((e) => {
+      const lista = e.stato === 'ok' ? (e.dati.metodi ?? []) : []
+      setMetodiOrdine(lista)
+      // ⚠️ Se il metodo scelto non c'è più su questo negozio si spegne la
+      // scelta invece di tenerla: creare l'ordine fallirebbe, e lo scoprirebbe
+      // solo premendo il bottone.
+      setMetodoId((v) => (lista.some((m) => m.id === v) ? v : ''))
+    })
+  }, [negozioId])
 
   // ⚠️ I metodi di pagamento si rileggono a ogni cambio di negozio: sono del
   // negozio, non dell'azienda — «Bank Deposit» ce l'ha solo Cake.
@@ -754,6 +778,12 @@ export function NuovoOrdine({
   const totale =
     righe.reduce((s, r) => s + r.prezzo * r.quantita, 0) + (Number(spedizionePrezzo) || 0)
 
+  // ⭐ 11/09/2026 — IL METODO SCELTO, una volta sola: lo leggono la tendina (per
+  // dire che cosa fa), il bottone (per dire che cosa creerà) e la riga finale.
+  // ⚠️ Può essere `undefined` anche con `pagamento === 'metodo'`: finché non se
+  // ne sceglie uno la conferma si ferma e lo dice.
+  const metodoScelto = metodiOrdine.find((m) => m.id === metodoId)
+
   // ── LA BOZZA DEL MODULO SI SALVA DA SOLA, OGNI 15 SECONDI ──────────────────
   //
   // Chiesto dall'utente il 31/08/2026, subito dopo aver perso un modulo pieno:
@@ -1041,11 +1071,21 @@ export function NuovoOrdine({
       )
       if (!ok) return
     }
-    // ⭐ E il contrassegno dice l'altra metà: l'ordine parte, i soldi no.
-    if (pagamento === 'alla-consegna') {
+    // ⭐ 11/09/2026 — LA TERZA SCELTA: il metodo dice lui che cosa succede, e la
+    // conferma lo ripete con le sue parole. «Da incassare» e «già pagato» sono
+    // due conseguenze diverse, e chi preme deve leggere quella giusta.
+    if (pagamento === 'metodo') {
+      const m = metodiOrdine.find((x) => x.id === metodoId)
+      if (!m) {
+        setErrore('Scegli con che metodo pagherà: la tendina è qui sotto.')
+        return
+      }
       const ok = window.confirm(
-        `L'ordine nascerà SUBITO e DA INCASSARE: ${soldi(totale)} (${mezzo}).\n\n` +
-          'La merce parte e i soldi li prende chi consegna. Procedo?'
+        (m.comeNasce === 'pagato'
+          ? `L'ordine nascerà già PAGATO (${m.nome}) per ${soldi(totale)}.\n\nUsalo solo se i soldi sono già arrivati.`
+          : `L'ordine nascerà SUBITO e DA INCASSARE: ${soldi(totale)} (${m.nome}).\n\nLa merce parte e i soldi si prendono ${
+              m.quandoDovuto === 'consegna' ? 'alla consegna' : 'alla ricezione della richiesta'
+            }.`) + '\n\nProcedo?'
       )
       if (!ok) return
     }
@@ -1093,6 +1133,10 @@ export function NuovoOrdine({
             ? { titolo: 'Consegna offerta', prezzo: 0 }
             : { titolo: spedizioneTitolo, prezzo: Number(spedizionePrezzo) || 0 },
           pagamento,
+          // ⚠️ Del metodo si manda SOLO l'id: le specifiche le rilegge il
+          // server dal database. Mandarle da qui vorrebbe dire lasciare al
+          // browser la decisione se l'ordine nasce pagato.
+          metodoId: pagamento === 'metodo' ? metodoId : undefined,
           mezzoPagamento: mezzo,
           aggiungiIva,
           anonima,
@@ -2145,40 +2189,45 @@ export function NuovoOrdine({
               <strong>Ha già pagato</strong> — l&apos;ordine nasce pagato
             </span>
           </label>
-          {/* ── ⭐ PAGA ALLA CONSEGNA ──
-              Utente, 11/09/2026: «metti come possibilità di scelta del pagamento
-              … esempio pagamento alla consegna».
+          {/* ── ⭐ ALTRI METODI DI PAGAMENTO ──
+              Utente, 11/09/2026: «in nuovo ordine la terza opzione è altri
+              metodi di pagamento: consentimi su impostazioni di stabilire per
+              ogni metodo che viene elencato le specifiche».
               ⚠️⚠️ È la terza cosa, e le altre due non sapevano dirla: col link
               la merce non parte finché non paga, con «ha già pagato» si
-              dichiarano incassati dei soldi che nessuno ha preso. Qui l'ordine
-              nasce SUBITO e resta DA INCASSARE — Shopify lo scrive «in attesa di
-              pagamento» e ne tiene l'importo dovuto. */}
-          <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
-            <input
-              type="radio"
-              checked={pagamento === 'alla-consegna'}
-              onChange={() => {
-                setPagamento('alla-consegna')
-                // ⚠️ Il mezzo si PROPONE, non si impone: chi paga alla consegna
-                // quasi sempre paga in contanti, e lasciare «Bonifico» scritto
-                // da prima manderebbe al valet un'istruzione sbagliata.
-                if (!mezzo || !mezzo.toLowerCase().includes('consegna')) {
-                  setMezzo('Contanti alla consegna')
-                }
-              }}
-            />
-            <span>
-              <strong>Paga alla consegna</strong> — l&apos;ordine parte, i soldi li prende chi consegna
-            </span>
-          </label>
+              dichiarano incassati dei soldi che nessuno ha preso. In mezzo c'è
+              tutto il resto — contrassegno, bonifico anticipato, accordi — e
+              ognuno si comporta a modo suo. Come, lo dice la riga impostata in
+              Impostazioni → Metodi di pagamento: qui si sceglie e si legge.
+              ⚠️ Senza nessun metodo impostato la scelta NON compare: una
+              tendina vuota è una promessa che non si può mantenere. */}
+          {metodiOrdine.length ? (
+            <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+              <input
+                type="radio"
+                checked={pagamento === 'metodo'}
+                onChange={() => {
+                  setPagamento('metodo')
+                  // ⚠️ Il primo si PROPONE, non si impone: è quello in cima per
+                  // posizione, cioè quello che l'amministratore ha messo per primo.
+                  if (!metodoId) setMetodoId(metodiOrdine[0].id)
+                }}
+              />
+              <span>
+                <strong>Altri metodi di pagamento</strong> — contrassegno, bonifico, accordi: ognuno
+                col suo effetto
+              </span>
+            </label>
+          ) : null}
           </>
           )}
-          {pagamento === 'pagato' || pagamento === 'alla-consegna' ? (
+          {pagamento === 'pagato' ? (
             <label className="campo" style={{ width: 200 }}>
-              {/* ⚠️ La domanda cambia col caso: «con che mezzo ha pagato» e «con
-                  che mezzo pagherà» non sono la stessa frase, e la tendina è la
-                  stessa solo perché i mezzi del negozio sono quelli. */}
-              <span>{pagamento === 'alla-consegna' ? 'Come pagherà' : 'Con che mezzo'}</span>
+              {/* ⚠️ Qui la domanda è una sola — «con che mezzo HA pagato» — e la
+                  risposta è un fatto già avvenuto: i mezzi veri del negozio,
+                  letti dai suoi ordini. Il «come pagherà» non sta più qui: lo
+                  dice il metodo scelto nella terza opzione, con le sue specifiche. */}
+              <span>Con che mezzo</span>
               <select value={mezzo} onChange={(e) => setMezzo(e.target.value)}>
                 {/* ⚠️ I metodi VERI di questo negozio davanti, col nome che si
                     rileggerà su Shopify. La riserva sotto serve quando Shopify
@@ -2196,11 +2245,12 @@ export function NuovoOrdine({
                   </optgroup>
                 ) : null}
                 <optgroup label={metodi.length ? 'Altri' : 'Generici'}>
-                  {/* ⭐ Il contrassegno: sono i mezzi con cui si paga SUL POSTO,
-                      e su Shopify non compaiono mai fra i gateway perché quei
-                      soldi non passano da lì. */}
-                  <option value="Contanti alla consegna">Contanti alla consegna</option>
-                  <option value="POS alla consegna">POS alla consegna</option>
+                  {/* ⚠️ Qui NON stanno più i mezzi del contrassegno: «contanti
+                      alla consegna» non è un modo in cui il cliente ha già
+                      pagato — è un modo in cui pagherà, e vive fra i metodi
+                      (terza opzione) con le sue specifiche. Tenerli in tutte e
+                      due le tendine faceva registrare come incassati dei soldi
+                      che chi consegna deve ancora prendere. */}
                   <option value="Bonifico">Bonifico</option>
                   <option value="Contanti">Contanti</option>
                   <option value="POS">POS</option>
@@ -2217,10 +2267,52 @@ export function NuovoOrdine({
                   nelle NOTE dell'ordine, e su Shopify la transazione risulta
                   «Manual». Meglio dirlo che lasciar credere il contrario. */}
               <span className="cella-sub">
-                {pagamento === 'alla-consegna'
-                  ? 'Su Shopify l’ordine resta «in attesa di pagamento», con l’importo da incassare; il mezzo è scritto nelle note e negli attributi, per chi consegna.'
-                  : 'Il mezzo resta scritto nelle note dell’ordine: su Shopify la transazione risulta comunque «Manual».'}
+                Il mezzo resta scritto nelle note dell’ordine: su Shopify la transazione risulta comunque
+                «Manual».
               </span>
+            </label>
+          ) : null}
+
+          {/* ── ⭐ IL METODO SCELTO, E CHE COSA FA ──
+              ⚠️⚠️ Le specifiche si leggono PRIMA del clic, non dopo: da qui
+              dipende se l'ordine nasce da incassare o già pagato, e quella
+              differenza sono i soldi di un ordine. La frase è la stessa che si
+              legge in Impostazioni (`descriviMetodo`): chi imposta e chi usa
+              devono leggere la stessa cosa. */}
+          {pagamento === 'metodo' ? (
+            <label className="campo" style={{ width: 280 }}>
+              <span>Come pagherà</span>
+              <select value={metodoId} onChange={(e) => setMetodoId(e.target.value)}>
+                <option value="">— scegli —</option>
+                {metodiOrdine.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.nome}
+                  </option>
+                ))}
+              </select>
+              {metodoScelto ? (
+                <>
+                  <span className="cella-sub">{descriviMetodo(metodoScelto)}</span>
+                  {metodoScelto.istruzioni.trim() ? (
+                    <span className="cella-sub">
+                      <strong>Da dire al cliente:</strong> {metodoScelto.istruzioni.trim()}
+                    </span>
+                  ) : null}
+                  {metodoScelto.notaConsegna.trim() ? (
+                    <span className="cella-sub">
+                      <strong>Nella nota per chi consegna:</strong> {metodoScelto.notaConsegna.trim()}
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                <span className="cella-sub">
+                  Le regole di ogni metodo si impostano in{' '}
+                  <a href="/metodi-pagamento" target="_blank" rel="noreferrer">
+                    Impostazioni → Metodi di pagamento
+                  </a>
+                  .
+                </span>
+              )}
             </label>
           ) : null}
         </div>
@@ -2234,14 +2326,19 @@ export function NuovoOrdine({
                 ? 'Creo…'
                 : pagamento === 'link'
                   ? 'Crea e manda il link'
-                  : pagamento === 'alla-consegna'
-                    ? 'Crea da incassare alla consegna'
+                  : pagamento === 'metodo'
+                    ? metodoScelto?.comeNasce === 'pagato'
+                      ? 'Crea come pagato'
+                      : 'Crea da incassare'
                     : 'Crea come pagato'}
           </button>
         </div>
         <p className="descrizione" style={{ marginBottom: 0 }}>
           ⚠️ «Ha già pagato» scrive su Shopify un ordine <strong>pagato</strong>: usalo solo
           quando i soldi sono arrivati davvero. Il mezzo resta scritto nelle note dell&apos;ordine.
+          Gli <strong>altri metodi</strong> fanno quello che dice la loro riga in{' '}
+          <a href="/metodi-pagamento">Impostazioni → Metodi di pagamento</a>: di solito l&apos;ordine
+          nasce <strong>da incassare</strong> e i soldi li prende chi consegna.
         </p>
       </div>
     </>

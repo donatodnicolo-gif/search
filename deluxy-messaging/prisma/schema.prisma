@@ -86,14 +86,15 @@ model NegozioShopify {
   attivo           Boolean  @default(true)
   creatoIl         DateTime @default(now())
 
-  ordini         Ordine[]
-  istruzioniAI   IstruzioneAI[]
-  documentiAI    DocumentoAI[]
-  numeriWhatsApp NumeroWhatsApp[]
-  pagineMeta     PaginaMeta[]
-  caselleEmail   CasellaEmail[]
-  widgetSiti     WidgetSito[]
-  orario         OrarioNegozio?
+  ordini          Ordine[]
+  istruzioniAI    IstruzioneAI[]
+  documentiAI     DocumentoAI[]
+  numeriWhatsApp  NumeroWhatsApp[]
+  pagineMeta      PaginaMeta[]
+  caselleEmail    CasellaEmail[]
+  widgetSiti      WidgetSito[]
+  orario          OrarioNegozio?
+  metodiPagamento MetodoPagamento[]
 }
 
 // Uno "script": una risposta pronta da dare ai clienti. Sono la memoria
@@ -481,6 +482,7 @@ model Ordine {
    * /**
    * /**
    * /**
+   * /**
    * L'ultimo link di pagamento per una RICONSEGNA di quest'ordine.
    * ⚠️⚠️ Si tiene, e non è un vezzo: senza, chiudendo il pop-up il link
    * spariva e per riaverlo bisognava premere di nuovo «Crea il link» — cioè
@@ -648,11 +650,11 @@ model Ordine {
   //
   // ⚠️ `appStato` sono i suoi stati, scritti come li scrive lei:
   // da_gestire · proposta · accettata · non_accettata · annullata.
-  appVenditaId      String    @default("")
-  appStato          String    @default("")
-  appPartner        String    @default("")
-  appCostoPartner   Float?
-  appAggiornatoIl   DateTime?
+  appVenditaId       String    @default("")
+  appStato           String    @default("")
+  appPartner         String    @default("")
+  appCostoPartner    Float?
+  appAggiornatoIl    DateTime?
   /**
    * Dov'era la lavorazione PRIMA che l'ordine passasse in app.
    * ⚠️ Serve a tornare indietro senza perdere niente: interrompendo la gestione
@@ -660,27 +662,26 @@ model Ordine {
    * il punto in cui l'avevamo lasciato — non ripartire da «Da iniziare» come se
    * nessuno ci avesse mai lavorato.
    */
-  appGestionePrima  String    @default("")
+  appGestionePrima   String    @default("")
   /**
    * Quando una persona ha detto «questo lo facciamo noi».
    * ⚠️⚠️ Vale come un NO alla sincronizzazione: senza, il giro successivo
    * rimetterebbe l'ordine «In App» e la decisione della persona durerebbe dieci
    * minuti. Si toglie riportandolo in automatico.
    */
-  appInterrottoIl   DateTime?
+  appInterrottoIl    DateTime?
   /// La consegna nata di la quando l ordine e stato mandato IN APP da qui:
   /// numero che si legge a schermo e id interno.
   ///
   /// ⚠️ Si tiene per due motivi: dire a schermo QUALE consegna e nata (senza,
   /// «mandato in app» e una parola che nessuno puo verificare), e non
   /// rimandarlo due volte.
-  appConsegnaId     String    @default("")
-  appConsegnaNumero String    @default("")
-  appMandataIl      DateTime?
-  appMandataDaNome  String    @default("")
+  appConsegnaId      String    @default("")
+  appConsegnaNumero  String    @default("")
+  appMandataIl       DateTime?
+  appMandataDaNome   String    @default("")
   /**
    * Lo stato della CONSEGNA di là, e quando è prevista.
-   *
    * ⚠️⚠️ È una cosa diversa da `appStato`: quello dice se un partner ha preso
    * il lavoro, questo a che punto è il giro (created · assigned · accepted ·
    * in_delivery · delivered · not_delivered · cancelled · not_accepted). Senza,
@@ -688,21 +689,21 @@ model Ordine {
    * uguali. Copia a breve scadenza come gli altri campi `app*`: la verità sta
    * di là (Standard §7).
    */
-  appConsegnaStato  String    @default("")
+  appConsegnaStato   String    @default("")
   /// ⭐ 07/09/2026 — L'ID DELLA CONSEGNA PER CUI L'ORDINE È GIÀ STATO RIAPERTO.
   /// La regola «se di là è non consegnata, l'ordine torna fra gli aperti» scattava solo al
   /// CAMBIO di stato: 5 ordini avevano già «not_delivered» scritto quando la regola è nata,
   /// e non sono più tornati aperti — la regola c'era e non si vedeva. Con questo campo la
   /// riapertura scatta una volta per CONSEGNA (non per cambio), quindi recupera anche
   /// l'arretrato, e non ridiscute un ordine che una persona ha già ripreso in mano.
-  appNonConsegnataId String   @default("")
-  appConsegnaData   DateTime?
-  appConsegnaFascia String    @default("")
+  appNonConsegnataId String    @default("")
+  appConsegnaData    DateTime?
+  appConsegnaFascia  String    @default("")
   /// Consegne di là SCOLLEGATE a mano dalla scheda (id, uno per riga): il
   /// DDT è numerato per negozio e una consegna con lo stesso numero di un
   /// altro marchio può comparire per sbaglio (#1834, 06/09/2026). Quelle
   /// qui non si mostrano più e la regola dalle pagamenti non le riaggancia.
-  appConsegneEscluse String   @default("")
+  appConsegneEscluse String    @default("")
 
   // ── Chi se ne sta occupando ──
   //
@@ -2364,28 +2365,28 @@ model ListaPrioritaArea {
 /// chi possiede il partner è la piattaforma; qui vive solo il PATTO fra i due, che è roba del
 /// Customer Service.
 model PrezzoProdottoPartner {
-  id             String    @id @default(cuid())
+  id           String    @id @default(cuid())
   /// SKU del prodotto (o della variante): è la chiave con cui lo riconoscono tutte le app
-  codice         String
-  prodotto       String
-  variante       String    @default("")
+  codice       String
+  prodotto     String
+  variante     String    @default("")
   /// unico | quantita | mix | preventivo — la tipologia decisa in Merchandising
-  tipologia      String
-  mestiere       String    @default("")
-  provincia      String    @default("") // sigla; vuoto = vale ovunque
-  partnerId      String
-  partner        String
-  prezzo         Float
+  tipologia    String
+  mestiere     String    @default("")
+  provincia    String    @default("") // sigla; vuoto = vale ovunque
+  partnerId    String
+  partner      String
+  prezzo       Float
   /// per i prodotti a quantità: a che cosa si riferisce il prezzo (a stelo, cad., alla scatola)
-  unita          String    @default("")
-  pubblico       Float?
-  fonte          String // piattaforma | preventivo
-  nota           String    @default("")
-  chiestoIl      DateTime?
-  rispostoIl     DateTime?
-  scrittoDa      String?
-  creatoIl       DateTime  @default(now())
-  aggiornatoIl   DateTime  @updatedAt
+  unita        String    @default("")
+  pubblico     Float?
+  fonte        String // piattaforma | preventivo
+  nota         String    @default("")
+  chiestoIl    DateTime?
+  rispostoIl   DateTime?
+  scrittoDa    String?
+  creatoIl     DateTime  @default(now())
+  aggiornatoIl DateTime  @updatedAt
 
   @@unique([codice, variante, partnerId, provincia])
   @@index([codice])
@@ -2426,4 +2427,60 @@ model OrarioNegozio {
   modificatoDa   String?
   creatoIl       DateTime       @default(now())
   aggiornatoIl   DateTime       @updatedAt
+}
+
+/**
+ * ⭐ 11/09/2026 — I METODI DI PAGAMENTO, CON LE LORO SPECIFICHE.
+ * Richiesta dell'utente: «in nuovo ordine la terza opzione è altri metodi di
+ * pagamento: consentimi su impostazioni di stabilire per ogni metodo che viene
+ * elencato le specifiche».
+ * ⚠️⚠️ Prima i metodi stavano SCRITTI NEL CODICE — una tendina con Bonifico,
+ * Contanti, POS, PayPal, Altro — e portavano tutti lo stesso comportamento:
+ * qualunque cosa si scegliesse, l'ordine nasceva allo stesso modo e il nome
+ * finiva in una riga di nota. Ma «bonifico anticipato» e «contanti alla
+ * consegna» non sono due parole per la stessa cosa: uno fa nascere un ordine
+ * DA INCASSARE, l'altro no; uno vuole l'IBAN scritto al cliente, l'altro una
+ * riga per chi consegna. La differenza è il comportamento, ed è quello che da
+ * qui si imposta.
+ * ⚠️ Una riga NON è un gateway di Shopify: Shopify non lascia scegliere il
+ * gateway chiudendo una bozza (vedi `metodiPagamentoDelNegozio` in
+ * `nuovo-ordine.ts`, riprovato sull'API 2025-01). Quello che si governa da qui
+ * è come nasce l'ordine, quando il pagamento è dovuto e che cosa resta
+ * scritto — nella nota, negli attributi e al cliente.
+ */
+model MetodoPagamento {
+  id           String          @id @default(cuid())
+  /// Come si chiama a schermo e nella nota dell'ordine: «Contanti alla consegna».
+  nome         String
+  /// Spento = non compare più nel modulo. ⚠️ Meglio spegnerlo che cancellarlo:
+  /// il nome resta scritto sugli ordini già fatti, e una riga tolta li rende muti.
+  attivo       Boolean         @default(true)
+  /// L'ordine nella tendina: piccolo = in alto.
+  posizione    Int             @default(0)
+  /// Il negozio a cui vale. ⚠️ NULL = vale per tutti: «Bank Deposit» ce l'ha
+  /// solo Cake, ma i contanti alla consegna li prende chiunque.
+  negozioId    String?
+  negozio      NegozioShopify? @relation(fields: [negozioId], references: [id], onDelete: Cascade)
+  /// ⚠️⚠️ LA SPECIFICA CHE VALE SUI SOLDI: `da-incassare` (l'ordine nasce
+  /// PENDING, con l'importo ancora dovuto) oppure `pagato` (nasce pagato: si usa
+  /// solo quando i soldi sono già arrivati davvero).
+  comeNasce    String          @default("da-incassare")
+  /// Quando il pagamento è dovuto, solo per `da-incassare`: `consegna`
+  /// (FULFILLMENT, «alla consegna») o `ricevuta` (RECEIPT, «alla ricezione»).
+  /// ⚠️ Sono i due modelli che questa app sa chiedere al negozio: l'id non si
+  /// scrive nel codice, si chiede (vedi `terminiDelNegozio`).
+  quandoDovuto String          @default("consegna")
+  /// Che cosa dire al CLIENTE (l'IBAN del bonifico, «paga al valet»…): finisce
+  /// nella nota dell'ordine e si legge nel modulo PRIMA di creare.
+  istruzioni   String          @default("") @db.Text
+  /// La riga per CHI CONSEGNA, in chiaro nella nota. Vuota = nessuna riga.
+  /// ⚠️ L'importo non si scrive qui: lo sa Shopify, e un numero ricopiato diverge.
+  notaConsegna String          @default("") @db.Text
+  /// L'attributo per le MACCHINE (Orders, e da lì la piattaforma consegne):
+  /// es. `Pagamento_Alla_Consegna`. Vuoto = nessun attributo.
+  attributo    String          @default("")
+  creatoIl     DateTime        @default(now())
+  aggiornatoIl DateTime        @updatedAt
+
+  @@index([attivo, posizione])
 }
