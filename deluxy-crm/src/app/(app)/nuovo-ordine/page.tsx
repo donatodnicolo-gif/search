@@ -3,6 +3,7 @@ import { elencoClienti } from "@/lib/orders";
 import { statoCS } from "@/lib/nuovo-ordine";
 import { euro, dataIt, segmento } from "@/lib/etichette";
 import { RigaLink } from "@/components/RigaLink";
+import CercaCliente from "@/components/CercaCliente";
 
 export const dynamic = "force-dynamic";
 
@@ -38,9 +39,12 @@ export default async function NuovoOrdine({ searchParams }: { searchParams: Prom
         </div>
       ) : null}
 
+      {/* Ricerca viva: si scrive e compaiono i clienti; un click apre il modulo. */}
+      <CercaCliente destinazione="/clienti/{cliente}/nuovo-ordine" />
+
       <div className="filtri">
         <form method="get" action="/nuovo-ordine">
-          <input type="search" name="q" aria-label="Cerca il cliente" placeholder="Cerca il cliente: nome, email, telefono…" defaultValue={q} style={{ width: 320 }} autoFocus />
+          <input type="search" name="q" aria-label="Cerca il cliente" placeholder="Ricerca a fondo (Invio): nome, email, telefono…" defaultValue={q} style={{ width: 320 }} />
           <button className="btn ghost" type="submit">Cerca</button>
         </form>
       </div>

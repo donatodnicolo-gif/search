@@ -155,6 +155,11 @@ export type RicorrenzaCliente = {
   origine: string;
   stato: string;
   note: string | null;
+  // Come è stato deciso il tipo (da Orders dall'11/09): "" | parole | ai | manuale.
+  tipoDa?: string;
+  motivoTipo?: string | null;
+  prova?: string | null;
+  aggiornatoIl?: string;
 };
 
 export type ElencoRicorrenze = {

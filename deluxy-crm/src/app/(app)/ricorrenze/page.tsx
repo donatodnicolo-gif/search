@@ -10,6 +10,7 @@ import {
   TIPI_RICORRENZA,
 } from "@/lib/etichette";
 import { ThSort, ordina } from "@/components/ThSort";
+import DettaglioRicorrenza from "@/components/DettaglioRicorrenza";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,8 @@ type Params = {
   sort?: string;
   dir?: string;
   page?: string;
+  esito?: string;
+  errore?: string;
 };
 
 const FINESTRE = [0, 7, 14, 30, 60, 90];
@@ -123,6 +126,9 @@ export default async function Ricorrenze({ searchParams }: { searchParams: Promi
 
       {/* Zona filtri (Libro §8): prima riga = finestra + ricerca; il resto dietro
           «Filtri (N)». Su mobile le pillole scorrono su UNA riga (§8.9). */}
+      {sp.esito === "ok" ? <div className="ok-card">Ricorrenza corretta in Orders.</div> : null}
+      {sp.errore ? <div className="errore-card">{sp.errore}</div> : null}
+
       <div className="filtri riga-chips-scorri">
         {FINESTRE.map((g) => (
           <a key={g} className={`filtro-pillola${g === giorni ? " attivo" : ""}`} href={link({ giorni: String(g), page: "" })}>
@@ -238,13 +244,25 @@ export default async function Ricorrenze({ searchParams }: { searchParams: Promi
                     return (
                       <tr key={r.id}>
                         <td>
-                          <div className="cella-principale">
-                            {dataBreve(quando)}
-                            <span className="secondario" style={{ fontWeight: 400 }}> · per {r.destinatario || "il cliente"}</span>
-                          </div>
-                          <div className="cella-sotto">
-                            {giornoMese(r.giorno, r.mese)} · {quandoLeggibile(r.fraGiorni)}
-                          </div>
+                          {/* Al click sulla data si apre il dettaglio: come l'abbiamo dedotta. */}
+                          <DettaglioRicorrenza
+                            id={r.id}
+                            cliente={r.cliente}
+                            titolo={`${r.clienteNome}${r.destinatario ? ` → ${r.destinatario}` : ""}`}
+                            sotto={`${r.titolo || t.nome} · ${dataBreve(quando)}`}
+                            torna={link({})}
+                            bottone={
+                              <>
+                                <span className="cella-principale">
+                                  {dataBreve(quando)}
+                                  <span className="secondario" style={{ fontWeight: 400 }}> · per {r.destinatario || "il cliente"}</span>
+                                </span>
+                                <span className="cella-sotto" style={{ display: "block" }}>
+                                  {giornoMese(r.giorno, r.mese)} · {quandoLeggibile(r.fraGiorni)} · <span className="link-quieto">dettaglio</span>
+                                </span>
+                              </>
+                            }
+                          />
                         </td>
                         <td>
                           <a href={`/clienti/${r.cliente}`}>

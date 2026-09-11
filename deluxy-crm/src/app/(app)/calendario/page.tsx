@@ -12,6 +12,8 @@ import {
   tipoRicorrenza,
 } from "@/lib/etichette";
 
+import DettaglioRicorrenza from "@/components/DettaglioRicorrenza";
+
 export const dynamic = "force-dynamic";
 
 type Query = { mese?: string; esito?: string; errore?: string };
@@ -35,6 +37,8 @@ type Voce = {
   chiuso?: boolean;
   id: string;
   stato?: string;
+  /** Solo le ricorrenze: la chiave del cliente, per il pop-up del dettaglio. */
+  cliente?: string;
 };
 
 const GIORNI_SETTIMANA = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
@@ -160,6 +164,7 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
           sotto: r.titolo || t.nome,
           href: `/clienti/${r.cliente}`,
           id: r.id,
+          cliente: r.cliente,
         });
       }
     }
@@ -232,13 +237,32 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
               return (
                 <div className={`giorno${g.fuori ? " fuori" : ""}${g.chiave === oggiChiave ? " oggi" : ""}`} key={g.chiave}>
                   <span className="giorno-num">{g.d}</span>
-                  {visibili.map((v) => (
-                    <a key={`${v.tipo}-${v.id}`} className={`ev${v.chiuso ? " chiuso" : ""}`} href={v.href} title={`${v.titolo}${v.sotto ? ` — ${v.sotto}` : ""}`}>
-                      <span className="dot" style={{ background: v.colore }} />
-                      {v.ora ? <span className="ev-ora">{v.ora}</span> : null}
-                      <span className="ev-testo">{v.titolo}</span>
-                    </a>
-                  ))}
+                  {visibili.map((v) =>
+                    v.tipo === "ricorrenza" && v.cliente ? (
+                      // Al click l'occasione si apre in un pop-up: come l'abbiamo dedotta.
+                      <DettaglioRicorrenza
+                        key={`${v.tipo}-${v.id}`}
+                        id={v.id}
+                        cliente={v.cliente}
+                        titolo={v.titolo}
+                        sotto={v.sotto ?? undefined}
+                        torna={qui}
+                        className="ev"
+                        bottone={
+                          <>
+                            <span className="dot" style={{ background: v.colore }} />
+                            <span className="ev-testo">{v.titolo}</span>
+                          </>
+                        }
+                      />
+                    ) : (
+                      <a key={`${v.tipo}-${v.id}`} className={`ev${v.chiuso ? " chiuso" : ""}`} href={v.href} title={`${v.titolo}${v.sotto ? ` — ${v.sotto}` : ""}`}>
+                        <span className="dot" style={{ background: v.colore }} />
+                        {v.ora ? <span className="ev-ora">{v.ora}</span> : null}
+                        <span className="ev-testo">{v.titolo}</span>
+                      </a>
+                    ),
+                  )}
                   {extra > 0 ? <a className="ev-altri" href={`#g-${g.chiave}`}>+{extra} altri</a> : null}
                 </div>
               );
@@ -268,7 +292,19 @@ export default async function Calendario({ searchParams }: { searchParams: Promi
                         <div className="timeline-titolo">
                           <span className="dot-inline" style={{ background: v.colore }} />
                           {v.ora ? <span className="mono secondario">{v.ora} · </span> : null}
-                          <a href={v.href}>{v.titolo}</a>{" "}
+                          {v.tipo === "ricorrenza" && v.cliente ? (
+                            <DettaglioRicorrenza
+                              id={v.id}
+                              cliente={v.cliente}
+                              titolo={v.titolo}
+                              sotto={v.sotto ?? undefined}
+                              torna={qui}
+                              className="riga-apri inline"
+                              bottone={<span className="link-quieto">{v.titolo}</span>}
+                            />
+                          ) : (
+                            <a href={v.href}>{v.titolo}</a>
+                          )}{" "}
                           <span className="chip">
                             {v.tipo === "programmazione" ? "programmata" : v.tipo === "evento" ? "evento" : "ricorrenza"}
                           </span>
