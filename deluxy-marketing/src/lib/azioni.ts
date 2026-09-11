@@ -5673,6 +5673,218 @@ export async function creaOperazionePausaAnnuncio(fd: FormData) {
 }
 
 /**
+ * Il PUBBLICO di un ad set Meta: eta', genere, luoghi, pubblici salvati.
+ *
+ * ⚠️⚠️ IL LIVELLO NON E' UNO SOLO, ED E' VOLUTO. Cambiare l'eta' di due anni e
+ * cambiare il paese in cui si eroga non sono la stessa decisione:
+ *   · eta' o genere  -> **L2**: sposta la domanda dentro lo stesso mercato;
+ *   · luoghi o pubblici -> **L3**: cambia il mercato. Sulle campagne TRAINO il
+ *     guardrail chiede l'esperimento 50/50 invece della diretta, e lo dice a
+ *     chi approva.
+ * Dare a tutto lo stesso livello avrebbe voluto dire o spaventare per
+ * un'inezia o far passare in silenzio un cambio di paese.
+ *
+ * ⚠️ Il «prima» che finisce nel paper-trail e' il riassunto del targeting
+ * LETTO ADESSO, non una frase generica: senza quello, tornare indietro dopo un
+ * peggioramento vuol dire ricostruire a memoria che pubblico c'era: e nessuno
+ * se lo ricorda. Se la lettura non arriva, si dice — e si accoda comunque,
+ * perche' l'esecutore rilegge e si rifiuta di scrivere alla cieca.
+ */
+export async function creaOperazioneTargeting(fd: FormData) {
+  const ritorno = testo(fd, "ritorno");
+  const gruppoId = testo(fd, "gruppoId");
+  if (!gruppoId) return;
+
+  const gruppo = await prisma.gruppo.findUnique({
+    where: { id: gruppoId },
+    include: {
+      campagna: {
+        include: {
+          modifiche: MODIFICHE_CHE_PESANO,
+          incidenti: { where: { stato: "aperto" }, select: { codice: true } },
+        },
+      },
+    },
+  });
+  if (!gruppo) return;
+  const campagna = gruppo.campagna;
+  const base = ritorno ?? `/campagne/${campagna.id}`;
+  const sep = base.includes("?") ? "&" : "?";
+  const fermati = (messaggio: string): never => redirect(`${base}${sep}bloccata=${encodeURIComponent(messaggio)}`);
+
+  if (gruppo.canale !== "meta_ads" && campagna.canale !== "meta_ads") {
+    fermati("Il pubblico si cambia cosi' solo su Meta: su Google il targeting sta sulla campagna (localita' e lingua), non sul gruppo.");
+  }
+  // ⚠️ Qui il `redirect` si chiama diretto e non tramite `fermati`: solo la
+  // funzione dichiarata `never` di Next fa capire a TypeScript che dopo non si
+  // continua, e quindi che sotto `idEsterno` non puo' essere nullo.
+  const idAdSet = gruppo.idEsterno;
+  if (!idAdSet) {
+    redirect(
+      `${base}${sep}bloccata=${encodeURIComponent("Questo ad set non ha un id di Meta: senza, non c'e' niente da modificare.")}`
+    );
+  }
+
+  // ——— Cosa si sta cambiando ———
+  const numero = (nome: string) => {
+    const v = numeroDa(fd, nome);
+    return v == null || !Number.isFinite(v) ? undefined : Math.round(v);
+  };
+  const cambi: Record<string, unknown> = {};
+  const etaMin = numero("etaMin");
+  const etaMax = numero("etaMax");
+  // ⚠️ I limiti di Meta: 13-65. Fuori da li' la POST fallisce e l'operazione
+  // muore in coda; dirlo adesso costa un redirect, scoprirlo dopo costa un
+  // giro di approvazione.
+  if (etaMin != null && (etaMin < 13 || etaMin > 65)) fermati("L'eta' minima su Meta sta fra 13 e 65.");
+  if (etaMax != null && (etaMax < 13 || etaMax > 65)) fermati("L'eta' massima su Meta sta fra 13 e 65.");
+  if (etaMin != null && etaMax != null && etaMin > etaMax) {
+    fermati("L'eta' minima non puo' superare la massima.");
+  }
+  if (etaMin != null) cambi.etaMin = etaMin;
+  if (etaMax != null) cambi.etaMax = etaMax;
+
+  const genere = testo(fd, "genere");
+  if (genere === "tutti" || genere === "uomini" || genere === "donne") cambi.genere = genere;
+
+  // I paesi: codici a due lettere, separati da virgola o spazio.
+  const paesiTesto = (testo(fd, "paesi") ?? "").trim();
+  if (paesiTesto) {
+    const paesi = paesiTesto
+      .split(/[,\s]+/)
+      .map((x) => x.trim().toUpperCase())
+      .filter(Boolean);
+    const strani = paesi.filter((x) => !/^[A-Z]{2}$/.test(x));
+    if (strani.length > 0) {
+      fermati(`I paesi vanno in codice a due lettere (IT, FR, US): non riconosco ${strani.join(", ")}.`);
+    }
+    cambi.paesi = paesi;
+  }
+
+  // Le citta': una per riga, "nome | raggio km". Il nome lo traduce l'esecutore
+  // chiedendo a Meta, che e' l'unico che sa le chiavi.
+  const cittaTesto = (testo(fd, "citta") ?? "").trim();
+  if (cittaTesto) {
+    const citta = cittaTesto
+      .split(/\r?\n/)
+      .map((r) => r.trim())
+      .filter(Boolean)
+      .map((r) => {
+        const [nome, raggio] = r.split("|").map((x) => x.trim());
+        const km = raggio ? Number(raggio.replace(",", ".")) : null;
+        return { nome, raggioKm: km != null && Number.isFinite(km) && km > 0 ? km : null };
+      })
+      .filter((c) => c.nome);
+    if (citta.length > 0) cambi.citta = citta;
+  }
+
+  // I pubblici: id dal censimento, spuntati nel modulo. Una casella «nessuno»
+  // permette di TOGLIERLI tutti, che e' diverso dal non averne scelto nessuno.
+  const pubbliciScelti = fd.getAll("pubblici").map((x) => String(x)).filter(Boolean);
+  if (testo(fd, "toccaPubblici") === "1") {
+    // ⚠️ Gli id ammessi sono SOLO quelli del censimento: un id arrivato dal
+    // modulo si controlla contro `Pubblico`, invece di essere rispedito a Meta
+    // cosi' com'e'. Non e' paranoia sull'utente — e' che un id sbagliato
+    // (copiato male, di un altro account) verrebbe rifiutato da Meta a giro di
+    // esecuzione, cioe' dopo l'approvazione, e nessuno capirebbe perche'.
+    if (pubbliciScelti.length > 0) {
+      const noti = await prisma.pubblico.findMany({
+        where: { piattaforma: "meta", idEsterno: { in: pubbliciScelti } },
+        select: { idEsterno: true },
+      });
+      const insieme = new Set(noti.map((x) => x.idEsterno));
+      const ignoti = pubbliciScelti.filter((x) => !insieme.has(x));
+      if (ignoti.length > 0) {
+        fermati(`Questi pubblici non sono nel censimento dell'app: ${ignoti.join(", ")}. Si censiscono da /pubblici.`);
+      }
+    }
+    cambi.pubblici = pubbliciScelti;
+  }
+
+  if (Object.keys(cambi).length === 0) {
+    fermati("Non hai cambiato niente: senza una modifica non c'e' nulla da mettere in coda.");
+  }
+
+  // ——— Livello, e da qui il guardrail ———
+  const tocca = { mercato: cambi.paesi != null || cambi.citta != null || cambi.pubblici != null };
+  const livello = tocca.mercato ? "L3" : "L2";
+
+  const lunedi = new Date();
+  lunedi.setHours(0, 0, 0, 0);
+  lunedi.setDate(lunedi.getDate() - ((lunedi.getDay() + 6) % 7));
+  const l2Settimana = await prisma.modifica.count({
+    where: { campagnaId: campagna.id, livello: { in: ["L2", "L3"] }, eseguitaIl: { gte: lunedi } },
+  });
+
+  const { validaModifica } = await import("./guardrail");
+  const esito = validaModifica({
+    classe: campagna.classe,
+    livello,
+    deltaBudgetPct: null,
+    rollbackPiano: testo(fd, "rollbackPiano"),
+    ultimaModifica: campagna.modifiche[0]?.eseguitaIl ?? null,
+    ultimaModificaVoce: campagna.modifiche[0] ?? null,
+    l2Settimana,
+  });
+  if (campagna.incidenti.length > 0) {
+    esito.avvisi.push(
+      `Incidente ${campagna.incidenti[0].codice} APERTO su questa campagna: finche' non e' chiuso, quello che si misura e' sporcato dal guasto.`
+    );
+  }
+  if (cambi.pubblici != null && pubbliciScelti.length === 0) {
+    esito.avvisi.push(
+      "Questa modifica TOGLIE tutti i pubblici personalizzati dall'ad set: resteranno solo eta', genere e luoghi. Se non era voluto, si torna indietro riscegliendoli."
+    );
+  }
+
+  // Una sola in volo per ad set: due cambi di pubblico accodati insieme si
+  // applicherebbero uno sopra l'altro, e il secondo partirebbe da una base che
+  // non e' quella che chi l'ha scritto aveva davanti.
+  const inVolo = await prisma.operazioneAdv.findFirst({
+    where: { tipo: "targeting", gruppoId: gruppo.id, stato: { in: ["in_attesa", "approvata"] } },
+    select: { stato: true },
+  });
+  if (inVolo) {
+    fermati(
+      `Su questo ad set c'e' gia' un cambio di pubblico in coda (${inVolo.stato === "approvata" ? "approvato, lo esegue il prossimo giro" : "da approvare"}): due si applicherebbero uno sopra l'altro.`
+    );
+  }
+
+  // Il «prima» leggibile: si legge adesso, e se non arriva si dichiara.
+  const { leggiTargetingAdSetMeta } = await import("./meta");
+  const letto = await leggiTargetingAdSetMeta(idAdSet);
+  const prima = letto.targeting
+    ? letto.targeting.riassunto.join(" · ")
+    : `pubblico di adesso NON LETTO (${letto.errore ?? "motivo sconosciuto"}): l'esecutore rilegge e si rifiuta di scrivere alla cieca`;
+
+  const op = await accodaOperazione({
+    data: {
+      tipo: "targeting",
+      canale: "meta_ads",
+      bersaglio: gruppo.nomeVisibile ?? gruppo.nome,
+      idEsterno: idAdSet,
+      parametri: JSON.stringify({ cambi, adSet: gruppo.nome, campagna: campagna.nome }),
+      motivo: testo(fd, "motivo") ?? `Pubblico cambiato dalla scheda della campagna «${campagna.nome}»`,
+      avvisi: esito.avvisi.length > 0 ? esito.avvisi.join(" · ") : null,
+      livello,
+      prima,
+      campagnaId: campagna.id,
+      gruppoId: gruppo.id,
+    },
+  });
+  await registra({
+    autore: "utente",
+    tipo: "creazione",
+    entita: "operazione",
+    entitaId: op.id,
+    titolo: `In coda (da approvare): cambio pubblico ${livello} su "${gruppo.nome}" (${campagna.nome})`,
+    dettaglio: [op.motivo, `prima: ${prima}`, op.avvisi].filter(Boolean).join(" — "),
+  });
+  revalidatePath(`/campagne/${campagna.id}`);
+  redirect(esitoInCoda(`cambio pubblico su «${gruppo.nome}»`, esito.avvisi, base));
+}
+
+/**
  * La pausa (o la riattivazione) di UN SOLO ANNUNCIO su META.
  *
  * PERCHE' NON RIUSA `creaOperazionePausaAnnuncio`. Quella e' la gemella
@@ -5700,7 +5912,7 @@ export async function creaOperazioneAnnuncioMeta(fd: FormData) {
   if (!campagnaId || !idAnnuncio) return;
   const base = ritorno ?? `/campagne/${campagnaId}`;
   const sep = base.includes("?") ? "&" : "?";
-  const fermati = (messaggio: string) => redirect(`${base}${sep}bloccata=${encodeURIComponent(messaggio)}`);
+  const fermati = (messaggio: string): never => redirect(`${base}${sep}bloccata=${encodeURIComponent(messaggio)}`);
 
   // ⚠️ Un id non numerico non si accoda: su Meta gli id sono numerici, e
   // mandare altro vorrebbe dire una POST su un nodo qualunque.

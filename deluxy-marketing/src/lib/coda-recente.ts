@@ -21,6 +21,7 @@ export const ETICHETTA_TIPO_OPERAZIONE: Record<string, string> = {
   nuovo_annuncio: "Crea un annuncio",
   pausa_annuncio: "Metti in pausa l'annuncio",
   attiva_annuncio: "Riattiva l'annuncio",
+  targeting: "Cambia il pubblico dell'ad set",
   localita: "Cambia le località della campagna",
   estensione: "Aggiungi un'estensione",
   rimuovi_estensione: "Togli un'estensione",

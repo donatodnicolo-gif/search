@@ -635,6 +635,8 @@ export const ETICHETTA_OPERAZIONE: Record<string, string> = {
   // (TIPI_ESEGUIBILI_OGGI non la contiene), e l'azione che la accoda
   // rifiuta il canale google_ads invece di lasciarla in coda per sempre.
   attiva_annuncio: "Riattiva annuncio",
+  // Solo Meta: il pubblico di un ad set (eta, luoghi, pubblici salvati).
+  targeting: "Cambio pubblico",
 };
 
 /**

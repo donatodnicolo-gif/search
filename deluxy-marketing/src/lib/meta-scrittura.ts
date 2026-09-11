@@ -222,6 +222,177 @@ export async function cambiaStatoMeta(
   };
 }
 
+export type CambiTargeting = {
+  etaMin?: number;
+  etaMax?: number;
+  genere?: "tutti" | "uomini" | "donne";
+  /** Sostituisce l'elenco dei paesi (codici ISO2). */
+  paesi?: string[];
+  /** Sostituisce l'elenco delle citta'. La chiave, se manca, la chiede a Meta. */
+  citta?: Array<{ nome?: string; chiave?: string; raggioKm?: number | null }>;
+  /** Sostituisce i pubblici personalizzati (id dal censimento). */
+  pubblici?: string[];
+  advantage?: boolean;
+};
+
+/**
+ * Cambia il PUBBLICO di un ad set: eta', genere, luoghi, pubblici salvati.
+ *
+ * ⚠️⚠️⚠️ SU META IL TARGETING SI SCRIVE TUTTO INSIEME, E QUESTO E' IL PUNTO
+ * PIU' PERICOLOSO DI QUESTO FILE. `targeting` e' UN CAMPO SOLO: mandare
+ * `{"age_min":25}` non cambia l'eta' lasciando il resto — **sostituisce lo
+ * spec intero**, e l'ad set si ritrova senza geografia e senza pubblici. Su un
+ * ad set che spende, vuol dire erogare a chiunque, in qualunque paese, da
+ * subito. E' la trappola del «modulo parziale che azzera i campi», con la
+ * differenza che qui i campi azzerati costano denaro.
+ *
+ * Quindi: si LEGGE lo spec vivo, si cambiano solo le chiavi chieste, e si
+ * rimanda tutto. E se la lettura non arriva **non si scrive niente**: un merge
+ * su una base che non si conosce e' esattamente il modo di cancellare il
+ * targeting credendo di modificarlo.
+ */
+export async function targetingMeta(idAdSet: string, cambi: CambiTargeting): Promise<EsitoScrittura> {
+  const { leggiTargetingAdSetMeta } = await import("./meta");
+  const prima = await leggiTargetingAdSetMeta(idAdSet);
+  if (!prima.targeting) {
+    return {
+      riuscita: false,
+      dettaglio:
+        `non ho potuto leggere il targeting di adesso (${prima.errore ?? "motivo sconosciuto"}): ` +
+        "non scrivo alla cieca — su Meta il targeting si sostituisce tutto insieme, e senza la base " +
+        "questa modifica cancellerebbe geografia e pubblici invece di cambiare quello che e' stato chiesto.",
+    };
+  }
+
+  const spec: Record<string, unknown> = { ...prima.targeting.grezzo };
+  const fatto: string[] = [];
+  const note: string[] = [];
+
+  if (cambi.etaMin != null) {
+    spec.age_min = cambi.etaMin;
+    fatto.push(`eta' minima ${cambi.etaMin}`);
+  }
+  if (cambi.etaMax != null) {
+    spec.age_max = cambi.etaMax;
+    fatto.push(`eta' massima ${cambi.etaMax}`);
+  }
+  if (cambi.genere) {
+    if (cambi.genere === "tutti") delete spec.genders;
+    else spec.genders = cambi.genere === "uomini" ? [1] : [2];
+    fatto.push(`genere: ${cambi.genere}`);
+  }
+
+  // ——— I luoghi ———
+  // ⚠️ Il merge vale ANCHE DENTRO `geo_locations`: sostituire l'oggetto
+  // intero butterebbe via regioni, CAP e luoghi personalizzati che nessuno ha
+  // chiesto di toccare. Si sostituiscono solo le chiavi nominate.
+  if (cambi.paesi || cambi.citta) {
+    const geo: Record<string, unknown> = { ...((spec.geo_locations ?? {}) as Record<string, unknown>) };
+    if (cambi.paesi) {
+      if (cambi.paesi.length > 0) geo.countries = cambi.paesi;
+      else delete geo.countries;
+      fatto.push(`paesi: ${cambi.paesi.length > 0 ? cambi.paesi.join(", ") : "nessuno"}`);
+    }
+    if (cambi.citta) {
+      const citta: Array<{ key: string; radius?: number; distance_unit?: string }> = [];
+      for (const c of cambi.citta) {
+        let chiave = c.chiave?.trim() || null;
+        if (!chiave && c.nome) {
+          const esito = await risolviCittaMeta(c.nome);
+          if (esito.chiave) chiave = esito.chiave;
+          else if (esito.ambigue && esito.ambigue.length > 0) {
+            // ⚠️ Un nome ambiguo NON si indovina: si elenca. Scegliere la
+            // prima vorrebbe dire erogare in un'altra citta' con lo stesso
+            // nome, e nessuno guarderebbe piu' li'.
+            note.push(`«${c.nome}» e' ambigua e NON e' entrata: ${esito.ambigue.join(" · ")}`);
+            continue;
+          } else {
+            note.push(`«${c.nome}»: Meta non la trova, NON e' entrata`);
+            continue;
+          }
+        }
+        if (!chiave) continue;
+        citta.push(
+          c.raggioKm && c.raggioKm > 0
+            ? { key: chiave, radius: c.raggioKm, distance_unit: "kilometer" }
+            : { key: chiave }
+        );
+      }
+      if (citta.length > 0) geo.cities = citta;
+      else delete geo.cities;
+      fatto.push(`citta': ${citta.length > 0 ? `${citta.length}` : "nessuna"}`);
+    }
+    const vuoto =
+      !geo.countries &&
+      !(Array.isArray(geo.cities) && geo.cities.length > 0) &&
+      !(Array.isArray(geo.regions) && geo.regions.length > 0) &&
+      !(Array.isArray(geo.zips) && geo.zips.length > 0) &&
+      !(Array.isArray(geo.custom_locations) && geo.custom_locations.length > 0);
+    if (vuoto) {
+      return {
+        riuscita: false,
+        dettaglio:
+          "questa modifica lascerebbe l'ad set SENZA NESSUN LUOGO: Meta lo rifiuta, e se lo accettasse " +
+          `sarebbe peggio. Non scritto niente${note.length > 0 ? ` (${note.join("; ")})` : ""}.`,
+      };
+    }
+    spec.geo_locations = geo;
+  }
+
+  if (cambi.pubblici) {
+    if (cambi.pubblici.length > 0) spec.custom_audiences = cambi.pubblici.map((id) => ({ id }));
+    else delete spec.custom_audiences;
+    fatto.push(`pubblici: ${cambi.pubblici.length > 0 ? cambi.pubblici.join(", ") : "nessuno"}`);
+  }
+  if (cambi.advantage != null) {
+    spec.targeting_automation = {
+      ...((spec.targeting_automation ?? {}) as Record<string, unknown>),
+      advantage_audience: cambi.advantage ? 1 : 0,
+    };
+    fatto.push(`Advantage+ ${cambi.advantage ? "acceso" : "spento"}`);
+  }
+
+  if (fatto.length === 0) {
+    return { riuscita: false, dettaglio: "nessun cambiamento indicato: non c'e' niente da scrivere" };
+  }
+
+  const esito = await scrivi(idAdSet, { targeting: JSON.stringify(spec) });
+  if (!esito.riuscita) return esito;
+
+  // ⚠️ La rilettura comanda, come per lo stato: si controlla che le chiavi
+  // chieste siano DAVVERO quelle, non che la POST abbia risposto 200.
+  const dopo = await leggiTargetingAdSetMeta(idAdSet);
+  if (!dopo.targeting) {
+    return {
+      riuscita: true,
+      // ⚠️ Niente `dopo`: non l'ho riletto, e inventarlo vorrebbe dire
+      // scrivere nel paper-trail uno stato che non ho visto.
+      dettaglio: `pubblico aggiornato (${fatto.join(" · ")}) — non ho potuto rileggere per confermare${note.length > 0 ? `; ${note.join("; ")}` : ""}`,
+    };
+  }
+  const t = dopo.targeting;
+  const diverse: string[] = [];
+  if (cambi.etaMin != null && t.eta.min !== cambi.etaMin) diverse.push(`eta' minima e' ${t.eta.min}`);
+  if (cambi.etaMax != null && t.eta.max !== cambi.etaMax) diverse.push(`eta' massima e' ${t.eta.max}`);
+  if (cambi.genere && t.genere !== cambi.genere) diverse.push(`genere e' ${t.genere}`);
+  if (cambi.pubblici && t.pubblici.length !== cambi.pubblici.length)
+    diverse.push(`i pubblici sono ${t.pubblici.length}`);
+  if (diverse.length > 0) {
+    return {
+      riuscita: false,
+      dettaglio:
+        `Meta ha ACCETTATO la modifica (${fatto.join(" · ")}), ma rileggendo ${diverse.join(" e ")}: ` +
+        "non la segno eseguita — comanda quello che si rilegge, non la POST.",
+    };
+  }
+
+  return {
+    riuscita: true,
+    dettaglio: `pubblico aggiornato: ${fatto.join(" · ")} (confermato rileggendo)${note.length > 0 ? ` — ${note.join("; ")}` : ""}`,
+    dopo: t.riassunto.join(" · "),
+  };
+}
+
 /**
  * Cambia il budget giornaliero.
  *
@@ -1028,6 +1199,9 @@ export async function eseguiOperazioniMeta(opzioni: { limite?: number; ids?: str
     else if (op.tipo === "attiva_gruppo") esito = await cambiaStatoMeta(op.idEsterno!, true, "gruppo");
     else if (op.tipo === "pausa_annuncio") esito = await cambiaStatoMeta(op.idEsterno!, false, "annuncio");
     else if (op.tipo === "attiva_annuncio") esito = await cambiaStatoMeta(op.idEsterno!, true, "annuncio");
+    else if (op.tipo === "targeting") {
+      esito = await targetingMeta(op.idEsterno!, (parametri as { cambi?: CambiTargeting }).cambi ?? {});
+    }
     else if (op.tipo === "budget") {
       esito = await budgetMeta(op.idEsterno!, Number((parametri as { budget?: number }).budget));
     } else {

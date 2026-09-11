@@ -12,6 +12,45 @@
 > (11/09 07:47), Google stanotte su tutti i giri, **0 consegne non-ok dal
 > 04/09**. Cosa è cambiato:
 >
+> ✅ **11/09/2026 — IL PUBBLICO DI UN AD SET META SI LEGGE E SI CAMBIA (in locale).**
+> Quarto e ultimo pezzo concordato. Sotto il riquadro degli ad set c'è «A chi
+> parla ogni ad set»: età, genere, luoghi e pubblici **letti vivi** da Meta, e
+> un modulo per cambiarli. Operazione `targeting` (tipo nuovo), Meta-only,
+> `idEsterno` = id nudo dell'ad set.
+>
+> ⚠️⚠️ **LA COSA PIÙ PERICOLOSA DI QUESTO GIRO, ED È SCRITTA NEL CODICE:** su
+> Meta `targeting` è **un campo solo**, e scriverlo **sostituisce lo spec
+> intero**. Mandare `{"age_min":25}` non cambia l'età lasciando il resto: fa
+> sparire geografia e pubblici, e un ad set che spende si ritrova a erogare a
+> chiunque, in qualunque paese, subito. Perciò `targetingMeta()` **legge** lo
+> spec vivo, cambia solo le chiavi chieste e **rimanda tutto**; se la lettura
+> non arriva **non scrive niente** (un merge su una base sconosciuta è il modo
+> di cancellare il targeting credendo di modificarlo); e se il risultato
+> resterebbe senza nessun luogo, rifiuta.
+>
+> Altre difese, ognuna per una trappola già pagata altrove:
+> · **modulo a campi vuoti**: precompilarlo coi valori di adesso avrebbe fatto
+>   nascere cambi di pubblico **L3 a vuoto** — approvati, eseguiti, e scritti
+>   nel paper-trail come decisioni. Vuoto = «lascia com'è».
+> · **i pubblici si toccano solo dichiarandolo** (spunta «cambia anche i
+>   pubblici»): senza, un modulo mandato per cambiare l'età avrebbe TOLTO tutti
+>   i pubblici, perché nessuna casella spuntata = elenco vuoto.
+> · gli id dei pubblici si validano contro il censimento (`Pubblico`): un id
+>   sbagliato sarebbe stato rifiutato da Meta **dopo** l'approvazione.
+> · il **«prima»** dell'operazione è il riassunto del targeting letto adesso,
+>   non una frase generica: senza, il rollback è a memoria.
+> · una sola modifica di pubblico in volo per ad set: due si applicherebbero
+>   una sopra l'altra, e la seconda partirebbe da una base diversa da quella
+>   che chi l'ha scritta aveva davanti.
+>
+> Verificato in locale: il modulo si apre su entrambi gli ad set di «Dolci
+> Rientri - ATC», i 97 pubblici censiti di Gifts scorrono dentro un riquadro
+> alto 205 px (5.025 px di contenuto) invece di spingere il bottone fuori
+> schermo, e senza token il riquadro **lo dice** invece di restare vuoto.
+> ⚠️ Per vedere il modulo ho messo un token finto nel `.env` locale (poi
+> rimosso): il pubblico vero, e quindi il collaudo, si vedono solo in
+> produzione.
+>
 > ✅ **11/09/2026 — LA PAUSA DI UN SINGOLO ANNUNCIO META (in locale, non pubblicata).**
 > Terzo pezzo del giro Meta: nel riquadro «Annunci su Meta (dal vivo)» ogni annuncio
 > ha «Metti in pausa» / «Riattiva». Operazione `pausa_annuncio` (o

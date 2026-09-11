@@ -680,3 +680,108 @@ export async function leggiSpesaPerRegioneMeta(
     return { righe: [], errore: e instanceof Error ? e.message : String(e) };
   }
 }
+
+// ============================ TARGETING ============================
+
+/** Il targeting di un ad set, come lo tiene Meta più un riassunto leggibile. */
+export type TargetingAdSet = {
+  /** Lo spec INTERO, così come arriva: serve a chi lo riscrive, che deve rimandarlo tutto. */
+  grezzo: Record<string, unknown>;
+  riassunto: string[];
+  eta: { min: number | null; max: number | null };
+  genere: "tutti" | "uomini" | "donne" | "altro";
+  paesi: string[];
+  citta: Array<{ chiave: string; nome: string; raggioKm: number | null }>;
+  regioni: string[];
+  pubblici: Array<{ id: string; nome: string | null }>;
+  pubbliciEsclusi: Array<{ id: string; nome: string | null }>;
+  advantage: boolean | null;
+  posizionamenti: string[];
+};
+
+const GENERE_META: Record<string, "uomini" | "donne"> = { "1": "uomini", "2": "donne" };
+
+/**
+ * Legge il targeting di un ad set e lo traduce in qualcosa che si possa
+ * leggere in pagina.
+ *
+ * ⚠️ Si tiene anche lo spec GREZZO, e non è ridondanza: su Meta il campo
+ * `targeting` si scrive **tutto insieme**, quindi chi vuole cambiare l'età
+ * deve rimandare anche geografia, pubblici e posizionamenti. Il riassunto
+ * serve agli occhi; il grezzo serve alla penna.
+ */
+export async function leggiTargetingAdSetMeta(
+  idAdSet: string
+): Promise<{ targeting: TargetingAdSet | null; errore: string | null }> {
+  const t = token();
+  if (!t) return { targeting: null, errore: "META_ACCESS_TOKEN non impostato" };
+  try {
+    const q = new URLSearchParams({ fields: "targeting", access_token: t });
+    const r = await fetch(`${BASE}/${idAdSet}?${q.toString()}`, { cache: "no-store" });
+    const corpo = await r.json();
+    if (!r.ok || corpo.error) {
+      return { targeting: null, errore: String(corpo?.error?.message ?? `HTTP ${r.status}`) };
+    }
+    return { targeting: leggiSpecTargeting((corpo.targeting ?? {}) as Record<string, unknown>), errore: null };
+  } catch (e) {
+    return { targeting: null, errore: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** La traduzione dello spec in parole. Separata dalla lettura per poterla provare da sola. */
+export function leggiSpecTargeting(spec: Record<string, unknown>): TargetingAdSet {
+  const geo = (spec.geo_locations ?? {}) as Record<string, unknown>;
+  const paesi = Array.isArray(geo.countries) ? (geo.countries as string[]).map(String) : [];
+  const citta = (Array.isArray(geo.cities) ? (geo.cities as Record<string, unknown>[]) : []).map((c) => ({
+    chiave: String(c.key ?? ""),
+    // ⚠️ Il nome può non esserci: Meta lo rimanda quasi sempre, ma quando
+    // manca si mostra la chiave invece di una riga vuota — una città «senza
+    // nome» farebbe credere che il targeting sia rotto.
+    nome: String(c.name ?? c.key ?? "senza nome"),
+    raggioKm: c.radius == null ? null : Number(c.radius),
+  }));
+  const regioni = (Array.isArray(geo.regions) ? (geo.regions as Record<string, unknown>[]) : []).map((r) =>
+    String(r.name ?? r.key ?? "")
+  );
+  const pubblico = (v: unknown) =>
+    (Array.isArray(v) ? (v as Record<string, unknown>[]) : []).map((p) => ({
+      id: String(p.id ?? ""),
+      nome: p.name == null ? null : String(p.name),
+    }));
+
+  const generi = Array.isArray(spec.genders) ? (spec.genders as unknown[]).map(String) : [];
+  const genere: TargetingAdSet["genere"] =
+    generi.length === 0 ? "tutti" : generi.length === 1 ? (GENERE_META[generi[0]] ?? "altro") : "tutti";
+
+  const auto = (spec.targeting_automation ?? {}) as Record<string, unknown>;
+  const advantage = auto.advantage_audience == null ? null : Number(auto.advantage_audience) === 1;
+
+  const eta = {
+    min: spec.age_min == null ? null : Number(spec.age_min),
+    max: spec.age_max == null ? null : Number(spec.age_max),
+  };
+  const posizionamenti = Array.isArray(spec.publisher_platforms)
+    ? (spec.publisher_platforms as unknown[]).map(String)
+    : [];
+  const pubblici = pubblico(spec.custom_audiences);
+  const pubbliciEsclusi = pubblico(spec.excluded_custom_audiences);
+
+  const riassunto: string[] = [];
+  riassunto.push(
+    eta.min == null && eta.max == null ? "età: come Meta decide" : `età ${eta.min ?? "?"}-${eta.max ?? "?"}`
+  );
+  if (genere !== "tutti") riassunto.push(`solo ${genere}`);
+  const luoghi = [
+    ...paesi.map((p) => p),
+    ...citta.map((c) => (c.raggioKm ? `${c.nome} +${c.raggioKm} km` : c.nome)),
+    ...regioni,
+  ];
+  riassunto.push(luoghi.length > 0 ? `luoghi: ${luoghi.join(", ")}` : "nessun luogo nello spec");
+  if (pubblici.length > 0) riassunto.push(`pubblici: ${pubblici.map((p) => p.nome ?? p.id).join(", ")}`);
+  if (pubbliciEsclusi.length > 0)
+    riassunto.push(`esclusi: ${pubbliciEsclusi.map((p) => p.nome ?? p.id).join(", ")}`);
+  if (posizionamenti.length > 0) riassunto.push(`solo su ${posizionamenti.join(", ")}`);
+  if (advantage === true) riassunto.push("Advantage+ acceso (Meta può allargare il pubblico)");
+
+  return { grezzo: spec, riassunto, eta, genere, paesi, citta, regioni, pubblici, pubbliciEsclusi, advantage, posizionamenti };
+}
