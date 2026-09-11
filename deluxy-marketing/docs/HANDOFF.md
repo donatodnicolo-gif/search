@@ -1,7 +1,8 @@
 # Handoff — Deluxy Marketing
 
-> Stato al **11/09/2026 sera**. Produzione: **`deluxy-marketing-mt9tochni`**
-> (dieci commit dell'11/09), locale e `origin/scout-ui` allineati. Una finestra Claude nuova deve poter
+> Stato al **11/09/2026 sera**, dodici commit dell'11/09, locale e
+> `origin/scout-ui` allineati. L'id del deploy in produzione si legge con
+> `npx vercel ls deluxy-marketing --prod` (l'ultima riga Ready). Una finestra Claude nuova deve poter
 > riprendere da qui senza altro contesto. Leggere prima il [README](../README.md)
 > per cosa fa l'app; questo documento dice **dove siamo** e **cosa manca**.
 >
@@ -17,6 +18,54 @@
 > (11/09 07:47), Google stanotte su tutti i giri, **0 consegne non-ok dal
 > 04/09**. Cosa è cambiato:
 >
+> ✅ **11/09/2026 SERA (tardi) — IL PALLINO CHE SBALLAVA I TITOLI, E IL
+> CONFRONTO SCELTO NEI FILTRI.**
+>
+> **1. Il CSS, con la misura in mano.** Sulla dashboard di un brand il titolo
+> «Gifts» finiva all'estrema destra col pallino colorato in mezzo alla riga.
+> Causa: il pallino aveva **`margin-left: 600,438 px`** e
+> **`margin-right: 600,422 px`**. Viene da **`.sb-dot`**, la classe della
+> SIDEBAR, che porta `margin: 0 auto`: là serve (colonna strettissima, pallino
+> da solo), ma dentro un contenitore **flex** i margini automatici assorbono
+> tutto lo spazio libero.
+> ⚠️ **Non era un caso isolato**: `.sb-dot` era usata come pallino generico in
+> **nove pagine**, e in alcuni punti c'era già un `marginRight` scritto a mano
+> per combatterla — il sintomo che nessuno aveva letto. Ora il centraggio è
+> scoped (`.sidebar .sb-dot`) e per l'uso generico c'è **`.pallino`**
+> (`inline-block`, nessun margine automatico, `flex: none`).
+> ⚠️ **Da ricordare**: prima di dichiarare «CSS sistemato» si leggono i margini
+> *usati* con `getComputedStyle` — su un flex item `auto` torna in px, ed è lì
+> che si vede il difetto. A occhio sembrava un problema di allineamento del
+> titolo.
+>
+> **2. Il confronto è una scelta, e sta nei filtri.** «Confronta con»: **periodo
+> precedente · anno precedente · personalizzato · nessuno**. Si ricorda in tutta
+> l'app come il periodo (chiavi `periodo.confronto*` in `Impostazione`) e
+> **viaggia nel link** — senza, due persone leggono la stessa pagina contro due
+> finestre diverse senza saperlo. Le tabelle **per categoria** e **per area**
+> mostrano la variazione sotto incasso e spesa.
+> Verificato sui dati veri con «anno precedente»: **Fiori 7.890 € −28%**, Altro
+> 2.821 € +5%, **Torte 980 € −29%**, nota «Confronto attivo: stesso periodo
+> 2025»; con «nessuno» i delta spariscono.
+> ⚠️ Tre cose trattate come decisioni: sulla **spesa** il verde vuol dire
+> **meno** speso (senza `invertito` un risparmio del 20% si colorava di rosso);
+> **`prima = 0` non è «+100%»** ma «non calcolabile», col motivo nel
+> suggerimento; **«Nessuno» non fa la seconda lettura** sul database, ed è la
+> ragione per cui è una scelta utile e non un ripiego.
+>
+> **3. Due duplicazioni tolte nello stesso giro.** Il selettore del periodo
+> della dashboard di brand era **riscritto a mano** e divergeva da
+> `SceltaPeriodo` (caselle delle date sempre vuote, nessuna pillola
+> «Personalizzato», non diceva quanti giorni si stessero guardando); e `Delta`
+> esisteva in copia locale. Più un'etichetta che sarebbe diventata falsa: il
+> confronto con l'anno prima si chiamava «stesso periodo **2025**» **scritto a
+> mano** — giusto nel 2026, una bugia dal 1° gennaio dopo. Ora l'anno si calcola.
+>
+> 🔴 **MANCA**: la riga «Confronta con» compare **solo sulla dashboard di
+> brand**. Home, elenco campagne, scheda campagna e scheda gruppo usano lo
+> stesso componente ma non passano ancora `tipoConfronto`, quindi lì il
+> confronto non si sceglie. È il prossimo pezzo naturale.
+
 > ✅ **11/09/2026 SERA — TUTTO PUBBLICATO (`mt9tochni`) E VERIFICATO DAL VIVO.**
 > Dieci commit in produzione, alias sano, `/api/health?meta=1` dice
 > `puoScrivere: true` con `ads_management`. La verifica l'ho fatta **dentro il
