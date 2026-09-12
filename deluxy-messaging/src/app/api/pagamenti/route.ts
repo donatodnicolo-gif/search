@@ -538,6 +538,33 @@ export async function DELETE(req: NextRequest) {
   if (!_io) return NextResponse.json({ errore: 'Non autenticato.' }, { status: 401 })
   const id = req.nextUrl.searchParams.get('id') ?? ''
   if (!id) return NextResponse.json({ errore: 'Serve l’id.' }, { status: 400 })
+
+  // ⚠️⚠️ UNA RICHIESTA GIÀ IN CODA DI LÀ NON SI CANCELLA QUI (12/09/2026).
+  //
+  // Il caso vero, trovato riallineando l'arretrato: nella coda di Transactions
+  // c'era una richiesta col nostro prefisso — `cs-cmttrkyod0001jo04c9g4i8ke`,
+  // in attesa dal 9 settembre — che **da questa parte non esiste più**.
+  // Cancellandola qui la riga spariva e di là restava in eterno: invisibile a
+  // noi, in coda a chi autorizza i pagamenti, cioè un invito a pagarla.
+  //
+  // Cancellare è un gesto NOSTRO e non arriva a loro. Quindi: finché la
+  // richiesta è viva di là, qui non si butta — si chiude, e la chiusura la
+  // racconta anche a Transactions.
+  const riga = await db.richiestaPagamento.findUnique({
+    where: { id },
+    select: { canale: true, inviataIl: true, partnerStato: true, pagataIl: true, riferimento: true },
+  })
+  if (!riga) return NextResponse.json({ errore: 'Richiesta non trovata.' }, { status: 404 })
+  if (riga.canale === 'transactions' && riga.inviataIl && riga.partnerStato !== 'pagata' && !riga.pagataIl) {
+    return NextResponse.json(
+      {
+        errore:
+          'Questa richiesta è già in coda su Transactions e là è ancora aperta: cancellarla qui la lascerebbe nella loro coda per sempre, invisibile a noi. Segnala «Pagata» (se i soldi sono usciti in altro modo) oppure annullala dentro Transactions.',
+      },
+      { status: 409 }
+    )
+  }
+
   await db.richiestaPagamento.delete({ where: { id } })
   return NextResponse.json({ ok: true })
 }

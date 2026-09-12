@@ -53,8 +53,20 @@ export type EsitoRiallineo = {
   apertePerche: string
 }
 
-/** Il tetto per giro: 41 righe sono 41 chiamate firmate, e la rotta ha un tempo. */
-const TETTO = 50
+/**
+ * ⚠️⚠️ TRANSACTIONS ACCETTA **DIECI CHIAMATE AL MINUTO** — misurato il 12/09/2026
+ * al primo giro vero: 10 chiuse e **31 respinte con 429**, «Troppe richieste:
+ * massimo 10 al minuto». Non è un guasto, è la loro difesa, e va rispettata da
+ * questa parte: un 429 non chiude niente e lascia un errore scritto su una riga
+ * che non aveva nessun problema.
+ *
+ * Quindi: **nove per giro** (la decima chiamata del minuto serve per chiedere a
+ * loro che cosa resta aperto, in fondo), con una pausa fra una e l'altra. Il
+ * resto si prende al giro dopo: un arretrato non ha fretta, e chi lo lancia
+ * vede il conto scendere.
+ */
+const TETTO = 9
+const PAUSA_MS = 6_500
 
 export async function riallineaCodaTransactions(
   opzioni: { esegui?: boolean } = {}
@@ -90,7 +102,12 @@ export async function riallineaCodaTransactions(
   let chiuse = 0
   let fallite = 0
 
+  let prima = true
   for (const r of candidate) {
+    // ⚠️ La pausa sta PRIMA della chiamata e non dopo l'ultima: aspettare per
+    // niente allunga il giro e basta.
+    if (opzioni.esegui && !prima) await new Promise((r) => setTimeout(r, PAUSA_MS))
+    prima = false
     if (!opzioni.esegui) {
       righe.push({
         riferimento: r.riferimento,
