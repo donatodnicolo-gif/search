@@ -498,8 +498,12 @@ export default async function PartnerList({
                 <ThSort label="Credito" campo="credito" sp={sp} path="/partner" />
                 <ThSort label="Scaduto" campo="scaduto" sp={sp} path="/partner" num />
                 <ThSort label="Fee" campo="fee" sp={sp} path="/partner" num />
-                <ThSort label="Comm. da fatturare" campo="daEmettere" sp={sp} path="/partner" num />
+                {/* ⚠️ L'ORDINE QUI DEVE SEGUIRE LE CELLE. Al primo giro le due
+                    colonne erano invertite: i mesi da saldare finivano sotto
+                    «Comm. da fatturare» e viceversa — due numeri veri sotto il
+                    titolo sbagliato, che è peggio di un numero mancante. */}
                 <ThSort label="Mesi da saldare" campo="daSaldare" sp={sp} path="/partner" num />
+                <ThSort label="Comm. da fatturare" campo="daEmettere" sp={sp} path="/partner" num />
                 <ThSort label={filtroAttivo ? "Vendite periodo" : "Vendite YTD"} campo="vendite" sp={sp} path="/partner" num />
                 <ThSort label={filtroAttivo ? "Servizi periodo" : "Servizi YTD"} campo="servizio" sp={sp} path="/partner" num />
                 <ThSort label="Residuo" campo="residuo" sp={sp} path="/partner" num />
