@@ -3832,7 +3832,8 @@
     "cancellazioni": "Cancellazione richiesta",
     "vista": {
       "partner": "Partner",
-      "valet": "Valet"
+      "valet": "Valet",
+      "servizio": "Servizio"
     },
     "sezione": {
       "daFare": "Da fare",

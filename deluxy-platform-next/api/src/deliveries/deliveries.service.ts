@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { JwtUser } from '../common/decorators';
-import { perimetroProdottiPartner } from '../common/perimetro-prodotti';
+import { idsProdottiDiServizio, perimetroProdottiPartner } from '../common/perimetro-prodotti';
 import { regoleApplicabili, RegolaCarnet, ConsegnaPerRegola } from '../common/regola-carnet';
 import { tariffaAllaData } from '../common/tariffe-valet';
 import {
@@ -1703,8 +1703,12 @@ export class DeliveriesService {
        * suoi, ma non si consegnano. Sono materiale che l'azienda gli ha dato — biglietti, buste — non
        * merce da portare a un cliente, e nessuno ne ha mai fissato un prezzo di vendita.
        */
+      const diServizio = await idsProdottiDiServizio(this.prisma);
       const ammessi = await this.prisma.product.count({
-        where: { id: { in: righe.map((r) => r.productId) }, servizio: false, ...perimetroProdottiPartner(user) },
+        where: {
+          id: { in: righe.map((r) => r.productId), ...(diServizio.length ? { notIn: diServizio } : {}) },
+          ...perimetroProdottiPartner(user),
+        },
       });
       const idUnici = new Set(righe.map((r) => r.productId)).size;
       if (ammessi < idUnici) {

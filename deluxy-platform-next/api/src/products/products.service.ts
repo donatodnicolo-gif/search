@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtUser } from '../common/decorators';
 import { ProductType, Role } from '../common/enums';
-import { perimetroProdottiPartner } from '../common/perimetro-prodotti';
+import { idsMerceDiServizio, perimetroProdottiPartner } from '../common/perimetro-prodotti';
 import { prezzoAlPartner } from '../common/prezzo-partner';
 import {
   PagedResult,
@@ -70,8 +70,12 @@ export class ProductsService {
    * i suoi + senza partner + «visibile ad altri partner» + partnerLinks).
    */
   async findAll(user: JwtUser, query: ProductListQueryDto): Promise<PagedResult<unknown>> {
+    // ⚠️ Gli id della merce di servizio si leggono PRIMA e si passano al perimetro: vedi la nota in
+    // common/perimetro-prodotti.ts — la relazione nel where dipende dal client Prisma pubblicato, la
+    // lista di id no.
+    const inDotazione = user.role === Role.PARTNER ? await idsMerceDiServizio(this.prisma, user.partnerId) : [];
     const roleScope =
-      user.role === Role.PARTNER ? perimetroProdottiPartner(user) : {};
+      user.role === Role.PARTNER ? perimetroProdottiPartner(user, inDotazione) : {};
     // Archivio: sezione separata da `active`. Di default si vedono i NON
     // archiviati (compresi i disattivati, che restano visibili).
     // I filtri Sì/No entrano solo se qualcuno li ha chiesti: un `undefined`
@@ -142,7 +146,7 @@ export class ProductsService {
   async findOne(id: string, user?: JwtUser) {
     const dove: any = { id };
     if (user?.role === Role.PARTNER) {
-      dove.OR = perimetroProdottiPartner(user).OR;
+      dove.OR = perimetroProdottiPartner(user, await idsMerceDiServizio(this.prisma, user.partnerId)).OR;
     }
     const product = await this.prisma.product.findFirst({
       where: dove,

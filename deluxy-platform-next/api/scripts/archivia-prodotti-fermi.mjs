@@ -15,11 +15,14 @@
  *  · i **prodotti unici** — lo dice la regola;
  *  · i **prodotti di servizio** — non entrano MAI in una consegna per come sono fatti (biglietti,
  *    buste): archiviarli col metro delle consegne è misurarli con un righello che non li riguarda;
- *  · i **nati da poco** (ultimi 30 giorni) — non hanno ancora avuto il tempo di lavorare, e archiviare
- *    un prodotto caricato ieri è il modo più veloce di far dire «l'app cancella le cose»;
+ *  · i **nati nel 2026** (regola dell'utente del 12/09: «lascia in prodotti tutti quelli creati nel 2026»)
+ *    — è catalogo nuovo, non catalogo morto: non è ancora entrato in una consegna perché non ha ancora
+ *    avuto occasione, non perché sia finito. Il primo giro usava «più di 14 giorni», che era un mio
+ *    criterio e non la regola: 179 prodotti erano stati archiviati per sbaglio e sono stati rimessi
+ *    (scripts/ripristina-prodotti-2026.mjs);
  *  · i **già archiviati** e i cancellati.
  *
- * Uso:  node scripts/archivia-prodotti-fermi.mjs [--applica] [--giorni-di-grazia 30]
+ * Uso:  node scripts/archivia-prodotti-fermi.mjs [--applica]
  */
 import { createRequire } from 'node:module';
 import { writeFileSync } from 'node:fs';
@@ -27,8 +30,8 @@ const require = createRequire(import.meta.url);
 require('dotenv').config();
 
 const APPLICA = process.argv.includes('--applica');
-const iGrazia = process.argv.indexOf('--giorni-di-grazia');
-const GRAZIA = iGrazia > 0 ? Number(process.argv[iGrazia + 1]) : 30;
+/** L'anno di nascita che salva un prodotto: creato da qui in poi, resta in Prodotti comunque. */
+const NATI_DA = new Date('2026-01-01T00:00:00.000Z');
 
 const url = new URL(process.env.DATABASE_URL.replace('schema=tasks', 'schema=platform'));
 url.searchParams.set('connection_limit', '1');
@@ -63,13 +66,12 @@ async function main() {
   });
   console.log(`\nProdotti vivi e non archiviati: ${prodotti.length}`);
 
-  const limiteGrazia = new Date(Date.now() - GRAZIA * 86_400_000);
   const daArchiviare = [], tenuti = { unici: 0, servizio: 0, recenti: 0, usati: 0 };
 
   for (const p of prodotti) {
     if (p.type === 'UNICO') { tenuti.unici++; continue; }
     if (p.servizio) { tenuti.servizio++; continue; }
-    if (p.createdAt > limiteGrazia) { tenuti.recenti++; continue; }
+    if (p.createdAt >= NATI_DA) { tenuti.recenti++; continue; }
     const usato =
       idUsati.has(p.id) ||
       nomiUsati.has(norm(p.name)) ||
@@ -82,7 +84,7 @@ async function main() {
   console.log('\nTENUTI:');
   console.log(`  prodotti unici          ${tenuti.unici}`);
   console.log(`  materiale di servizio   ${tenuti.servizio}`);
-  console.log(`  creati da meno di ${GRAZIA} gg  ${tenuti.recenti}`);
+  console.log(`  creati nel 2026         ${tenuti.recenti}`);
   console.log(`  usati nel 2026          ${tenuti.usati}`);
   console.log(`\nDA ARCHIVIARE: ${daArchiviare.length}`);
   for (const p of daArchiviare.slice(0, 25)) console.log(`  ${p.nome.slice(0, 44).padEnd(46)} ${p.tipo.padEnd(10)} ${String(p.sku).padEnd(14)} ${p.partner.slice(0, 22)} (creato ${p.creato})`);

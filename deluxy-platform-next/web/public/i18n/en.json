@@ -3830,7 +3830,8 @@
     "cancellazioni": "Cancellation requested",
     "vista": {
       "partner": "Partners",
-      "valet": "Valets"
+      "valet": "Valets",
+      "servizio": "Service"
     },
     "sezione": {
       "daFare": "To do",

@@ -134,6 +134,16 @@ import { AltezzaViewportDirective } from '../core/altezza-viewport.directive';
           </button>
         }
       </div>
+      @if (vista() === 'servizio') {
+        <!--
+          ⭐⭐ 12/09/2026 (regola utente): «metti tutti questi prodotti in un terzo tab servizio dopo
+          partner, valet». La merce di servizio non è una fase delle consegne: è un'altra popolazione,
+          come lo sono i partner rispetto ai valet. Da pannello in fondo alla pagina diventa una scheda
+          sua, allo stesso livello delle altre due — e sparisce da sotto la tabella, perché la stessa
+          cosa in due posti costringe a chiedersi ogni volta quale delle due si sta guardando.
+        -->
+        <ng-container *ngTemplateOutlet="pannelloDotazione" />
+      } @else {
       <div class="card table-wrap" appAltezzaViewport>
         <table>
           <thead>
@@ -176,6 +186,7 @@ import { AltezzaViewportDirective } from '../core/altezza-viewport.directive';
           </tbody>
         </table>
       </div>
+      }
     } @else {
       <!-- LIVELLO 2 — una riga per prodotto. -->
       @if (detentore(); as d) {
@@ -283,7 +294,13 @@ import { AltezzaViewportDirective } from '../core/altezza-viewport.directive';
       la dotazione è una giacenza ferma che si guarda una volta ogni tanto. Metterla in testa
       sposterebbe tutti i giorni l'occhio su ciò che non cambia mai.
     -->
-    @if (sezione() === 'daFare' && vistaDotazione()) {
+    <!-- In fondo alla pagina il pannello resta SOLO dentro un partner (o per il partner che guarda la
+         sua): al livello 1 dell'ufficio ci pensa la scheda «Servizio». -->
+    @if (sezione() === 'daFare' && vistaDotazione() && (detentore() || !eUfficio())) {
+      <ng-container *ngTemplateOutlet="pannelloDotazione" />
+    }
+
+    <ng-template #pannelloDotazione>
       <section class="card dotazione-pannello">
         <header class="testa">
           <h2>{{ 'merce.dotazione.titolo' | translate }}</h2>
@@ -352,7 +369,7 @@ import { AltezzaViewportDirective } from '../core/altezza-viewport.directive';
           </table>
         </div>
       </section>
-    }
+    </ng-template>
   `,
   styles: [
     `
@@ -427,7 +444,12 @@ export class MerceInSedeComponent {
   readonly PERIODI_DA_FARE = ['oggi', 'domani', 'setteGiorni', 'personalizzato'] as const;
   readonly PERIODI_STORICO = ['ieri', 'ultimaSettimana', 'ultimoMese', 'personalizzato'] as const;
   readonly periodi = computed(() => (this.sezione() === 'storico' ? this.PERIODI_STORICO : this.PERIODI_DA_FARE));
-  readonly VISTE = ['partner', 'valet'] as const;
+  /**
+   * ⭐ 12/09/2026 (regola utente): «metti tutti questi prodotti in un terzo tab servizio dopo partner,
+   * valet». Tre popolazioni, non tre fasi: chi tiene merce da consegnare, chi la porta, e il materiale
+   * che l'azienda ha dato in dotazione.
+   */
+  readonly VISTE = ['partner', 'valet', 'servizio'] as const;
 
   /**
    * ⭐ 11/09/2026 (segnalazione utente) — L'ORDINAMENTO DALLE INTESTAZIONI.
@@ -459,7 +481,7 @@ export class MerceInSedeComponent {
       return String(x ?? '').localeCompare(String(y ?? ''), 'it') * verso;
     });
   }
-  readonly vista = signal<'partner' | 'valet'>('partner');
+  readonly vista = signal<'partner' | 'valet' | 'servizio'>('partner');
   readonly FASI = ['daRitirare', 'inConsegna', 'inSospeso', 'consegnati'] as const;
 
   q = '';
@@ -478,7 +500,11 @@ export class MerceInSedeComponent {
   /** Le due popolazioni arrivano insieme dal server: la scheda le separa senza una chiamata in più. */
   readonly detentoriVisti = computed(() => this.ordinate(this.detentori().filter((r) => r.tipo === this.vista())));
   readonly prodottiVisti = computed(() => this.ordinate(this.prodotti()));
-  quanti(v: string): number { return this.detentori().filter((r) => r.tipo === v).length; }
+  quanti(v: string): number {
+    // La scheda «Servizio» conta le righe di dotazione, non i detentori: è un'altra popolazione.
+    if (v === 'servizio') return this.dotazione().length;
+    return this.detentori().filter((r) => r.tipo === v).length;
+  }
   readonly etichettaPeriodo = computed(() => this.translate.instant('merce.periodo.' + this.periodo()));
   /** La giacenza è governata su 7 prodotti in tutto: una colonna vuota al 99% è spazio tolto ai dati. */
   readonly mostraGiacenza = computed(() => this.prodotti().some((r) => r.giacenza != null));

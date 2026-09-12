@@ -1,0 +1,1160 @@
+[
+ {
+  "id": "cmt609emm0gj8i6g8m82vuwi5",
+  "name": "Gelato Artigianale e Rose Rosse - 12",
+  "createdAt": "2026-07-27T13:00:01.483Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609emn0gjai6g8xzxauz5j",
+  "name": "Cappelliera Henri-Edmond Cross - The Pink Cloud",
+  "createdAt": "2026-07-27T13:36:46.749Z",
+  "partner": {
+   "insegna": "Deluxy Flowers"
+  }
+ },
+ {
+  "id": "cmt609emp0gjji6g882uz8od7",
+  "name": "Regina di Cuori - Dalie Rosa e Polaroid",
+  "createdAt": "2026-07-27T13:55:28.950Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609emr0gjpi6g8fqc1b8iv",
+  "name": "Cappelliera Botticelli- Nascita di Venere",
+  "createdAt": "2026-07-27T14:40:14.434Z",
+  "partner": {
+   "insegna": "Deluxy Flowers"
+  }
+ },
+ {
+  "id": "cmt609emv0gjzi6g8dk6x6h17",
+  "name": "Cappelliera Munch - L'Urlo",
+  "createdAt": "2026-07-27T14:55:08.895Z",
+  "partner": {
+   "insegna": "Deluxy Flowers"
+  }
+ },
+ {
+  "id": "cmt609emx0gk8i6g8k7ymw91v",
+  "name": "Palloncini Cuore e Polaroid",
+  "createdAt": "2026-07-27T15:05:25.197Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609emy0gkci6g8x2yxk8hc",
+  "name": "MAXI Cesto Rose Bianche e Polaroid",
+  "createdAt": "2026-07-27T15:25:11.191Z",
+  "partner": {
+   "insegna": "Deluxy Flowers"
+  }
+ },
+ {
+  "id": "cmt609emz0gkii6g8tsz1897g",
+  "name": "MAXI Cesto Rose Rosse e Polaroid",
+  "createdAt": "2026-07-27T15:28:53.280Z",
+  "partner": {
+   "insegna": "Deluxy Flowers"
+  }
+ },
+ {
+  "id": "cmt609en00gkoi6g8xntms88j",
+  "name": "MAXI Cesto Rose Rosa e Polaroid",
+  "createdAt": "2026-07-27T15:32:59.185Z",
+  "partner": {
+   "insegna": "Deluxy Flowers"
+  }
+ },
+ {
+  "id": "cmt609en50gl1i6g8b7zyur3i",
+  "name": "Cappelliera Love Memories - Red",
+  "createdAt": "2026-07-28T07:42:45.628Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609en60gl6i6g8nuw06nd3",
+  "name": "Cappelliera Love Memories - White",
+  "createdAt": "2026-07-28T08:08:33.405Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609en80glbi6g89ytxxm7c",
+  "name": "Cappelliera Love Memories - Pink",
+  "createdAt": "2026-07-28T08:16:01.477Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609en90glgi6g886nf59nl",
+  "name": "Cappelliera Cuore Rose Rosse e Polaroid",
+  "createdAt": "2026-07-28T08:37:52.686Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609ena0glmi6g8w58eyarc",
+  "name": "Cappelliera Rose Rosa e Polaroid",
+  "createdAt": "2026-07-28T09:10:34.527Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609enb0glri6g8jl6g2rs0",
+  "name": "MAXI Bouquet Dalie Rosa",
+  "createdAt": "2026-07-28T09:43:37.405Z",
+  "partner": {
+   "insegna": "Deluxy Flowers"
+  }
+ },
+ {
+  "id": "cmt609enc0glyi6g8btwq4nsy",
+  "name": "MAXI Bouquet Dalie Rosa - Polaroid",
+  "createdAt": "2026-07-28T10:01:16.314Z",
+  "partner": {
+   "insegna": "Deluxy Flowers"
+  }
+ },
+ {
+  "id": "cmt609ene0gm4i6g89ao1usvy",
+  "name": "Cappelliera Fiori, Champagne, Macarons e Polaroid",
+  "createdAt": "2026-07-28T10:25:09.129Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609eng0gm9i6g8gkfqmmlp",
+  "name": "Botticelli - Bouquet e Polaroid",
+  "createdAt": "2026-07-28T10:53:13.180Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609enh0gmei6g82is56oq4",
+  "name": "Monet - Bouquet e Polaroid",
+  "createdAt": "2026-07-28T12:32:12.677Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609eni0gmji6g81tnz4lr4",
+  "name": "Van Gogh - Bouquet e Polaroid",
+  "createdAt": "2026-07-28T12:45:37.292Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609enj0gmoi6g8zfyrch13",
+  "name": "Cross - Bouquet e Polaroid",
+  "createdAt": "2026-07-28T12:57:01.084Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609f4w0gn2i6g8kfrjdp7g",
+  "name": "Mini Cappelliera Dolci Ricordi",
+  "createdAt": "2026-07-28T13:53:24.938Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609f4x0gn8i6g85h6uh5a0",
+  "name": "Trio Love Memories",
+  "createdAt": "2026-07-28T14:28:20.811Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609f560go4i6g8mtn83s36",
+  "name": "Bouquet Purezza e Palloncino con Polaroid",
+  "createdAt": "2026-07-30T07:38:15.168Z",
+  "partner": null
+ },
+ {
+  "id": "cmt609f580go9i6g8gtyorhw3",
+  "name": "Bouquet Alba e Palloncino con Polaroid",
+  "createdAt": "2026-07-30T08:02:49.807Z",
+  "partner": null
+ },
+ {
+  "id": "cmt609f5a0goji6g82lua690c",
+  "name": "Maxi Palloncino con Polaroid",
+  "createdAt": "2026-07-30T08:37:29.079Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609f5c0gooi6g88k8cnlym",
+  "name": "Cappelliera Hawaii",
+  "createdAt": "2026-07-30T09:06:36.294Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609f5d0goti6g8p1y5pn9t",
+  "name": "Cappelliera Parigi",
+  "createdAt": "2026-07-30T09:34:08.721Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609f5f0goyi6g8lmlu0zgm",
+  "name": "Cappelliera Saint Moritz",
+  "createdAt": "2026-07-30T09:54:19.619Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609f5g0gp3i6g8ndjhrg3k",
+  "name": "Skyline cake",
+  "createdAt": "2026-07-30T12:14:26.812Z",
+  "partner": {
+   "insegna": "Cakedesignme"
+  }
+ },
+ {
+  "id": "cmt609f5g0gp4i6g8z1pkule3",
+  "name": "Kimono cake",
+  "createdAt": "2026-07-30T12:45:28.453Z",
+  "partner": {
+   "insegna": "Cakedesignme"
+  }
+ },
+ {
+  "id": "cmt609f5g0gp5i6g8enxawxkk",
+  "name": "Lady Liberty cake",
+  "createdAt": "2026-07-30T12:50:34.725Z",
+  "partner": {
+   "insegna": "Cakedesignme"
+  }
+ },
+ {
+  "id": "cmt609f5h0gp6i6g8cjfwsfdo",
+  "name": "Photo Memories Cake",
+  "createdAt": "2026-07-30T13:00:12.687Z",
+  "partner": {
+   "insegna": "Cakedesignme"
+  }
+ },
+ {
+  "id": "cmt609f5h0gp8i6g8it9tmjoh",
+  "name": "I'm Back Cake",
+  "createdAt": "2026-07-30T13:22:49.424Z",
+  "partner": {
+   "insegna": "Cakedesignme"
+  }
+ },
+ {
+  "id": "cmt609f5i0gpbi6g8ymogtw7d",
+  "name": "Holiday Memories Dinner",
+  "createdAt": "2026-07-30T14:07:32.043Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609f5l0gpki6g8ywrs93in",
+  "name": "Ricordi d'Amore - Foto Quadro e Bouquet",
+  "createdAt": "2026-07-31T07:36:04.235Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609f5m0gppi6g8t8qq5mxx",
+  "name": "Deluxy Love Celebration",
+  "createdAt": "2026-07-31T08:00:43.444Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609f5o0gpui6g8t6jrh9ut",
+  "name": "Ritratto d'amore - Quadro e 100 rose rosse",
+  "createdAt": "2026-07-31T08:19:33.675Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609f5q0gq2i6g8etu5dgl2",
+  "name": "Back to Office Breakfast",
+  "createdAt": "2026-07-31T13:21:21.419Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609f5r0gq3i6g895zue9h5",
+  "name": "Back to Office Aperitif",
+  "createdAt": "2026-07-31T13:42:06.958Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609f6b0grxi6g8ooubtt5l",
+  "name": "Rose Rosa e Praline d'Autore (Champagne Rosé) - Premium / Gilli (Firenze)",
+  "createdAt": "2026-08-05T12:50:02.486Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt609f770gumi6g8est67yey",
+  "name": "Tempura Rolls - Kekko 10",
+  "createdAt": "2026-08-15T17:30:02.197Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt33hzki001ri69sfxgjqty0",
+  "name": "Bouquet Rose Rosse Deluxe",
+  "createdAt": "2026-08-21T15:19:34.482Z",
+  "partner": {
+   "insegna": "Fioraio Milano Centro"
+  }
+ },
+ {
+  "id": "cmt33i10a001zi69sct7sw7t6",
+  "name": "Box Compleanno Deluxe (fiori + torta)",
+  "createdAt": "2026-08-21T15:19:36.345Z",
+  "partner": null
+ },
+ {
+  "id": "cmt609f810gxmi6g856wgzjld",
+  "name": "iva per fattura",
+  "createdAt": "2026-08-23T10:47:34.372Z",
+  "partner": {
+   "insegna": "Deluxy"
+  }
+ },
+ {
+  "id": "cmt74t5yx0001i6fsv2t7lhmi",
+  "name": "Bouquet Ora Blu",
+  "createdAt": "2026-08-24T11:07:20.309Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t60h0003i6fs3jy1obbv",
+  "name": "Composizione Crepuscolo",
+  "createdAt": "2026-08-24T11:07:20.369Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t61l0007i6fsqeeamkn8",
+  "name": "Anello ordine 1767 Piacenza",
+  "createdAt": "2026-08-24T11:07:20.409Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6240009i6fsbiikcom1",
+  "name": "Torta Atalanta",
+  "createdAt": "2026-08-24T11:07:20.428Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t62n000bi6fs72mo7jp4",
+  "name": "Regina di Cuori",
+  "createdAt": "2026-08-24T11:07:20.447Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t636000di6fs0sggxosl",
+  "name": "Sushi - Tasty Box",
+  "createdAt": "2026-08-24T11:07:20.466Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t65s000li6fsfdw35lbp",
+  "name": "Ordine Milano",
+  "createdAt": "2026-08-24T11:07:20.560Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t68e000ti6fsh6dqiima",
+  "name": "Cesto rose rosa milano",
+  "createdAt": "2026-08-24T11:07:20.654Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6cd000xi6fspa6crs73",
+  "name": "Shirts",
+  "createdAt": "2026-08-24T11:07:20.797Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6eb0015i6fsulx22ten",
+  "name": "Ruinart blanc de blanc + panettone Milano, Firenze e Roma",
+  "createdAt": "2026-08-24T11:07:20.867Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6fb0019i6fsq1e9gag9",
+  "name": "Panettoni Milano e Padova",
+  "createdAt": "2026-08-24T11:07:20.903Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6ft001bi6fspqinasmp",
+  "name": "box 50 praline",
+  "createdAt": "2026-08-24T11:07:20.921Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6ir001ni6fsp0s2xof2",
+  "name": "Collana Coccinella in Oro (Diamanti Rosato)",
+  "createdAt": "2026-08-24T11:07:21.028Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6ka001pi6fshwbo8bes",
+  "name": "Colazione Love YOU -  (1 PERSONA)",
+  "createdAt": "2026-08-24T11:07:21.082Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6kt001ri6fslqbogc1b",
+  "name": "Veg Choise",
+  "createdAt": "2026-08-24T11:07:21.101Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6lc001ti6fsxeddup4o",
+  "name": "Esperienza Cioccolato",
+  "createdAt": "2026-08-24T11:07:21.120Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6md001xi6fs4xflbsit",
+  "name": "Fiori ex1480",
+  "createdAt": "2026-08-24T11:07:21.157Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6nd0021i6fslyqy9nsz",
+  "name": "conegna roma",
+  "createdAt": "2026-08-24T11:07:21.193Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6ph0029i6fsd0nu3oek",
+  "name": "Addition",
+  "createdAt": "2026-08-24T11:07:21.269Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6qh002di6fsu36rp1u4",
+  "name": "s- add 25 white roses",
+  "createdAt": "2026-08-24T11:07:21.305Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6ry002ji6fs12d3pjsb",
+  "name": "s- 24 rose bianche",
+  "createdAt": "2026-08-24T11:07:21.358Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6sf002li6fsvaya1veq",
+  "name": "saldo fattura 378/2026",
+  "createdAt": "2026-08-24T11:07:21.376Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6tj002pi6fsiqqra1uy",
+  "name": "gold rose with #2032",
+  "createdAt": "2026-08-24T11:07:21.414Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6um002ti6fsm8bc5ko2",
+  "name": "Bouquet ortensie e torta cuore rossa x4",
+  "createdAt": "2026-08-24T11:07:21.453Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6v5002vi6fs801i9vcp",
+  "name": "Torte e spumante",
+  "createdAt": "2026-08-24T11:07:21.473Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6vp002xi6fs9vlcdpzp",
+  "name": "Torta personalizzata senza glutine Perugia",
+  "createdAt": "2026-08-24T11:07:21.493Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6w9002zi6fslamhj8rc",
+  "name": "Sorprese Bologna",
+  "createdAt": "2026-08-24T11:07:21.512Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6wy0031i6fs3p6xse7b",
+  "name": "Bouquet florence",
+  "createdAt": "2026-08-24T11:07:21.538Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6y10035i6fsfbjkgp2k",
+  "name": "s- bouquet and chocolate box",
+  "createdAt": "2026-08-24T11:07:21.577Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6yl0037i6fs90fmb3qz",
+  "name": "Servizi 28 e 29",
+  "createdAt": "2026-08-24T11:07:21.596Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t6zx003bi6fsm0mwb08i",
+  "name": "aggiunta rose #11575",
+  "createdAt": "2026-08-24T11:07:21.644Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t726003ji6fsmqvhhs1u",
+  "name": "saldo torta",
+  "createdAt": "2026-08-24T11:07:21.726Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t75v003ri6fscjt856fv",
+  "name": "aggiunta 11615",
+  "createdAt": "2026-08-24T11:07:21.859Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t77h003xi6fsrt13qdgc",
+  "name": "Colazione martesana x2",
+  "createdAt": "2026-08-24T11:07:21.917Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t77z003zi6fsashwyxv4",
+  "name": "vaso ordini 2220 + 2221",
+  "createdAt": "2026-08-24T11:07:21.935Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t7a60047i6fslrbjuaqy",
+  "name": "s-bouquet colorato funerale milano",
+  "createdAt": "2026-08-24T11:07:22.013Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t7aq0049i6fstg6qi1wp",
+  "name": "Colazione a 5 Stelle - Grué Roma (2 persone)",
+  "createdAt": "2026-08-24T11:07:22.033Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t7ba004bi6fstuvta5up",
+  "name": "pallonini ordine 9156",
+  "createdAt": "2026-08-24T11:07:22.054Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t7bt004di6fsqpib9spz",
+  "name": "Aggiunte 8339",
+  "createdAt": "2026-08-24T11:07:22.073Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t7e3004li6fson61v3t1",
+  "name": "saldo 1574",
+  "createdAt": "2026-08-24T11:07:22.155Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t7f6004pi6fsses3pwxl",
+  "name": "Aggiunta aperitivo x 4 ordine 9985",
+  "createdAt": "2026-08-24T11:07:22.194Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t7fq004ri6fsghmrnwti",
+  "name": "Panettone delivery",
+  "createdAt": "2026-08-24T11:07:22.213Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t7gu004vi6fswxtm47d2",
+  "name": "ordine #11428",
+  "createdAt": "2026-08-24T11:07:22.254Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t7he004xi6fsrdcl5a3g",
+  "name": "colomba cioccolato il pappagallo roma",
+  "createdAt": "2026-08-24T11:07:22.274Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t7ih0051i6fsct28388j",
+  "name": "Torta Milano Cash 59272",
+  "createdAt": "2026-08-24T11:07:22.312Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t7j00053i6fsmkfsz6hs",
+  "name": "crostata da 6 martesana milano sandelina numero 36",
+  "createdAt": "2026-08-24T11:07:22.332Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t7ko0059i6fszaqkkcpt",
+  "name": "Bouquet rose bianche e ortensie azzurre Milano",
+  "createdAt": "2026-08-24T11:07:22.392Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t7ls005di6fs22fgodn5",
+  "name": "Bracciale Mongolfiera in Oro (Diamanti Rosato)",
+  "createdAt": "2026-08-24T11:07:22.432Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t7md005fi6fsjtuwc1xe",
+  "name": "Vino",
+  "createdAt": "2026-08-24T11:07:22.452Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t7ng005ji6fsey6xl53x",
+  "name": "saldo 12117",
+  "createdAt": "2026-08-24T11:07:22.492Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t7r3005xi6fsd9bzj55w",
+  "name": "Colazione a 5 Stelle - Grué (2 persone)",
+  "createdAt": "2026-08-24T11:07:22.623Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t7rl005zi6fsepcohskn",
+  "name": "plant",
+  "createdAt": "2026-08-24T11:07:22.641Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t7t70065i6fsxbyubxk6",
+  "name": "Service",
+  "createdAt": "2026-08-24T11:07:22.698Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t7ve006di6fsl26zhuge",
+  "name": "pagamento ordine 9463",
+  "createdAt": "2026-08-24T11:07:22.778Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t7wg006hi6fsaau19ayg",
+  "name": "1654",
+  "createdAt": "2026-08-24T11:07:22.816Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t83g006zi6fsqsegsy1l",
+  "name": "Vaso",
+  "createdAt": "2026-08-24T11:07:23.068Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t84w0075i6fsyugg1gpk",
+  "name": "cioccolatini ordine 9824",
+  "createdAt": "2026-08-24T11:07:23.120Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t8bt007vi6fswlrj10l4",
+  "name": "monoporzione senza glutine ordine 11239",
+  "createdAt": "2026-08-24T11:07:23.368Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t8dg0081i6fse132n0ng",
+  "name": "integrazione #1477",
+  "createdAt": "2026-08-24T11:07:23.428Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t8e00083i6fsdgi1uoym",
+  "name": "second delivery #11059",
+  "createdAt": "2026-08-24T11:07:23.447Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t8h9008fi6fsoh49dclc",
+  "name": "second delivery #9854",
+  "createdAt": "2026-08-24T11:07:23.564Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t8hu008hi6fs23o01zsh",
+  "name": "s- second delivery florence #9762",
+  "createdAt": "2026-08-24T11:07:23.585Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t8iw008li6fsbr9flbr7",
+  "name": "s- integrazione palloncino a numero #9695",
+  "createdAt": "2026-08-24T11:07:23.624Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t8k0008pi6fsdmmoed6p",
+  "name": "s-ballons",
+  "createdAt": "2026-08-24T11:07:23.663Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t8kj008ri6fsw4mg4h6f",
+  "name": "s- delivery Abbiategrasso #9421",
+  "createdAt": "2026-08-24T11:07:23.683Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t8ns0093i6fs0hu1ztsu",
+  "name": "s-palloncino a numero 20",
+  "createdAt": "2026-08-24T11:07:23.800Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t8ot0097i6fs9t00fx7a",
+  "name": "delivery 1099",
+  "createdAt": "2026-08-24T11:07:23.837Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t8pb0099i6fs0g9gxq79",
+  "name": "ordine 1584",
+  "createdAt": "2026-08-24T11:07:23.855Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t8u5009ri6fsa7p1yywk",
+  "name": "scritta e candelina #9934",
+  "createdAt": "2026-08-24T11:07:24.028Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t96x00b1i6fszowphn8e",
+  "name": "second delivery 11105",
+  "createdAt": "2026-08-24T11:07:24.488Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t99600b5i6fsegqbzcly",
+  "name": "second delivery #11133",
+  "createdAt": "2026-08-24T11:07:24.570Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t9jd00c7i6fsvgvmlhi3",
+  "name": "s- second delivery #1773",
+  "createdAt": "2026-08-24T11:07:24.937Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t9ju00c9i6fs9j8dy9o0",
+  "name": "s- second delivery #9624",
+  "createdAt": "2026-08-24T11:07:24.954Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t9qq00czi6fs8gmgsmqc",
+  "name": "maggiorazione ordine 8670 + candela",
+  "createdAt": "2026-08-24T11:07:25.201Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t9r900d1i6fscc0a500h",
+  "name": "12320 exta peluche",
+  "createdAt": "2026-08-24T11:07:25.221Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t9w800dji6fsp4719he8",
+  "name": "s- rosa rosa",
+  "createdAt": "2026-08-24T11:07:25.400Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t9yd00dri6fsc0k64vgu",
+  "name": "Candelina scintilla",
+  "createdAt": "2026-08-24T11:07:25.477Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74t9zx00dxi6fspbrvst2a",
+  "name": "test 2",
+  "createdAt": "2026-08-24T11:07:25.532Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74ta4v00efi6fsgjujkad8",
+  "name": "Pregiato Cioccolato e Rose Rosse",
+  "createdAt": "2026-08-24T11:07:25.711Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74ta5z00eji6fsxd9i7q64",
+  "name": "Bouquet Romantico",
+  "createdAt": "2026-08-24T11:07:25.751Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tae500fdi6fsqxif2din",
+  "name": "Concerto a casa con Violinista",
+  "createdAt": "2026-08-24T11:07:26.045Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74taf200ffi6fs9040o3ed",
+  "name": "Torta Buon Anniversario",
+  "createdAt": "2026-08-24T11:07:26.078Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tag400fji6fsem41wm6e",
+  "name": "Palloncino Rosso Cuore",
+  "createdAt": "2026-08-24T11:07:26.115Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tan800g9i6fsoe06lwc3",
+  "name": "Servizio NCC",
+  "createdAt": "2026-08-24T11:07:26.371Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tay200hdi6fsvdg0g275",
+  "name": "Bouquet Girasoli e Rose Rosse",
+  "createdAt": "2026-08-24T11:07:26.762Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tb4u00i1i6fsg8ebtmem",
+  "name": "Luxury Red Roses Bouquet",
+  "createdAt": "2026-08-24T11:07:27.006Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tchr00m7i6fs725g89gn",
+  "name": "Cofanetto Macarons",
+  "createdAt": "2026-08-24T11:07:28.767Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tcq100n1i6fs4a933c3g",
+  "name": "Jamtech test",
+  "createdAt": "2026-08-24T11:07:29.065Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tcr000n5i6fs1wt9zow4",
+  "name": "Chef a Domicilio",
+  "createdAt": "2026-08-24T11:07:29.100Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tcsm00nbi6fshqmg8psr",
+  "name": "Colazione Luxury - Martesana Milano (2/3 Persone)",
+  "createdAt": "2026-08-24T11:07:29.157Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tcvx00nni6fs1myzofpt",
+  "name": "Rose Rosse Deluxe",
+  "createdAt": "2026-08-24T11:07:29.277Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tdh600ppi6fs6176olwc",
+  "name": "Cioccolato Rosa Rossa",
+  "createdAt": "2026-08-24T11:07:30.041Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tdnm00qdi6fswzjvopki",
+  "name": "Torta I Love You",
+  "createdAt": "2026-08-24T11:07:30.273Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74te3f00rzi6fswaouvcm1",
+  "name": "Colazione \"I Love You\" con rosa (1 Persona)",
+  "createdAt": "2026-08-24T11:07:30.843Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tegu00tbi6fs1udfo32o",
+  "name": "Annabelle, la Rosa Eterna",
+  "createdAt": "2026-08-24T11:07:31.325Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tes100ufi6fs3czcahbr",
+  "name": "Brunch da Favola con Bouquet Incluso (per 3 persone)",
+  "createdAt": "2026-08-24T11:07:31.729Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tf1700v3i6fs8vq0w0pb",
+  "name": "Torta Love Me Deluxe",
+  "createdAt": "2026-08-24T11:07:32.059Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tf7j00vri6fsh4flriic",
+  "name": "Gelato Artigianale e Rose Rosse",
+  "createdAt": "2026-08-24T11:07:32.286Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tfqv00xji6fsxow0pmxi",
+  "name": "Temaki",
+  "createdAt": "2026-08-24T11:07:32.982Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tfre00xli6fsn15wocmm",
+  "name": "Anello Lucky in Oro (Diamanti Rosato)",
+  "createdAt": "2026-08-24T11:07:33.001Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tfw100y1i6fsgyrp8rjx",
+  "name": "Noodles",
+  "createdAt": "2026-08-24T11:07:33.169Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tg1m00yli6fs2fs4h1o4",
+  "name": "To Share",
+  "createdAt": "2026-08-24T11:07:33.370Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tg2500yni6fs8ukwp5jx",
+  "name": "Teppan",
+  "createdAt": "2026-08-24T11:07:33.389Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tg3900yri6fsbkii988h",
+  "name": "Nigiri",
+  "createdAt": "2026-08-24T11:07:33.429Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tg4v00yxi6fskber4x0g",
+  "name": "Tartare",
+  "createdAt": "2026-08-24T11:07:33.487Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tg7r00z7i6fsr1xzk86y",
+  "name": "Gyoza & Gyoza Special",
+  "createdAt": "2026-08-24T11:07:33.591Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tg9y00zfi6fsm8xjftq0",
+  "name": "Effetto Lifting con Polvere di Diamante",
+  "createdAt": "2026-08-24T11:07:33.669Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tgc300zni6fspmlpsobj",
+  "name": "Flower Box Ortigia",
+  "createdAt": "2026-08-24T11:07:33.746Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tgm2010ji6fscx73rma9",
+  "name": "Palloncini Numero",
+  "createdAt": "2026-08-24T11:07:34.106Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74thxp014zi6fswyxyi5e2",
+  "name": "Gift Card Colazioni Stellate",
+  "createdAt": "2026-08-24T11:07:35.821Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tif7016ri6fsktips33c",
+  "name": "Tempura Rolls",
+  "createdAt": "2026-08-24T11:07:36.452Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tilh017di6fslpd9r9ie",
+  "name": "Anello Love in Oro (Diamanti Rosato)",
+  "createdAt": "2026-08-24T11:07:36.677Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tim1017fi6fsvz2j5d4s",
+  "name": "Sushi - Rainbow Box",
+  "createdAt": "2026-08-24T11:07:36.696Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74timk017hi6fs0tj6refo",
+  "name": "Sushi - Protein Box",
+  "createdAt": "2026-08-24T11:07:36.716Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tinq017li6fs8mzahl8n",
+  "name": "Hosomaki",
+  "createdAt": "2026-08-24T11:07:36.757Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tj2o0195i6fsow0rsudb",
+  "name": "Colazione a 5 Stelle - Stefanelli Milano (2/3 Persone)",
+  "createdAt": "2026-08-24T11:07:37.296Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tj390197i6fsyrlbc1zo",
+  "name": "Colazione a 5 stelle - 142 Restaurant Milano (2/3 persone)",
+  "createdAt": "2026-08-24T11:07:37.317Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tjli01b1i6fsvvteiyme",
+  "name": "Sushi Surprise",
+  "createdAt": "2026-08-24T11:07:37.973Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tjym01cdi6fsxh425h70",
+  "name": "Maxi Peluche alto 2 mt",
+  "createdAt": "2026-08-24T11:07:38.445Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tke801dti6fsl8t21vec",
+  "name": "Bouquet Romantico Rose e Girasoli",
+  "createdAt": "2026-08-24T11:07:39.007Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tkv201fji6fsyauoevz4",
+  "name": "Torta, Rose e Bollicine",
+  "createdAt": "2026-08-24T11:07:39.614Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tkxr01fti6fst6akecth",
+  "name": "Terrarium Stone",
+  "createdAt": "2026-08-24T11:07:39.711Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tl0x01g5i6fs34ehzidm",
+  "name": "Birre Giapponesi",
+  "createdAt": "2026-08-24T11:07:39.825Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tl2h01gbi6fs3ksz0u8v",
+  "name": "Tempura",
+  "createdAt": "2026-08-24T11:07:39.882Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tl3001gdi6fsow8ynbr9",
+  "name": "Classic Rolls",
+  "createdAt": "2026-08-24T11:07:39.899Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tlg201hri6fsrahcswnf",
+  "name": "Pregiate Praline - PAC Monza",
+  "createdAt": "2026-08-24T11:07:40.370Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tln301ihi6fsqg9hvxz6",
+  "name": "Cofanetto Gianduiotti",
+  "createdAt": "2026-08-24T11:07:40.623Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tm5401kdi6fsqlu9md2t",
+  "name": "Torta Cioccolato e Lampone",
+  "createdAt": "2026-08-24T11:07:41.273Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tm7301kli6fs01s7o1ox",
+  "name": "Torta Millefoglie",
+  "createdAt": "2026-08-24T11:07:41.343Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tmad01kzi6fsdr1dkh6j",
+  "name": "Colazione del Papà (2 Persone)",
+  "createdAt": "2026-08-24T11:07:41.461Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tmgy01lri6fs79agy954",
+  "name": "SERATA ESCLUSIVA - BASARA SUSHI PASTICCERIA",
+  "createdAt": "2026-08-24T11:07:41.698Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tmi201lvi6fsdhjjiap9",
+  "name": "Tataki",
+  "createdAt": "2026-08-24T11:07:41.738Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tmiz01lzi6fs8xluo8as",
+  "name": "Sashimi",
+  "createdAt": "2026-08-24T11:07:41.771Z",
+  "partner": null
+ },
+ {
+  "id": "cmt74tms201mxi6fsm0zp4i90",
+  "name": "Anello Azure in Oro (Diamanti Rosato)",
+  "createdAt": "2026-08-24T11:07:42.098Z",
+  "partner": null
+ }
+]
