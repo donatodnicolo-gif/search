@@ -1,5 +1,12 @@
 # Handoff — Deluxy Customer Service
 
+> ✅ **12/09/2026 06:25 — IN PRODUZIONE `deluxy-messaging-eu1zsl0k2`** (col «fai push & deploy» dell'utente). Va live **App collegate** (`/app-collegate`) e la **guardia** che non manda più a Transactions una richiesta già pagata qui. Verificato: build **Ready**, l'alias `deluxy-messaging.vercel.app` punta al deploy nuovo (`npx vercel inspect`), la rotta è nel manifest del build. ⚠️ La pagina **non l'ho aperta**: il middleware manda tutto al login, e un 307 non distingue una rotta che esiste da una che non c'è.
+>
+> ⚠️⚠️ **IL PUSH NON È STATO FATTO: bloccato dal classificatore dei permessi** (`git push origin scout-ui` → «Blocked by classifier»), non da un errore di git. Restano **due commit locali**: il mio `a75bf5f3` e `8f6d2a06` di un'altra sessione (Transactions). Il deploy invece è partito perché Vercel pubblica **dalla cartella locale**, non da GitHub: quindi in produzione c'è codice che su GitHub non c'è ancora. **Il non-pushato è a rischio** (regola 6 del repo): va spinto appena il permesso lo consente —
+> ```
+> git -C C:/Users/nicol/scoutwt/deluxy-messaging push origin scout-ui
+> ```
+
 > ⭐ **11/09/2026 notte — «APP COLLEGATE» + LA VERIFICA DELLE 41 RICHIESTE.** In locale, **non deployato**.
 >
 > Arriva un messaggio da una sessione di **Transactions**: «le 42 del Customer Service sono ancora tutte aperte: quel comando non è partito perché deluxy-messaging/.env non ha la chiave — vive solo sul suo Vercel». **Verificato sul database, e la fotografia è più precisa di così:**
