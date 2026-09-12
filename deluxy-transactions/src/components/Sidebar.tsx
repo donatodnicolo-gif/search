@@ -23,6 +23,7 @@ export function Sidebar({
     { href: "/registro", nome: "Registro", count: null, icona: iconaRegistro, admin: false },
     { href: "/pin", nome: "PIN di pagamento", count: null, icona: iconaLucchetto, admin: false },
     { href: "/chiavi", nome: "Chiavi delle app", count: null, icona: iconaChiave, admin: true },
+    { href: "/manutenzione", nome: "Riparazione coda", count: null, icona: iconaImpostazioni, admin: true },
     { href: "/operatori", nome: "Operatori", count: null, icona: iconaPersone, admin: true },
     { href: "/impostazioni", nome: "Impostazioni", count: null, icona: iconaImpostazioni, admin: true },
   ].filter((v) => !v.admin || ruolo === "admin");

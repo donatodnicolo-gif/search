@@ -8,6 +8,7 @@ import { cifra, sha256, tokenCasuale, hashPassword } from "@/lib/crypto";
 import { generaSegretoTotp } from "@/lib/totp";
 import { registra } from "@/lib/audit";
 import { chiudiFuoriDallApp, creaRichiesta, decidi } from "@/lib/richieste";
+import { leggiPiano } from "@/lib/piano-chiusura";
 import {
   accedi,
   confermaSecondoFattore,
@@ -877,4 +878,81 @@ export async function salvaImpostazioni(_stato: unknown, fd: FormData): Promise<
   );
   revalidatePath("/impostazioni");
   return { ok: cambiati.length ? "Impostazioni salvate." : "Nessuna modifica." };
+}
+
+// ---------------------------------------------------------------------------
+// Riparazione in blocco della coda (12/09/2026)
+// ---------------------------------------------------------------------------
+
+// PERCHÉ ESISTE. Un'app di origine può segnare un fornitore «pagato» da sé e
+// lasciare la richiesta aperta qui: è successo con 41 righe del Customer
+// Service (3.638 €) pagate là e rimaste in coda, perché il collegamento che le
+// chiude è del 05/09 e loro erano state pagate prima. Chiuderle a mano una per
+// una è un pomeriggio; chiuderle con una UPDATE sul database romperebbe la
+// catena di hash del registro. Questa azione passa dalla STESSA funzione della
+// chiusura singola — `chiudiFuoriDallApp` — una riga per volta: stesso sigillo,
+// stesso evento, stesso webhook all'app di origine.
+//
+// ⚠️ NON serve la chiave dell'app di origine, e non deve servire: quella
+// permetterebbe a Transactions di FINGERSI un'altra app, e nel registro
+// `dichiaratoDa` smetterebbe di voler dire qualcosa. Qui l'attore è
+// l'operatore che ripara, che è la verità; il PERCHÉ sta nel motivo di ogni
+// riga, obbligatorio.
+//
+// Il piano arriva come testo, una riga per richiesta:
+//     TRX-2026-000018  2026-08-28  già pagata nel Customer Service
+// riferimento, data del pagamento (facoltativa) e motivo. Si vede sempre
+// un'anteprima prima di eseguire: nessuna riga si chiude senza essere stata
+// letta.
+
+export async function chiudiInBlocco(
+  _stato: unknown,
+  fd: FormData,
+): Promise<{ errore?: string; ok?: string; esiti?: string[] }> {
+  const operatore = await esigiAdmin();
+  const piano = leggiPiano(testo(fd, "piano"));
+  if (piano.length === 0) return { errore: "Il piano è vuoto." };
+  const rotte = piano.filter((r) => r.errore);
+  if (rotte.length) return { errore: `${rotte.length} righe non vanno bene: ${rotte[0].riferimento} — ${rotte[0].errore}.` };
+  if (testo(fd, "conferma") !== "esegui") {
+    return { ok: `${piano.length} righe lette, nessuna toccata. Premi «Chiudi davvero» per eseguire.` };
+  }
+
+  const metodo = testo(fd, "metodo") || "altro";
+  const ip = await ipRichiesta();
+  const esiti: string[] = [];
+  let fatte = 0;
+  for (const riga of piano) {
+    // Il riferimento è quello leggibile (TRX-…): qui serve l'id.
+    const r = await prisma.richiesta.findUnique({ where: { riferimento: riga.riferimento }, select: { id: true } });
+    if (!r) {
+      esiti.push(`${riga.riferimento} — non esiste`);
+      continue;
+    }
+    const esito = await chiudiFuoriDallApp(
+      r.id,
+      { id: operatore.id, email: operatore.email, ruolo: operatore.ruolo },
+      { esito: "pagata_fuori", metodo, motivo: riga.motivo, dataPagamento: riga.dataPagamento },
+      ip,
+    );
+    if (esito.ok) {
+      fatte++;
+      esiti.push(`${riga.riferimento} — chiusa`);
+      // L'app di origine va avvisata, come per la chiusura singola. Dopo la
+      // risposta: 41 webhook in fila terrebbero la pagina ferma un minuto.
+      const id = r.id;
+      const motivo = riga.motivo;
+      after(() => notificaOrigine(id, { motivo }));
+    } else {
+      esiti.push(`${riga.riferimento} — ${esito.errore}`);
+    }
+  }
+
+  revalidatePath("/");
+  revalidatePath("/richieste");
+  revalidatePath("/manutenzione");
+  return {
+    ok: `${fatte} richieste chiuse su ${piano.length}.`,
+    esiti,
+  };
 }
