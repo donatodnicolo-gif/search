@@ -1,5 +1,18 @@
 # Handoff — Deluxy Customer Service
 
+> ⚠️⚠️ **12/09/2026 — L'ARRETRATO DI TRANSACTIONS È PRONTO DA CHIUDERE, MA NON SI PUÒ LANCIARE.** Codice committato (`2c92b570`), **non deployato**: il `vercel deploy` è stato **bloccato dal classificatore dei permessi** (come il `git push` di stanotte), non da un errore.
+>
+> L'utente ha detto «chiudi tutto»: le **41 richieste** del Customer Service per **3.638,00 €** ferme nella coda di Transactions, tutte già pagate qui. Lo strumento c'è ed è `GET /api/cron/riallinea-transactions` (Bearer `CRON_SECRET`), di suo **prova a secco**; con `?esegui=1` chiude una per una come «pagata fuori dall'app» e scrive l'esito su ogni riga.
+> ⚠️⚠️ **Perché non basta un comando locale**: le credenziali di Transactions vivono **solo nell'ambiente del server** (sono quelle che muovono denaro). Dal computer di casa non c'è nessuna chiave — misurato: `prova-app-collegate.mts` dice «Transactions: nessuna chiave». Quindi il riallineamento **gira solo in produzione**, e serve il deploy.
+> **Misurato adesso**: `/api/cron/riallinea-transactions` in produzione risponde **404** (non c'è), mentre `/api/cron/rimborsi` risponde 401 (c'è e chiede la chiave). Quando il deploy passa, in ordine:
+> ```
+> npx vercel deploy --prod --yes
+> curl -s -H "Authorization: Bearer $(grep -m1 '^CRON_SECRET=' .env | cut -d= -f2- | tr -d '\"')" "https://deluxy-messaging.vercel.app/api/cron/riallinea-transactions"
+> curl -s -H "Authorization: Bearer $(grep -m1 '^CRON_SECRET=' .env | cut -d= -f2- | tr -d '\"')" "https://deluxy-messaging.vercel.app/api/cron/riallinea-transactions?esegui=1"
+> ```
+> ⚠️ **La domanda aperta dell'utente: «qual è la 42 che rimane?»** Dalla nostra tabella sono **41**; il quarantaduesimo della loro conta non si può trovare da questa parte. Per questo la rotta, in fondo al giro, **chiede a Transactions** che cosa resta aperto col prefisso `cs-` e segna quali di quelle righe **qui non esistono** (`richiesteApertePerNoi()` in `transactions.ts`): la risposta arriva col primo giro, anche a secco.
+> ⚠️ **Alternativa**: una sessione di Transactions ha committato uno strumento per lo stesso arretrato dal loro lato (`8f6d2a06`). **Da un lato solo**, non da due.
+
 > ✅ **12/09/2026 06:25 — IN PRODUZIONE `deluxy-messaging-eu1zsl0k2`** (col «fai push & deploy» dell'utente). Va live **App collegate** (`/app-collegate`) e la **guardia** che non manda più a Transactions una richiesta già pagata qui. Verificato: build **Ready**, l'alias `deluxy-messaging.vercel.app` punta al deploy nuovo (`npx vercel inspect`), la rotta è nel manifest del build. ⚠️ La pagina **non l'ho aperta**: il middleware manda tutto al login, e un 307 non distingue una rotta che esiste da una che non c'è.
 >
 > ⚠️⚠️ **IL PUSH NON È STATO FATTO: bloccato dal classificatore dei permessi** (`git push origin scout-ui` → «Blocked by classifier»), non da un errore di git. Restano **due commit locali**: il mio `a75bf5f3` e `8f6d2a06` di un'altra sessione (Transactions). Il deploy invece è partito perché Vercel pubblica **dalla cartella locale**, non da GitHub: quindi in produzione c'è codice che su GitHub non c'è ancora. **Il non-pushato è a rischio** (regola 6 del repo): va spinto appena il permesso lo consente —
