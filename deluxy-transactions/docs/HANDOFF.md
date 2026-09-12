@@ -11,7 +11,85 @@
 > di accettare una richiesta (oggi nessuno lo fa), `GET /api/health` costante,
 > credenziali Qonto nella cassaforte del Hub, l'IBAN reale via da questo file.
 
-Aggiornato: **11 settembre 2026** (coda ordinabile, arretrato del Customer Service); 8 settembre (via il codice a 6 cifre dalla chiusura); 5 settembre (pagata-fuori via API); 4 settembre (caso ANTOFLOWERS); 28 agosto (collettore unico); fotografia del 17 agosto
+Aggiornato: **12 settembre 2026** (pagina Riparazione coda, in produzione); 11 settembre (coda ordinabile, arretrato del Customer Service); 8 settembre (via il codice a 6 cifre dalla chiusura); 5 settembre (pagata-fuori via API); 4 settembre (caso ANTOFLOWERS); 28 agosto (collettore unico); fotografia del 17 agosto
+
+## 12/09/2026 — «Riparazione coda»: una pagina, non una cassaforte di chiavi
+
+**Chiesto dall'utente**: «crea uno spazio dove ti posso dare le chiavi di altre
+app», poi «deve essere sul sito». Cercando dove metterlo è emerso che **non
+serve**, e il perché vale più della pagina che ne è nata:
+
+- **Transactions ha già il segreto HMAC di ogni app.** È lei che lo genera
+  quando crea la chiave (`ChiaveApi.segretoHmac`, cifrato AES-256-GCM) e senza
+  non potrebbe verificare le firme in arrivo (`api-auth.ts`), né firmare gli
+  avvisi che manda al CS (`avvisi.ts`). Della chiave API tiene solo lo SHA-256.
+- **La chiusura per conto dell'app di origine vuole il NOME dell'app**, non una
+  credenziale: `chiudiDichiarataDallOrigine(id, app, …)`.
+- Custodire anche le chiavi in chiaro non sbloccherebbe niente di nuovo e
+  permetterebbe a Transactions di **fingersi un'altra app**: da quel momento
+  `origine` e `dichiaratoDa` nel registro smetterebbero di significare «lo ha
+  fatto quell'app». È l'unico punto in cui il registro perderebbe un pezzo di
+  verità, ed è il motivo per cui la cassaforte non si è fatta.
+
+**Cosa c'è invece**: `/manutenzione` — «Riparazione coda», **solo admin**, voce
+nel menu. In cima quante richieste aperte ha ogni app e quanto vale il fermo;
+sotto si incolla un piano, una riga per richiesta:
+
+```
+TRX-2026-000018  2026-08-28  già pagata nel Customer Service
+```
+
+riferimento, data del pagamento **facoltativa**, motivo **obbligatorio**.
+L'anteprima si ricalcola mentre si incolla, riga per riga, con gli errori
+segnati; il bottone che esegue compare **solo** se non ce ne sono. Ogni riga
+passa da `chiudiFuoriDallApp` — la stessa funzione della chiusura singola —
+quindi stesso sigillo, stesso evento nel registro col nome dell'operatore,
+stesso webhook all'app di origine, mandato dopo la risposta (41 webhook in fila
+terrebbero ferma la pagina). **Mai una UPDATE sul database**: romperebbe la
+catena di hash.
+
+Scelte da non disfare: la **data è facoltativa** perché quando non si sa quando
+è uscito il denaro è meglio non scriverlo che inventarlo, e chi legge fra sei
+mesi deve poter distinguere «pagata il 28 agosto» da «pagata, data non
+registrata»; `leggiPiano` sta in
+[src/lib/piano-chiusura.ts](../src/lib/piano-chiusura.ts) e non in `actions.ts`
+perché **anteprima ed esecuzione devono leggere lo stesso testo nello stesso
+modo** (e perché in un modulo `"use server"` ogni export dev'essere async).
+
+⚠️ **L'attore è l'operatore che ripara, non l'app.** È voluto: è la verità, e
+il perché di ogni riga sta nel motivo obbligatorio. Se un domani si vorrà
+`dichiaratoDa: <app>` anche qui, allora sì servirebbe la cassaforte — e con
+essa il problema descritto sopra.
+
+### ⚠️ Un'altra sessione stava risolvendo lo stesso problema dall'altro lato
+
+Al momento del push il branch portava quattro commit di un'altra sessione, tutti
+dentro `deluxy-messaging` (nessuna sovrapposizione di file con questo lavoro):
+`a75bf5f3` «App collegate: le chiavi verso le altre app in un posto solo, con la
+prova», `6472cd6a` il suo deploy, **`2c92b570` «Riallineamento dell'arretrato
+nella coda di Transactions»** (`src/lib/riallinea-transactions.ts` + cron
+`/api/cron/riallinea-transactions`), `e3d19c80` «l'arretrato è pronto, il deploy
+è bloccato».
+
+**Quello è il posto giusto** e copre più di questa pagina: il CS sa quali delle
+sue richieste sono pagate, quindi può chiamare `pagata-fuori` da sé — chiude
+l'arretrato **e** tappa il buco delle richieste inviate dopo il pagamento
+(Nibbi). Questa pagina resta utile per le origini che non hanno un
+riallineamento proprio (Finance) e per le riparazioni una tantum, ma **prima di
+usarla sulle 41 del CS conviene vedere se il loro cron le ha già chiuse**:
+chiuderle qui non fa danno (la seconda chiusura risponde «già pagata»), ma
+l'attribuzione sarebbe l'operatore invece dell'app.
+
+✅ **Deploy 12/09 (06:42)**: `7asu6yyjj` (`dpl_Dth3j2Jey4wevVhLtGQ63e4pkyiv`),
+Ready ed è quello servito dal dominio. Health ok; `/manutenzione`, `/richieste`
+e `/` rispondono 307 verso il login (esistono e sono protette). Push in
+fast-forward su `origin/scout-ui` (`59f92d7e..e3d19c80`): ha portato anche i
+quattro commit dell'altra sessione, che erano già committati sul branch
+condiviso.
+
+⚠️ **Non verificato a video**: coda ordinabile, archivio ordinabile e pagina di
+riparazione non sono state guardate da dentro l'app — stanno tutte dietro il
+login e questa sessione non ha le credenziali dell'operatore.
 
 ## 11/09/2026 — La coda si ordina, e 46 richieste su 49 non erano da pagare
 
