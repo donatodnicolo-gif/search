@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { riepilogoTutti, ANNO_CORRENTE } from "@/lib/queries";
+import { decisioniCompensazione } from "@/lib/riconciliazione-fic";
 import { AttiviDaRegistro } from "@/components/AttiviDaRegistro";
 import { MESI, nomeMese } from "@/lib/calc";
 import { euro, pctIt } from "@/lib/format";
@@ -41,12 +42,24 @@ export default async function PartnerList({
     credito?: string; sort?: string; dir?: string;
     attivita?: string; dal?: string; al?: string;
     importFatto?: string; importErrore?: string;
+    anno?: string;
   }>;
 }) {
   const sp = await searchParams;
+  // ⭐ 12/09/2026 — la compensazione la decide la PIATTAFORMA, e questo elenco
+  // deve dire quello che dice la scheda. Una lettura sola del registro (in
+  // cache 10 minuti), non una per partner.
+  const decisioni = await decisioniCompensazione();
+  // ⭐ 12/09/2026 (richiesta dell'utente: «nei filtri metti anche 2025»).
+  // L'elenco guardava solo l'anno in corso, e il 2025 — dove sta la maggior
+  // parte degli arretrati (102.250 € da bonificare contro 48.599 del 2026) —
+  // non era raggiungibile da qui. Si sceglie l'anno, e tutto il resto (periodo,
+  // attività, confronto con l'anno prima) continua a funzionare com'era.
+  const anniDisponibili = [ANNO_CORRENTE, ANNO_CORRENTE - 1];
+  const annoVisto = anniDisponibili.includes(Number(sp.anno)) ? Number(sp.anno) : ANNO_CORRENTE;
   const [tutti, prec, schede] = await Promise.all([
-    riepilogoTutti(ANNO_CORRENTE),
-    riepilogoTutti(ANNO_CORRENTE - 1),
+    riepilogoTutti(annoVisto, decisioni),
+    riepilogoTutti(annoVisto - 1, decisioni),
     schedeTutti(),
   ]);
   const vuota = schedaVuota();
@@ -211,8 +224,8 @@ export default async function PartnerList({
   // lavorato nell'anno (vendite come vendor, senza fattura di servizio)
   const nascostiDalloStato = base.length - filtered.length;
   const ETICHETTA_STATO: Record<string, string> = {
-    "attivi-fatture": `con una fattura o una vendita ${ANNO_CORRENTE}`,
-    "attivi-movimenti": `con una fattura o una vendita ${ANNO_CORRENTE}`,
+    "attivi-fatture": `con una fattura o una vendita ${annoVisto}`,
+    "attivi-movimenti": `con una fattura o una vendita ${annoVisto}`,
     attivi: "non dismessi",
     dismessi: "dismessi",
     "comp-mai-decisa": "che vendono e sui quali nessuno ha mai scelto se compensare",
@@ -238,6 +251,7 @@ export default async function PartnerList({
     for (const [k, val] of Object.entries(sp)) {
       if (val && !["dal", "al", "importFatto", "importErrore"].includes(k)) qs.set(k, val);
     }
+    if (annoVisto !== ANNO_CORRENTE) qs.set("anno", String(annoVisto));
     if (d) qs.set("dal", String(d));
     if (a) qs.set("al", String(a));
     const s = qs.toString();
@@ -263,8 +277,8 @@ export default async function PartnerList({
   for (const t of tutti) {
     const righe: { anno: number; mese: number; importo: number }[] = [];
     for (const [anno, riep] of [
-      [ANNO_CORRENTE - 1, precPerId.get(t.partner.id)] as const,
-      [ANNO_CORRENTE, t] as const,
+      [annoVisto - 1, precPerId.get(t.partner.id)] as const,
+      [annoVisto, t] as const,
     ]) {
       for (const m of riep?.mesi ?? []) {
         if (m.riepilogo.commissioni > 0.005 && !m.saldo?.commFattEmessa) {
@@ -274,7 +288,31 @@ export default async function PartnerList({
     }
     if (righe.length) daEmettere.set(t.partner.id, righe);
   }
+
+  // ⭐ 12/09/2026 (richiesta dell'utente: «una colonna simile con mesi da
+  // saldare»). Un mese resta aperto quando c'è ancora del denaro da muovere in
+  // un verso o nell'altro. Dall'elenco non si vedeva: bisognava aprire le
+  // schede. Misurato il 12/09: 408 mesi aperti su 85 partner, 150.849,50 € da
+  // bonificare e 121.953,82 € da incassare — e il 2025 pesa più del 2026.
+  // Due anni, come per le commissioni: un mese aperto a dicembre non smette di
+  // esserlo il primo gennaio.
+  const daSaldare = new Map<string, { anno: number; mese: number; daB: number; daI: number }[]>();
+  for (const t of tutti) {
+    const righe: { anno: number; mese: number; daB: number; daI: number }[] = [];
+    for (const [anno, riep] of [
+      [annoVisto - 1, precPerId.get(t.partner.id)] as const,
+      [annoVisto, t] as const,
+    ]) {
+      for (const m of riep?.mesi ?? []) {
+        const daB = m.riepilogo.daBonificare;
+        const daI = m.riepilogo.daIncassare;
+        if (daB >= 0.01 || daI >= 0.01) righe.push({ anno, mese: m.mese, daB, daI });
+      }
+    }
+    if (righe.length) daSaldare.set(t.partner.id, righe);
+  }
   const fattureDaEmettere = (id: string) => daEmettere.get(id) ?? [];
+  const mesiDaSaldare = (id: string) => daSaldare.get(id) ?? [];
 
   type T = (typeof tutti)[number];
   const campi: Record<string, (t: T) => string | number | null> = {
@@ -287,6 +325,7 @@ export default async function PartnerList({
     scaduto: (t) => credito(t.partner.id).scaduto,
     fee: (t) => t.partner.feePercent,
     daEmettere: (t) => fattureDaEmettere(t.partner.id).length,
+    daSaldare: (t) => mesiDaSaldare(t.partner.id).reduce((a, x) => a + x.daB + x.daI, 0),
     vendite: (t) => vista(t.partner.id).vendite,
     servizio: (t) => vista(t.partner.id).servizi,
     residuo: (t) => vista(t.partner.id).residuo,
@@ -338,8 +377,28 @@ export default async function PartnerList({
             </Link>
           ))}
           <Link href={linkPeriodo()} className={`chip-link${periodoRidotto ? " azzera" : " attiva"}`}>
-            Anno
+            Tutto l&apos;anno
           </Link>
+          {/* ⭐ 12/09/2026 — l'ANNO. Prima l'elenco mostrava solo quello in
+              corso, e il 2025 (dove sta la maggior parte degli arretrati) non
+              si raggiungeva da qui. */}
+          <span style={{ width: 1, alignSelf: "stretch", background: "var(--hairline)", margin: "0 4px" }} />
+          {anniDisponibili.map((a) => (
+            <Link
+              key={a}
+              href={(() => {
+                const qs = new URLSearchParams();
+                for (const [k, v] of Object.entries(sp)) if (v != null && v !== "" && k !== "anno" && k !== "dal" && k !== "al") qs.set(k, String(v));
+                if (a !== ANNO_CORRENTE) qs.set("anno", String(a));
+                const t = qs.toString();
+                return t ? `/partner?${t}` : "/partner";
+              })()}
+              className={`chip-link${annoVisto === a ? " attiva" : ""}`}
+              title={a === ANNO_CORRENTE ? "L'anno in corso" : `Lo storico ${a}`}
+            >
+              {a}
+            </Link>
+          ))}
         </div>
         <form className="filters" method="get">
           <input type="text" name="q" placeholder="Cerca partner…" defaultValue={sp.q ?? ""} />
@@ -440,6 +499,7 @@ export default async function PartnerList({
                 <ThSort label="Scaduto" campo="scaduto" sp={sp} path="/partner" num />
                 <ThSort label="Fee" campo="fee" sp={sp} path="/partner" num />
                 <ThSort label="Comm. da fatturare" campo="daEmettere" sp={sp} path="/partner" num />
+                <ThSort label="Mesi da saldare" campo="daSaldare" sp={sp} path="/partner" num />
                 <ThSort label={filtroAttivo ? "Vendite periodo" : "Vendite YTD"} campo="vendite" sp={sp} path="/partner" num />
                 <ThSort label={filtroAttivo ? "Servizi periodo" : "Servizi YTD"} campo="servizio" sp={sp} path="/partner" num />
                 <ThSort label="Residuo" campo="residuo" sp={sp} path="/partner" num />
@@ -460,6 +520,25 @@ export default async function PartnerList({
                     {credito(t.partner.id).scaduto >= 0.01 ? euro(credito(t.partner.id).scaduto) : "—"}
                   </td>
                   <td className="num">{pctIt(t.partner.feePercent)}</td>
+                  <td className="num">
+                    {(() => {
+                      const r = mesiDaSaldare(t.partner.id);
+                      if (!r.length) return <span className="muted">—</span>;
+                      const tB = r.reduce((a, x) => a + x.daB, 0);
+                      const tI = r.reduce((a, x) => a + x.daI, 0);
+                      const elenco = r
+                        .map((x) => `${nomeMese(x.mese)} ${x.anno}: ${x.daB >= 0.01 ? `da bonificare ${euro(x.daB)}` : ""}${x.daB >= 0.01 && x.daI >= 0.01 ? " · " : ""}${x.daI >= 0.01 ? `da incassare ${euro(x.daI)}` : ""}`)
+                        .join(" · ");
+                      return (
+                        <span className="badge neutral" title={`Mesi ancora aperti: ${elenco}`}>
+                          <span className="dot" />
+                          {r.length} {r.length === 1 ? "mese" : "mesi"}
+                          {tB >= 0.01 && <> · <span className="neg">−{euro(tB)}</span></>}
+                          {tI >= 0.01 && <> · <span className="pos">+{euro(tI)}</span></>}
+                        </span>
+                      );
+                    })()}
+                  </td>
                   <td className="num">
                     {(() => {
                       const r = fattureDaEmettere(t.partner.id);
@@ -502,6 +581,18 @@ export default async function PartnerList({
                       {euro(somma((t) => credito(t.partner.id).scaduto))}
                     </td>
                     <td></td>
+                    <td className="num">
+                      {(() => {
+                        const n = filtered.reduce((a, t) => a + mesiDaSaldare(t.partner.id).length, 0);
+                        const b = filtered.reduce((a, t) => a + mesiDaSaldare(t.partner.id).reduce((x, y) => x + y.daB, 0), 0);
+                        const i = filtered.reduce((a, t) => a + mesiDaSaldare(t.partner.id).reduce((x, y) => x + y.daI, 0), 0);
+                        return n ? (
+                          <>
+                            {n} mesi · <span className="neg">−{euro(b)}</span> · <span className="pos">+{euro(i)}</span>
+                          </>
+                        ) : "—";
+                      })()}
+                    </td>
                     <td className="num">
                       {(() => {
                         const mesi = filtered.reduce((a, t) => a + fattureDaEmettere(t.partner.id).length, 0);

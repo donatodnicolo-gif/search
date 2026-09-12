@@ -115,7 +115,19 @@ export async function riepilogoPartner(
 // Ottimizzata: le tipologie (poche righe) si caricano a parte invece di un
 // `include` su ogni fattura, e il raggruppamento per partner/mese usa mappe
 // invece di filtrare l'intero elenco per ogni partner (era O(partner × righe)).
-export async function riepilogoTutti(anno: number) {
+/**
+ * ⭐ 12/09/2026 — LA COMPENSAZIONE LA DECIDE LA PIATTAFORMA ANCHE QUI.
+ *
+ * La scheda partner legge la decisione dal registro; questo elenco leggeva
+ * ancora la colonna locale, e lo stesso partner mostrava due dovuti diversi a
+ * seconda della pagina da cui lo si guardava. Chi chiama passa la mappa
+ * `anagraficaId → compensazione` (una lettura sola del registro, in cache);
+ * dove la mappa non dice niente vale il campo locale, come ripiego.
+ */
+export async function riepilogoTutti(
+  anno: number,
+  decisioni?: Map<string, boolean>
+) {
   const [partners, fattureRaw, vendite, saldi, tipologie] = await Promise.all([
     prisma.partner.findMany({ orderBy: { nome: "asc" } }),
     prisma.fatturaServizio.findMany({ where: { anno } }),
@@ -145,6 +157,8 @@ export async function riepilogoTutti(anno: number) {
   const saldiBy = perPartner(saldi);
 
   return partners.map((p) => {
+    const decisaDallaPiattaforma =
+      p.anagraficaId && decisioni?.has(p.anagraficaId) ? decisioni.get(p.anagraficaId)! : null;
     const pf = fattureBy.get(p.id) ?? [];
     const pv = venditeBy.get(p.id) ?? [];
     const ps = saldiBy.get(p.id) ?? [];
@@ -168,9 +182,9 @@ export async function riepilogoTutti(anno: number) {
           fMese[mese],
           vMese[mese],
           saldo,
-          p.compensazione,
+          decisaDallaPiattaforma ?? p.compensazione,
           true,
-          p.compensazioneDecisa && !p.compensazione
+          decisaDallaPiattaforma === false || (decisaDallaPiattaforma == null && p.compensazioneDecisa && !p.compensazione)
         ),
       };
     });

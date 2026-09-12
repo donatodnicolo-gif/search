@@ -369,3 +369,35 @@ export async function campiDaInviarePerNome(
   if (!d) return { daInviare: {}, diversi: [], uguali: 0 };
   return confrontaColRegistro(campiProposti(d), anagraficaId ? schede[anagraficaId] : undefined);
 }
+
+/**
+ * La decisione sulla compensazione, per scheda del registro.
+ *
+ * ⭐ 12/09/2026 — serve all'ELENCO dei partner, che calcolava ancora col campo
+ * locale di Finance mentre la scheda leggeva la piattaforma: lo stesso partner
+ * mostrava due dovuti diversi a seconda della pagina. Una lettura sola del
+ * registro (la stessa cache da 10 minuti della riconciliazione), non una
+ * chiamata per partner.
+ *
+ * ⚠️ Torna solo le schede che una risposta ce l'hanno: chi non ha deciso non
+ * compare, e chi legge ricade sul campo locale. «Non deciso» e «no» restano due
+ * cose diverse.
+ */
+export async function decisioniCompensazione(): Promise<Map<string, boolean>> {
+  const out = new Map<string, boolean>();
+  try {
+    for (let page = 1; page <= 15; page++) {
+      const r = await elencoAnagrafiche(page, 200);
+      for (const a of r.dati) {
+        const c = a.condizioniVendor?.compensazioneIncassi;
+        if (c != null) out.set(a.id, c);
+      }
+      if (r.dati.length < 200) break;
+    }
+  } catch {
+    // Registro muto: si ricade sul campo locale, che è il comportamento di
+    // prima. Un elenco vuoto sarebbe peggio di un elenco vecchio.
+    return out;
+  }
+  return out;
+}
