@@ -257,6 +257,52 @@ export async function segnaPagataFuoriTransactions(d: {
 }
 
 /**
+ * ⭐ 12/09/2026 — CHE COSA TRANSACTIONS HA ANCORA APERTO PER NOI.
+ *
+ * Serve a rispondere a una domanda che dalla nostra tabella non si può
+ * rispondere: «quante ne restano di là?». La coda è la loro, e la nostra copia
+ * può divergere in tutti e due i versi — una riga che qui risulta chiusa e là
+ * no, o una riga che di là esiste e qui non c'è affatto.
+ *
+ * ⚠️ Si chiede l'elenco e si filtra QUI: i nomi dei loro filtri non li
+ * conosciamo, e indovinare un parametro vorrebbe dire leggere una lista
+ * ristretta credendola completa. Si tiene solo ciò che porta il nostro prefisso
+ * (`cs-`) e non risulta già pagato o annullato.
+ * ⚠️ Se la risposta è troncata lo si dice: meglio «non lo so» che un conto
+ * sbagliato su una coda di pagamenti.
+ */
+export async function richiesteApertePerNoi(): Promise<
+  | { ok: true; righe: { riferimentoEsterno: string; stato: string; importo: number | null }[]; troncata: boolean }
+  | { ok: false; errore: string }
+> {
+  if (!transactionsConfigurata()) return { ok: false, errore: 'Transactions non configurata.' }
+  try {
+    const { stato, dati } = await chiamataFirmata('GET', '/api/v1/richieste?limite=500')
+    if (stato !== 200 || !dati) {
+      return { ok: false, errore: `Transactions ha risposto ${stato} all'elenco delle richieste.` }
+    }
+    const righe = (dati.richieste ?? dati.dati ?? []) as {
+      riferimentoEsterno?: string
+      stato?: string
+      importo?: number | string
+    }[]
+    if (!Array.isArray(righe)) return { ok: false, errore: 'Elenco non riconosciuto nella risposta.' }
+    const CHIUSI = new Set(['pagata', 'pagata_fuori', 'annullata', 'rifiutata'])
+    const nostre = righe
+      .filter((x) => String(x.riferimentoEsterno ?? '').startsWith('cs-'))
+      .filter((x) => !CHIUSI.has(String(x.stato ?? '')))
+      .map((x) => ({
+        riferimentoEsterno: String(x.riferimentoEsterno),
+        stato: String(x.stato ?? ''),
+        importo: x.importo === undefined ? null : Number(x.importo),
+      }))
+    return { ok: true, righe: nostre, troncata: righe.length >= 500 }
+  } catch (e) {
+    return { ok: false, errore: `Transactions non raggiungibile: ${(e as Error).message}` }
+  }
+}
+
+/**
  * ⭐ 11/09/2026 — LA PROVA DEL COLLEGAMENTO, per la pagina «App collegate».
  *
  * ⚠️ Non basta guardare se le variabili ci sono: una chiave scaduta o di
