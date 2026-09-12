@@ -59,7 +59,7 @@ async function main() {
   const prodotti = await prisma.product.findMany({
     where: { deletedAt: null, archived: false },
     select: {
-      id: true, name: true, sku: true, type: true, servizio: true, createdAt: true, active: true,
+      id: true, name: true, sku: true, type: true, servizio: true, createdAt: true, active: true, prodottoApp: true,
       partner: { select: { insegna: true } },
       variants: { select: { sku: true, name: true } },
     },
@@ -78,7 +78,7 @@ async function main() {
       (p.sku && skuUsati.has(p.sku.trim().toUpperCase())) ||
       p.variants.some((v) => (v.sku && skuUsati.has(v.sku.trim().toUpperCase())) || nomiUsati.has(norm(`${p.name} ${v.name}`)));
     if (usato) { tenuti.usati++; continue; }
-    daArchiviare.push({ id: p.id, nome: p.name, sku: p.sku ?? '', tipo: p.type, partner: p.partner?.insegna ?? '—', creato: p.createdAt.toISOString().slice(0, 10) });
+    daArchiviare.push({ id: p.id, nome: p.name, sku: p.sku ?? '', tipo: p.type, prodottoApp: p.prodottoApp, partner: p.partner?.insegna ?? '—', creato: p.createdAt.toISOString().slice(0, 10) });
   }
 
   console.log('\nTENUTI:');
@@ -106,6 +106,32 @@ async function main() {
     });
     fatti += blocco.length;
     console.log(`  archiviati ${fatti}/${daArchiviare.length}`);
+  }
+
+  /**
+   * ⭐⭐ 12/09/2026 (regola utente): «se un prodotto unico viene archiviato in automatico va in
+   * archiviato anche in Merchandising e su Shopify». Lo script non passa dal servizio Nest, quindi la
+   * comunicazione la fa da sé, con la stessa rotta: POST /api/v1/prodotti/stato-piattaforma.
+   *
+   * ⚠️ Di là questo scrive lo stato e NON sposta la fase: archiviare davvero e togliere da Shopify è
+   * una mossa di Merchandising. Qui si dice il fatto, e lo si dice a voce alta invece di darlo per fatto.
+   */
+  const url = (process.env.MERCHANDISING_URL ?? '').replace(/\/+$/, '');
+  const chiave = process.env.MERCHANDISING_API_KEY ?? '';
+  const daDire = daArchiviare.filter((p) => p.sku && !p.prodottoApp).map((p) => ({ codice: p.sku, stato: 'archiviato' }));
+  if (!url || !chiave) {
+    console.log(`\n⚠️ Merchandising non configurato qui: ${daDire.length} SKU NON sono stati comunicati. Vanno archiviati a mano di là.`);
+  } else if (daDire.length) {
+    for (let i = 0; i < daDire.length; i += 500) {
+      const res = await fetch(`${url}/api/v1/prodotti/stato-piattaforma`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': chiave },
+        body: JSON.stringify({ stati: daDire.slice(i, i + 500) }),
+      });
+      const esito = res.ok ? await res.json() : { errore: res.status };
+      console.log(`  stato comunicato a Merchandising: ${JSON.stringify(esito)}`);
+    }
+    console.log('  ⚠️ Di là lo stato è scritto ma la FASE non cambia: archiviarli davvero (e toglierli da Shopify) tocca a Merchandising.');
   }
 }
 

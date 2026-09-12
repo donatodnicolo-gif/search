@@ -381,11 +381,25 @@ export class ProductsService {
     if (user.role === Role.PARTNER && (product as { servizio?: boolean }).servizio) {
       throw new ForbiddenException('Questo è materiale di servizio: lo gestisce l ufficio.');
     }
-    return this.prisma.product.update({
+    const salvato = await this.prisma.product.update({
       where: { id },
       data: { archived, archivedAt: archived ? new Date() : null },
       include: PRODUCT_INCLUDE,
     });
+    /**
+     * ⭐⭐ 12/09/2026 (regola utente): «se un prodotto unico viene archiviato in automatico va in
+     * archiviato anche in Merchandising e su Shopify».
+     *
+     * Si comunica lo stato per SKU. ⚠️ Di là questo scrive `statoPiattaforma` e **non sposta la fase**
+     * (è dichiarato nel loro codice): archiviarlo davvero e toglierlo da Shopify resta una loro mossa.
+     * Qui si dice il fatto — «la piattaforma l'ha archiviato» — che è tutto ciò che ci compete.
+     *
+     * ⚠️ Non si aspetta la risposta: Merchandising giù non deve impedire di archiviare un prodotto.
+     */
+    if (salvato.sku && !salvato.prodottoApp && !(salvato as { servizio?: boolean }).servizio) {
+      this.merchandising.dichiaraStatoOra([{ codice: salvato.sku, stato: archived ? 'archiviato' : 'attivo' }]);
+    }
+    return salvato;
   }
 
   /**

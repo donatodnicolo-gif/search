@@ -252,6 +252,8 @@ interface CorrispettivoRow {
   /** La fee scritta in anagrafica: se diverge da quella vera, si vede. */
   feePercentContract: number;
   deliveryCost: number;
+  /** ⚠️ true = la paga del valet è una STIMA dal listino, non un importo scritto sulla consegna. */
+  costoStimato: boolean;
   vat: number;
   incassiCommission: number;
   totalMargin: number;
@@ -917,11 +919,37 @@ export class FinanceService {
       // margini conta quello che il CLIENTE ha pagato online — prodotti e
       // consegna, dalla cache di Orders. Il 12731 stava a 35 € di venduto
       // (il concordato con Cannavo) dove il cliente ne aveva pagati 45 + 15.
-      const pagato = g.map((r) => r.realOrderNumber).map((n) => (n ? cliente.get(n) : undefined)).find(Boolean);
+      /**
+       * ⭐⭐ 12/09/2026 (segnalazione utente: «valore vendita dell'ordine è sbagliato»).
+       *
+       * IL FATTO, misurato sul DDT 12919. Le sue due consegne risolvono a DUE record diversi:
+       *  · #101260 → l'ordine Shopify vero (`18241187774794`): prodotti 53 €, consegna 25 €, totale 78 €;
+       *  · #101259 → il ripiego per singola consegna (`vendita:<id>`): prodotti 23 €, cioè solo la sua merce.
+       * Il codice prendeva **il primo che trovava** e lo usava come valore dell'intero ordine: usciva 23 €
+       * contro 29 € di merce pagata ai partner, quindi un incasso di −6 € e la riga in rosso. Il cliente
+       * aveva pagato 78.
+       *
+       * LA REGOLA, in ordine di forza:
+       *  1. se c'è **l'ordine vero**, comanda lui e basta: quel record contiene GIÀ tutte le righe
+       *     dell'ordine, quindi sommargli il ripiego conterebbe due volte la stessa merce;
+       *  2. se ci sono più ordini veri distinti sotto lo stesso riferimento, si sommano (sono ordini
+       *     diversi finiti nello stesso giro);
+       *  3. se ci sono **solo ripieghi**, si sommano quelli distinti: ognuno copre la sua consegna, e
+       *     prenderne uno solo perderebbe la merce delle altre.
+       *
+       * ⚠️ Le spese di consegna restano UNA volta sola (il massimo): sono dell'ordine, non della riga.
+       */
+      const chiaviGruppo = [...new Set(g.map((r) => r.realOrderNumber).filter(Boolean) as string[])];
+      const trovati = chiaviGruppo
+        .map((k) => ({ chiave: k, rec: cliente.get(k) }))
+        .filter((x): x is { chiave: string; rec: NonNullable<ReturnType<typeof cliente.get>> } => !!x.rec);
+      const veri = trovati.filter((x) => !x.chiave.startsWith('vendita:'));
+      const daUsare = veri.length ? veri : trovati;
+      const pagato = daUsare[0]?.rec;
       const fonteCliente = !!pagato;
-      if (pagato) {
-        publicPrice = round2(pagato.prodotti);
-        deliveryFee = round2(pagato.consegna);
+      if (daUsare.length) {
+        publicPrice = round2(daUsare.reduce((s, x) => s + x.rec.prodotti, 0));
+        deliveryFee = round2(Math.max(...daUsare.map((x) => x.rec.consegna)));
       }
       const valore = round2(publicPrice + deliveryFee);
       const partnerPrice = round2(g.reduce((s, r) => s + r.partnerPrice, 0));
@@ -1000,7 +1028,8 @@ export class FinanceService {
       anomalie: g.filter((r) => r.anomalia).length,
       gateway,
       commissioneConfermata: tar ? tar.confermata : false,
-      consegnePagate: g.filter((r) => r.deliveryCost > 0).length,
+      // ⚠️ PAGATE davvero, non «con un costo stimato addosso»: vedi la nota in computeRow.
+      consegnePagate: g.filter((r) => r.deliveryCost > 0 && !r.costoStimato).length,
       // ⚠️ La regola «il giro si paga una volta» vale solo DENTRO LO STESSO
       // GIORNO (deciso dall'utente 26/08): lo stesso ordine consegnato in due
       // giorni sono due viaggi, e due paghe sono normali — #12649 (17 e 18/08)
@@ -1008,7 +1037,7 @@ export class FinanceService {
       piuPagheStessoGiorno: (() => {
         const perGiorno = new Map<string, number>();
         for (const r of g) {
-          if (r.deliveryCost <= 0) continue;
+          if (r.deliveryCost <= 0 || r.costoStimato) continue;
           const giorno = String(r.date ?? '').slice(0, 10);
           perGiorno.set(giorno, (perGiorno.get(giorno) ?? 0) + 1);
         }
@@ -1259,11 +1288,18 @@ export class FinanceService {
     // La paga del valet: scritta, altrimenti dal LISTINO (stessa regola degli Stipendi).
     const plusValet = FinanceService.plusNelCosto(d.valetAdditionalPrice);
     let pagaValet = 0;
+    /**
+     * ⚠️ 12/09/2026 (segnalazione utente: «consegne pagate in base a quanto presente in consegne è solo 1»).
+     * La paga o è SCRITTA sulla consegna, o è ricavata dal listino: sono due cose diverse, e finora la
+     * differenza si perdeva. Contare come «pagata» una consegna con la sola stima faceva dire all ordine
+     * 12919 «2 consegne pagate» quando non ne era stata pagata nessuna.
+     */
+    let pagaScritta = false;
     // ⭐ 06/09/2026 (caso 101061): una regola carnet con «Da pagare = No» azzera la paga anche
     // qui — prima il margine contava un costo valet che Stipendi non avrebbe mai pagato.
     const regola = (d as any).deliveryRule as { toPay?: boolean | null; valetPayAdjustment?: number | null } | null;
     if (d.payable !== false && regola?.toPay !== false) {
-      if ((d.valetSalary ?? 0) > 0) pagaValet = Math.max(0, d.valetSalary + plusValet);
+      if ((d.valetSalary ?? 0) > 0) { pagaValet = Math.max(0, d.valetSalary + plusValet); pagaScritta = true; }
       else {
         const listino = scegliListinoValet(d, ctx.perId, ctx.perValet);
         const paga = listino ? pagaConsegna(d, listino, regola ?? null) : null;
@@ -1323,6 +1359,7 @@ export class FinanceService {
       feePercent: round2(feePercent),
       feePercentContract: round2(feeContract),
       deliveryCost: round2(deliveryCost),
+      costoStimato: deliveryCost > 0 && !pagaScritta,
       vat: round2(vat),
       incassiCommission: round2(incassiCommission),
       totalMargin: round2(totalMargin),

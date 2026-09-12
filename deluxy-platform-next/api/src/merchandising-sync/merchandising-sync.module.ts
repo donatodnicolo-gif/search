@@ -464,6 +464,63 @@ export class MerchandisingSyncService {
     if (!res.ok) return { ok: false, stato: res.status, messaggio: `Merchandising risponde HTTP ${res.status}: ${testo.slice(0, 200)}` };
     return { ok: true, messaggio: 'Prodotto inviato a Merchandising.' };
   }
+
+  /**
+   * ⭐⭐ 12/09/2026 (regola utente): «se un prodotto unico viene archiviato in automatico va in
+   * archiviato anche in Merchandising e su Shopify».
+   *
+   * Manda a Merchandising lo STATO che la piattaforma dà ai suoi prodotti: `attivo` o `archiviato`,
+   * per SKU, a lotti (`POST /api/v1/prodotti/stato-piattaforma`).
+   *
+   * ⚠️ QUESTA METÀ ARRIVA FIN QUI, E VA DETTO. Di là la rotta scrive `statoPiattaforma` e **non tocca
+   * la fase**: è scritto nel loro codice, ed è una scelta dichiarata — la fase è la loro decisione sul
+   * ciclo di vita del prodotto, lo stato della piattaforma è un fatto altrui. Quindi da qui il prodotto
+   * risulta «archiviato dalla piattaforma», ma **spostarlo in archivio e toglierlo da Shopify è un
+   * passo che deve fare Merchandising**. Fingere di comandare noi la loro fase vorrebbe dire scrivere
+   * su un dato che non è nostro (Standard §7), e la prossima volta che loro cambiano idea nessuno
+   * saprebbe più chi comanda.
+   *
+   * ⚠️ Non si sbaglia in silenzio: l'esito torna a chi chiama, con quanti codici non esistono di là.
+   */
+  async dichiaraStatoPiattaforma(coppie: { codice: string; stato: 'attivo' | 'archiviato' }[]) {
+    const pulite = coppie.filter((c) => c.codice && c.codice.trim());
+    if (!pulite.length) return { ok: true, mandati: 0, messaggio: 'Nessuno SKU da comunicare.' };
+    const { url, chiave } = await this.config();
+    if (!url || !chiave) return { ok: false, mandati: 0, messaggio: 'Merchandising non configurato.' };
+
+    let mandati = 0, nonTrovati = 0;
+    // ⚠️ A lotti da 500: di là il tetto è 1.000 per richiesta, e mandarne uno per volta sarebbe
+    // una richiesta di rete per dire una parola.
+    for (let i = 0; i < pulite.length; i += 500) {
+      const lotto = pulite.slice(i, i + 500).map((c) => ({ codice: c.codice.trim(), stato: c.stato }));
+      const res = await fetch(`${url}/api/v1/prodotti/stato-piattaforma`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': chiave },
+        body: JSON.stringify({ stati: lotto }),
+      });
+      if (!res.ok) {
+        const testo = await res.text();
+        return { ok: false, mandati, messaggio: `Merchandising risponde HTTP ${res.status}: ${testo.slice(0, 200)}` };
+      }
+      const esito = (await res.json()) as { aggiornati?: number; nonTrovatiQui?: number };
+      mandati += Number(esito?.aggiornati ?? 0);
+      nonTrovati += Number(esito?.nonTrovatiQui ?? 0);
+    }
+    return {
+      ok: true,
+      mandati,
+      nonTrovati,
+      messaggio: `Stato comunicato a Merchandising per ${mandati} prodotti${nonTrovati ? ` (${nonTrovati} non esistono di là)` : ''}. ⚠️ Di là questo NON sposta la fase né tocca Shopify: lo decide Merchandising.`,
+    };
+  }
+
+  /** Come sopra, ma senza attendere: per i punti dove l'archiviazione non deve rallentare chi clicca. */
+  dichiaraStatoOra(coppie: { codice: string; stato: 'attivo' | 'archiviato' }[]): void {
+    if (!coppie.length) return;
+    void this.dichiaraStatoPiattaforma(coppie).catch((err) =>
+      this.logger.warn(`Stato piattaforma non comunicato a Merchandising: ${(err as Error).message}`),
+    );
+  }
 }
 
 @ApiTags('merchandising-sync')
