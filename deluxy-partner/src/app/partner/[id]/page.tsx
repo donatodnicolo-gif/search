@@ -119,7 +119,7 @@ export default async function PartnerDetail({
   searchParams: Promise<{
     amm?: string; fic?: string; ficreg?: string; mail?: string; nota?: string; mese?: string; anag?: string;
     ficCollegata?: string; ficErrore?: string; errorePag?: string; richiesta?: string; fattEliminata?: string; extra?: string;
-    ficEsito?: string; ficMsg?: string; emessa?: string;
+    ficEsito?: string; ficMsg?: string; emessa?: string; anno?: string;
   }>;
 }) {
   const { id } = await params;
@@ -137,7 +137,13 @@ export default async function PartnerDetail({
   // registro, che le trasporta. La copia locale resta solo come ripiego.
   const condVendor = await condizioniVendorPartner(id);
 
-  const anno = ANNO_CORRENTE;
+  // ⭐ 12/09/2026 (richiesta dell'utente: «consenti anche qui di vedere il
+  // 2025»). La scheda mostrava solo l'anno in corso: per guardare un mese del
+  // 2025 — dove sta la maggior parte degli arretrati — non c'era strada. Si
+  // sceglie l'anno; tutto il resto della scheda (rolling, confronto con l'anno
+  // prima, extra, pagamenti) lo segue.
+  const anniDisponibili = [ANNO_CORRENTE, ANNO_CORRENTE - 1];
+  const anno = anniDisponibili.includes(Number(sp.anno)) ? Number(sp.anno) : ANNO_CORRENTE;
   const annoPrec = anno - 1;
   const [{ mesi, rolling, nonEmesse }, prec, tariffe, fattureAperte, extra, analisi, , banca] = await Promise.all([
     riepilogoPartner(id, anno, condVendor.condizioni?.compensazioneIncassi ?? null),
@@ -313,7 +319,13 @@ export default async function PartnerDetail({
   const daCollegare = mesi.some((m) => m.vendite.length > 0 && !m.saldo?.commFattEmessa);
   const candidateFic = daCollegare ? await fattureFicDelPartner(id, partner.nome, anno) : [];
   // dove tornano le azioni della scheda
-  const tornaA = `/partner/${id}`;
+  // ⚠️ Guardando il 2025, le azioni devono riportare al 2025: senza l'anno nel
+  // link si torna sull'anno in corso e il mese su cui si stava lavorando
+  // sparisce sotto gli occhi.
+  // Nota onesta: alcune azioni in `actions.ts` hanno il ritorno scritto dentro
+  // (`/partner/<id>`) e l'anno lo perdono ancora — i dati restano giusti, si
+  // torna solo sull'anno corrente.
+  const tornaA = anno === ANNO_CORRENTE ? `/partner/${id}` : `/partner/${id}?anno=${anno}`;
   // ⭐ 09/09/2026 — UNA SOLA RISPOSTA SULLA COMPENSAZIONE.
   // La decide la piattaforma; la colonna locale è il ripiego quando il registro
   // non risponde o nessuno ha deciso. Prima il badge leggeva la piattaforma e i
@@ -983,7 +995,25 @@ export default async function PartnerDetail({
         </div>
       </div>
 
-      <h2 className="section-title">Movimenti mensili {anno}</h2>
+      {/* ⭐ 12/09/2026 — la scelta dell'anno sta QUI, attaccata ai mesi: è la
+          parte della scheda che cambia, e un comando lontano da ciò che
+          comanda si fa cercare. Il rolling e il confronto lo seguono. */}
+      <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap", marginTop: 24 }}>
+        <h2 className="section-title" style={{ margin: 0 }}>Movimenti mensili {anno}</h2>
+        <span style={{ display: "flex", gap: 6 }}>
+          {anniDisponibili.map((a) => (
+            <Link
+              key={a}
+              href={a === ANNO_CORRENTE ? `/partner/${id}` : `/partner/${id}?anno=${a}`}
+              prefetch={false}
+              className={`chip-link${anno === a ? " attiva" : ""}`}
+              title={a === ANNO_CORRENTE ? "L'anno in corso" : `Lo storico ${a}`}
+            >
+              {a}
+            </Link>
+          ))}
+        </span>
+      </div>
       {/* Le righe scritte in Finance che su Fatture in Cloud non esistono non
           entrano nei conti (regola dell'utente del 04/09/2026). Non spariscono
           in silenzio però: chi le ha scritte deve sapere che non contano, e
