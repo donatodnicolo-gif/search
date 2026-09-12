@@ -52,7 +52,10 @@ if (indiceApp >= 0 && !app) {
   console.error("`--app` vuole il nome dell'app: --app cs");
   process.exit(2);
 }
-const percorsoPiano = argomenti.find((a, i) => !a.startsWith("--") && i !== indiceApp + 1);
+// ⚠️ L'indice da saltare è il VALORE di `--app`, e solo se `--app` c'è: con
+// `indiceApp = -1` la somma fa 0 e si scarterebbe il primo argomento, cioè
+// proprio il piano.
+const percorsoPiano = argomenti.find((a, i) => !a.startsWith("--") && !(indiceApp >= 0 && i === indiceApp + 1));
 if (!percorsoPiano) {
   console.error("Uso: node --env-file=<file> chiudi-arretrato.mjs [--app <nome>] <piano.json> [--esegui]");
   process.exit(2);
