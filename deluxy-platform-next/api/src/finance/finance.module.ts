@@ -761,6 +761,52 @@ export class FinanceService {
         }
       }
     }
+    /**
+     * ⭐⭐ 12/09/2026 (richiesta del Customer Service, caso #101402 / ordine Flowers #2923) — DAL DDT
+     * E DAL MARCHIO ALL'ORDINE DEL CLIENTE.
+     *
+     * Le consegne create dal canale app portano sulla riga il COSTO DEL FORNITORE (90 € su #2923), non
+     * il prezzo del cliente (150 €), e non hanno né numero d'ordine né una Vendita agganciata: l'unico
+     * legame con l'ordine è la coppia `ddtNumber` + `ddtBrand`. Senza questo passo la Finanza legge 90
+     * come se fosse il venduto e il margine esce sbagliato su tutte e 49 le consegne mandate in app.
+     *
+     * ⚠️⚠️ IL MARCHIO NON È UN DETTAGLIO: lo stesso numero esiste su più negozi. Nella copia di Orders
+     * il numero 2923 c'è, ma è di **deluxy.it** e vale 51 € — l'ordine Flowers da 150 € è un altro.
+     * Abbinare sul solo numero attaccherebbe alla consegna l'ordine di un altro cliente. Per questo si
+     * richiede il marchio E si accetta l'abbinamento **solo quando è unico**: misurato sull'archivio,
+     * 160 consegne su 167 trovano un solo ordine, 7 nessuno, e **nessuna ne trova due**.
+     *
+     * ⚠️ Chi non si abbina non è un errore: gli ordini nati dopo l'ultima passata di Orders non sono
+     * ancora nella copia (il 12/09 la copia si ferma a Flowers #2918 e i quattro più nuovi sono di
+     * poche ore dopo). Si sistemano da soli al giro successivo, e intanto vale il ripiego sulla vendita.
+     */
+    const ancoraSenza = rows.filter((r) => !r.realOrderNumber);
+    if (ancoraSenza.length) {
+      const consegne = await this.prisma.delivery.findMany({
+        where: { id: { in: ancoraSenza.map((r) => r.deliveryId) }, ddtNumber: { not: null }, ddtBrand: { not: null } },
+        select: { id: true, ddtNumber: true, ddtBrand: true },
+      });
+      const ddt = [...new Set(consegne.map((c) => (c.ddtNumber ?? '').trim()).filter(Boolean))];
+      if (ddt.length) {
+        const candidati = await this.prisma.ordineCliente.findMany({
+          where: { OR: [{ numero: { in: ddt } }, { numero: { in: ddt.map((n) => `#${n}`) } }] },
+          select: { orderId: true, numero: true, brand: true },
+        });
+        const nudo = (s: string | null | undefined) => (s ?? '').replace('#', '').trim();
+        for (const c of consegne) {
+          const marchio = (c.ddtBrand ?? '').trim().toLowerCase();
+          const numero = (c.ddtNumber ?? '').trim();
+          const suoi = candidati.filter(
+            (o) => nudo(o.numero) === numero && (o.brand ?? '').toLowerCase().includes(marchio),
+          );
+          // Uno solo, o niente: davanti a due candidati non si sceglie, si lascia stare.
+          if (suoi.length !== 1) continue;
+          const riga = ancoraSenza.find((r) => r.deliveryId === c.id);
+          if (riga) riga.realOrderNumber = suoi[0].orderId;
+        }
+      }
+    }
+
     const numeri = [...new Set(rows.map((r) => r.realOrderNumber).filter(Boolean))] as string[];
     // ⚠️ 11/09/2026: QUI c'era un'uscita anticipata («niente numeri d'ordine → mappa vuota»), e si
     // portava via anche il ripiego sulla vendita, che serve proprio alle consegne SENZA numero d'ordine:
