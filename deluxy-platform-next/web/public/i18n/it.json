@@ -865,7 +865,8 @@
       "desc": "Decrescente ↓"
     },
     "margine": {
-      "titolo": "Margine Deluxy {{pct}} % ({{euro}} €): sotto il 5 %"
+      "titolo": "Margine Deluxy {{pct}} % ({{euro}} €): sotto il 5 %",
+      "senzaRicavi": "Margine {{pct}} % ({{euro}} €) · ricavi {{ricavi}} €: la consegna non porta il numero dell'ordine, quindi non si sa che cosa abbia pagato il cliente — la Finanza vede solo il costo."
     },
     "nonConsegnate": {
       "chip": "Non consegnata",

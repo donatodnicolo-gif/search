@@ -501,7 +501,7 @@ interface PropostaVendita {
                 class="row-link"
                 [class.da-gestire]="eDaGestire(d)"
                 [class.margine-basso]="margineBasso(d)"
-                [attr.title]="d.margine ? ('deliveries.margine.titolo' | translate: { pct: d.margine.percent, euro: d.margine.euro.toFixed(2) }) : null"
+                [attr.title]="titoloMargine(d)"
                 [attr.tabindex]="canDetails() ? 0 : null"
                 (click)="openDetail(d)"
                 (keydown.enter)="openDetail(d)"
@@ -2530,6 +2530,29 @@ export class DeliveriesListComponent {
    * hanno testo in rosso». Il margine lo calcola il server (solo per l'ufficio): sotto il 5% del
    * prezzo pagato dal cliente — o sotto zero — la riga si legge in rosso, anche nello Storico.
    */
+  /**
+   * ⚠️ 12/09/2026 (domanda utente: «perché escono in rosso?»). Il rosso è il MARGINE SOTTO IL 5%, e
+   * resta acceso anche quando il margine è negativo perché mancano i ricavi: sulle #101259 e #101260 la
+   * Finanza legge un costo di 28,20 € e ricavi −6 €, perché quelle consegne non portano il numero
+   * dell ordine e quindi non si sa che cosa abbia pagato il cliente.
+   *
+   * ⚠️ Si era provato a spegnere il rosso quando i ricavi sono a zero — «non ancora prezzata non è
+   * margine sottile» — ma nasconde proprio i casi come questi, che sono difetti veri e non attese.
+   * Il numero preciso sta nel messaggio al passaggio del mouse: chi vuole sapere quanto, lo legge.
+   */
+  /**
+   * Il messaggio al passaggio del mouse dice ANCHE i ricavi quando non ce ne sono: «margine sotto il
+   * 5 %» su una consegna senza ricavi manda a cercare uno sconto di troppo, mentre il problema è che
+   * manca il collegamento con l ordine del cliente.
+   */
+  titoloMargine(d: Delivery): string | null {
+    const m = (d as any).margine as { percent: number; euro: number; ricavi?: number } | undefined;
+    if (!m) return null;
+    const dati = { pct: m.percent, euro: m.euro.toFixed(2), ricavi: (m.ricavi ?? 0).toFixed(2) };
+    const chiave = m.ricavi != null && m.ricavi <= 0 ? 'deliveries.margine.senzaRicavi' : 'deliveries.margine.titolo';
+    return this.translate.instant(chiave, dati);
+  }
+
   margineBasso(d: Delivery): boolean {
     const m = (d as any).margine as { percent: number } | undefined;
     return !!m && m.percent < 5;

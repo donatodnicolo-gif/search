@@ -864,7 +864,8 @@
       "desc": "Descending ↓"
     },
     "margine": {
-      "titolo": "Deluxy margin {{pct}} % ({{euro}} €): below 5 %"
+      "titolo": "Deluxy margin {{pct}}% ({{euro}} €): below 5%",
+      "senzaRicavi": "Margin {{pct}}% ({{euro}} €) · revenue {{ricavi}} €: this delivery carries no order number, so what the customer paid is unknown — Finance only sees the cost."
     },
     "nonConsegnate": {
       "chip": "Not delivered",

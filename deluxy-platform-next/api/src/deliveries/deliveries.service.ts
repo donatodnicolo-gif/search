@@ -1003,7 +1003,7 @@ export class DeliveriesService {
           const margini = await this.finance.marginiDiConsegne(idsVendita).catch(() => new Map());
           for (const r of rows as any[]) {
             const m = margini.get(r.id);
-            if (m) r.margine = { euro: m.euro, percent: m.percent, conValet: true };
+            if (m) r.margine = { euro: m.euro, percent: m.percent, ricavi: m.ricavi, conValet: true };
           }
         }
       }

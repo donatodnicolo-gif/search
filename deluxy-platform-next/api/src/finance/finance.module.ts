@@ -630,8 +630,15 @@ export class FinanceService {
    * ⚠️ Il margine è dell'ORDINE: se due consegne stanno nello stesso ordine ricevono lo STESSO margine, ed
    * è giusto così — quell'ordine, nel suo insieme, rende quella cifra.
    */
-  async marginiDiConsegne(ids: string[]): Promise<Map<string, { euro: number; percent: number; consegneNellOrdine: number }>> {
-    const esito = new Map<string, { euro: number; percent: number; consegneNellOrdine: number }>();
+  /**
+   * ⚠️ 12/09/2026: torna anche i RICAVI dell ordine. Senza, chi legge non può distinguere «margine
+   * sottile» da «non ancora prezzato»: due consegne appena create, con prezzo vuoto e nessuna vendita
+   * collegata, davano margine 0% e uscivano in rosso come se ci si rimettesse (segnalazione utente
+   * sulle #101259 e #101260). Un allarme che scatta su ciò che non si sa ancora è un allarme che si
+   * impara a ignorare.
+   */
+  async marginiDiConsegne(ids: string[]): Promise<Map<string, { euro: number; percent: number; ricavi: number; consegneNellOrdine: number }>> {
+    const esito = new Map<string, { euro: number; percent: number; ricavi: number; consegneNellOrdine: number }>();
     if (!ids.length) return esito;
     const prime = await this.prisma.delivery.findMany({ where: { id: { in: ids } }, select: { id: true, realOrderNumber: true } });
     const numeri = [...new Set(prime.map((d) => d.realOrderNumber).filter(Boolean))] as string[];
@@ -658,7 +665,7 @@ export class FinanceService {
     for (const o of ordini) {
       for (const r of o.righe as any[]) {
         if (!ids.includes(r.deliveryId)) continue;
-        esito.set(r.deliveryId, { euro: o.totalMargin, percent: o.totalMarginPercent, consegneNellOrdine: o.consegne });
+        esito.set(r.deliveryId, { euro: o.totalMargin, percent: o.totalMarginPercent, ricavi: o.takings, consegneNellOrdine: o.consegne });
       }
     }
     return esito;
