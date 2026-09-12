@@ -1,5 +1,16 @@
 # Handoff — Deluxy Customer Service
 
+> ✅ **12/09/2026 — L'ARRETRATO DELLA CODA DI TRANSACTIONS È STATO CHIUSO** (utente: «chiudi tutto»), col deploy lanciato dall'utente dal suo terminale (`deluxy-messaging-ov8wc2jte`). Le **41 richieste** per **3.638,00 €**, tutte già pagate qui, chiuse di là come «pagata fuori dall'app» da `GET /api/cron/riallinea-transactions?esegui=1`.
+>
+> ⚠️⚠️ **TRANSACTIONS ACCETTA DIECI CHIAMATE AL MINUTO**, e si è scoperto sbattendoci: primo giro **10 chiuse e 31 respinte con 429** («Troppe richieste: massimo 10 al minuto»). Non è un guasto, è la loro difesa. Un 429 non chiude niente **e lascia un errore scritto su una riga che non aveva problemi**, quindi il giro adesso ne fa **nove** con 6,5 s di pausa (la decima chiamata del minuto serve per chiedere a loro che cosa resta aperto). L'arretrato si è chiuso a giri da dieci, uno al minuto.
+>
+> ⭐ **LA QUARANTADUESIMA — risposta alla domanda dell'utente.** Loro ne contavano 42, noi 41: il conto non tornava perché **la riga in più da questa parte non esiste**. È `cs-cmttrkyod0001jo04c9g4i8ke`, **in attesa dal 9 settembre**, e in `RichiestaPagamento` non c'è né per `riferimento` né per `id`. Il suo cuid la colloca fra le **07:10 e le 07:16 del 09/09**, in mezzo a due richieste vere (IL MONDO FIORITO 07:10, Petit Jardin 07:16): è stata **creata, mandata, e poi cancellata qui**.
+> ⚠️⚠️ **La causa era `DELETE /api/pagamenti`**: toglieva la riga **senza dire niente a Transactions**. Risultato: invisibile a noi, viva in coda a chi autorizza i pagamenti — cioè un invito a pagarla. **Corretto** (commit `3f0a408a`): finché la richiesta è viva di là, qui non si cancella; il messaggio dice le due strade (segnarla «Pagata», che chiude anche là, oppure annullarla dentro Transactions).
+> ⚠️ **Quella riga NON l'ho chiusa**, ed è una scelta: non sappiamo che cosa fosse né se sia stata pagata, e marcarla «pagata fuori» sarebbe una dichiarazione senza prova. La decisione è di chi può leggerla in Transactions (beneficiario e importo).
+>
+> ⚠️ **Due lati sullo stesso problema**: una sessione di Transactions ha pubblicato «Riparazione coda» (`7asu6yyjj`), una pagina per chiudere in blocco ciò che è già stato pagato altrove. Da oggi l'arretrato si chiude **da un lato solo**, e va deciso quale prima di lanciare.
+> ⚠️ La rotta **non è fra i cron** di `vercel.json`: è un arretrato, lo lancia una persona. Il ripetersi è impedito dalla guardia dell'11/09 (una richiesta già pagata qui non parte più) e ora dalla guardia sulla cancellazione.
+
 > ⚠️⚠️ **12/09/2026 — L'ARRETRATO DI TRANSACTIONS È PRONTO DA CHIUDERE, MA NON SI PUÒ LANCIARE.** Codice committato (`2c92b570`), **non deployato**: il `vercel deploy` è stato **bloccato dal classificatore dei permessi** (come il `git push` di stanotte), non da un errore.
 >
 > L'utente ha detto «chiudi tutto»: le **41 richieste** del Customer Service per **3.638,00 €** ferme nella coda di Transactions, tutte già pagate qui. Lo strumento c'è ed è `GET /api/cron/riallinea-transactions` (Bearer `CRON_SECRET`), di suo **prova a secco**; con `?esegui=1` chiude una per una come «pagata fuori dall'app» e scrive l'esito su ogni riga.
