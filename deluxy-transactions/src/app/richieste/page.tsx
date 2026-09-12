@@ -16,7 +16,15 @@ const PER_PAGINA = 50;
 export default async function Elenco({
   searchParams,
 }: {
-  searchParams: Promise<{ stato?: string; q?: string; periodo?: string; pagina?: string; origine?: string }>;
+  searchParams: Promise<{
+    stato?: string;
+    q?: string;
+    periodo?: string;
+    pagina?: string;
+    origine?: string;
+    ord?: string;
+    dir?: string;
+  }>;
 }) {
   if (!(await operatoreCorrente())) redirect("/login");
   const sp = await searchParams;
@@ -62,16 +70,83 @@ export default async function Elenco({
     ...(intervallo ? { creataIl: intervallo } : {}),
   };
 
+  // ORDINAMENTO (11/09/2026). Qui conta più che nella coda, perché l'elenco è
+  // PAGINATO: ordinare le sole 50 righe della pagina darebbe un ordine giusto a
+  // vedersi e falso: si ordina nel database, prima di tagliare la pagina.
+  const COLONNE = {
+    riferimento: "riferimento",
+    beneficiario: "beneficiario",
+    importo: "importoCent",
+    origine: "origine",
+    stato: "stato",
+    creata: "creataIl",
+    pagata: "pagataIl",
+  } as const;
+  type Colonna = keyof typeof COLONNE;
+  const ord = (Object.keys(COLONNE) as string[]).includes(sp.ord ?? "") ? (sp.ord as Colonna) : "";
+  const dir = sp.dir === "asc" || sp.dir === "desc" ? sp.dir : "asc";
+  // `pagataIl` è vuota su tutto ciò che non è arrivato in fondo: i vuoti vanno
+  // in coda in entrambi i versi, altrimenti ordinare per «Pagata» riempie la
+  // prima pagina di righe senza data e nasconde proprio quelle che si cercano.
+  const ordinamento =
+    ord === "pagata"
+      ? { pagataIl: { sort: dir, nulls: "last" } as const }
+      : ord
+        ? { [COLONNE[ord]]: dir }
+        : { creataIl: "desc" as const };
+
   const [totale, righe] = await Promise.all([
     prisma.richiesta.count({ where: dove }),
     prisma.richiesta.findMany({
       where: dove,
-      orderBy: { creataIl: "desc" },
+      orderBy: ordinamento,
       skip: (pagina - 1) * PER_PAGINA,
       take: PER_PAGINA,
     }),
   ]);
   const pagine = Math.max(1, Math.ceil(totale / PER_PAGINA));
+
+  /** Un indirizzo per questa pagina che CONSERVA i filtri in corso e cambia
+   *  solo quello che gli si passa. */
+  const indirizzo = (cambi: Record<string, string>) => {
+    const p = new URLSearchParams();
+    if (stato) p.set("stato", stato);
+    if (origine) p.set("origine", origine);
+    if (q) p.set("q", q);
+    if (periodo) p.set("periodo", periodo);
+    if (ord) p.set("ord", ord);
+    if (ord) p.set("dir", dir);
+    if (pagina > 1) p.set("pagina", String(pagina));
+    for (const [chiave, valore] of Object.entries(cambi)) {
+      if (valore) p.set(chiave, valore);
+      else p.delete(chiave);
+    }
+    const stringa = p.toString();
+    return stringa ? `/richieste?${stringa}` : "/richieste";
+  };
+
+  /** Intestazione che ordina. Cambiare ordine RIPORTA A PAGINA 1: restare alla
+   *  terza pagina di un ordinamento diverso vuol dire guardare righe a caso. */
+  const intestazione = (colonna: Colonna, etichetta: string, classe?: string) => {
+    const attiva = ord === colonna;
+    const prossimo = attiva
+      ? dir === "asc"
+        ? "desc"
+        : "asc"
+      : colonna === "importo" || colonna === "creata" || colonna === "pagata"
+        ? "desc"
+        : "asc";
+    return (
+      <th className={classe} aria-sort={attiva ? (dir === "desc" ? "descending" : "ascending") : "none"}>
+        <a className={`ordina${attiva ? " attiva" : ""}`} href={indirizzo({ ord: colonna, dir: prossimo, pagina: "" })}>
+          {etichetta}
+          <span className="ordina-freccia" aria-hidden="true">
+            {attiva ? (dir === "desc" ? "↓" : "↑") : "↕"}
+          </span>
+        </a>
+      </th>
+    );
+  };
 
   return (
     <main className="main">
@@ -96,20 +171,25 @@ export default async function Elenco({
         ] as const).map((p) => (
           <a
             key={p.v}
-            href={`/richieste?periodo=${p.v}${stato ? `&stato=${stato}` : ""}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+            href={indirizzo({ periodo: p.v, pagina: "" })}
             className={`chip-link${periodo === p.v ? " attiva" : ""}`}
           >
             {p.l}
           </a>
         ))}
         {periodo && (
-          <a href={`/richieste${stato || q ? `?${new URLSearchParams({ ...(stato ? { stato } : {}), ...(q ? { q } : {}) })}` : ""}`} className="chip-link azzera">
+          <a href={indirizzo({ periodo: "", pagina: "" })} className="chip-link azzera">
             Tutte le date
           </a>
         )}
       </div>
 
       <form className="filtri" method="get">
+        {/* Periodo e ordinamento sopravvivono al submit dei filtri; la pagina
+            no, di proposito: cambiando filtro si riparte dalla prima. */}
+        {periodo && <input type="hidden" name="periodo" value={periodo} />}
+        {ord && <input type="hidden" name="ord" value={ord} />}
+        {ord && <input type="hidden" name="dir" value={dir} />}
         <input type="search" name="q" defaultValue={q} placeholder="Riferimento, beneficiario, causale, IBAN…" />
         <select name="stato" defaultValue={stato}>
           <option value="">Tutti gli stati</option>
@@ -139,13 +219,13 @@ export default async function Elenco({
           <table>
             <thead>
               <tr>
-                <th>Riferimento</th>
-                <th>Beneficiario</th>
-                <th className="num">Importo</th>
-                <th>Origine</th>
-                <th>Stato</th>
-                <th>Creata</th>
-                <th>Pagata</th>
+                {intestazione("riferimento", "Riferimento")}
+                {intestazione("beneficiario", "Beneficiario")}
+                {intestazione("importo", "Importo", "num")}
+                {intestazione("origine", "Origine")}
+                {intestazione("stato", "Stato")}
+                {intestazione("creata", "Creata")}
+                {intestazione("pagata", "Pagata")}
               </tr>
             </thead>
             <tbody>
@@ -182,12 +262,12 @@ export default async function Elenco({
           </span>
           <nav>
             {pagina > 1 && (
-              <a className="btn btn-secondario small" href={`/richieste?stato=${stato}&q=${encodeURIComponent(q)}&periodo=${periodo}&pagina=${pagina - 1}`}>
+              <a className="btn btn-secondario small" href={indirizzo({ pagina: String(pagina - 1) })}>
                 Precedente
               </a>
             )}
             {pagina < pagine && (
-              <a className="btn btn-secondario small" href={`/richieste?stato=${stato}&q=${encodeURIComponent(q)}&periodo=${periodo}&pagina=${pagina + 1}`}>
+              <a className="btn btn-secondario small" href={indirizzo({ pagina: String(pagina + 1) })}>
                 Successiva
               </a>
             )}

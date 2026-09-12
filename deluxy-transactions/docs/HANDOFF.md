@@ -79,10 +79,19 @@ riconciliazione) **solo** `if (stato === 'pagata' && !giaPagata)`. Tutte e 41
 hanno già `pagataIl`, quindi nessun fornitore verrà riavvisato; il webhook
 rimetterà a posto il `partnerStato`, oggi fermo su «in attesa» su tutte.
 
-### La coda si ordina per colonna (chiesto dall'utente: «la tabella non è ordinabile»)
+### Le tabelle si ordinano per colonna (chiesto dall'utente: «la tabella non è ordinabile»)
 
-Intestazioni cliccabili su riferimento, beneficiario, importo, origine, stato e
-data d'arrivo, in [src/app/page.tsx](../src/app/page.tsx). Sono **link GET**,
+Due tabelle, non una: la **coda** in [src/app/page.tsx](../src/app/page.tsx)
+(riferimento, beneficiario, importo, origine, stato, data d'arrivo) e
+l'**archivio** in [src/app/richieste/page.tsx](../src/app/richieste/page.tsx),
+che ha in più la colonna «Pagata». La seconda è arrivata dopo, perché la prima
+richiesta era stata letta come «la coda» e l'utente intendeva anche l'elenco.
+Nell'archivio l'ordinamento conta di più: l'elenco è **paginato** a 50, quindi
+ordinare le sole righe della pagina darebbe un ordine giusto a vedersi e falso.
+Due dettagli decisi lì: cambiare ordine **riporta a pagina 1** (restare alla
+terza pagina di un altro ordinamento vuol dire guardare righe a caso), e per
+«Pagata» i vuoti vanno **in coda in entrambi i versi** (`nulls: "last"`),
+altrimenti la prima pagina si riempie di righe senza data. Sono **link GET**,
 come le scorciatoie di periodo: l'ordine vive nell'indirizzo, quindi si copia,
 si manda e regge un ricaricamento — niente stato nel browser. Il verso si
 rovescia cliccando la colonna attiva; su una colonna nuova si parte dal verso

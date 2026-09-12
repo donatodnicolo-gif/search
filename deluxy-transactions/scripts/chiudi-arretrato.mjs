@@ -7,12 +7,21 @@
 // catena di hash del registro e farebbe scattare l'allarme del sigillo. Se un
 // domani serve un'altra riparazione in blocco, si passa ancora da qui.
 //
-// SI LANCIA DALLA CARTELLA DELL'APP DI ORIGINE, che è dove stanno la sua chiave
-// e il suo segreto — così le credenziali le legge node, non una persona:
+// LE CREDENZIALI LE LEGGE NODE, NON UNA PERSONA. Due modi, a seconda di dove
+// stanno la chiave e il segreto dell'app di origine.
 //
-//   cd ../deluxy-messaging
+// 1) Dalla cartella dell'app, se il suo `.env` le ha (è il caso di Finance):
+//
+//   cd ../deluxy-partner
 //   node --env-file=.env ../deluxy-transactions/scripts/chiudi-arretrato.mjs <piano.json>
-//   node --env-file=.env ../deluxy-transactions/scripts/chiudi-arretrato.mjs <piano.json> --esegui
+//
+// 2) Da qui, leggendole da `.env.altre-app` (vedi docs/CHIAVI-ALTRE-APP.md).
+//    Serve quando l'app non le ha in locale — il Customer Service, per esempio,
+//    le tiene solo sul suo Vercel:
+//
+//   node --env-file=.env.altre-app scripts/chiudi-arretrato.mjs --app cs <piano.json>
+//
+// In entrambi i casi si aggiunge `--esegui` in coda per farlo davvero.
 //
 // Senza `--esegui` è una prova a secco: legge lo stato di ogni riga e dice cosa
 // farebbe. Le righe già chiuse le salta, quindi si può rilanciare senza danno.
@@ -33,18 +42,34 @@ import { readFileSync } from "fs";
 const INVISIBILI = new RegExp("[​-‍﻿ ]", "g");
 const pulisci = (v) => (v ?? "").replace(INVISIBILI, "").trim().replace(/^["']|["']$/g, "").trim();
 
-const percorsoPiano = process.argv[2];
+const argomenti = process.argv.slice(2);
+const esegui = argomenti.includes("--esegui");
+// `--app cs` sceglie la coppia CS_TRANSACTIONS_* dentro `.env.altre-app`.
+// Senza, si usano i nomi semplici: sono quelli che l'app ha nel proprio `.env`.
+const indiceApp = argomenti.indexOf("--app");
+const app = indiceApp >= 0 ? (argomenti[indiceApp + 1] ?? "") : "";
+if (indiceApp >= 0 && !app) {
+  console.error("`--app` vuole il nome dell'app: --app cs");
+  process.exit(2);
+}
+const percorsoPiano = argomenti.find((a, i) => !a.startsWith("--") && i !== indiceApp + 1);
 if (!percorsoPiano) {
-  console.error("Uso: node --env-file=.env chiudi-arretrato.mjs <piano.json> [--esegui]");
+  console.error("Uso: node --env-file=<file> chiudi-arretrato.mjs [--app <nome>] <piano.json> [--esegui]");
   process.exit(2);
 }
 const piano = JSON.parse(readFileSync(percorsoPiano, "utf8"));
-const esegui = process.argv.includes("--esegui");
-const apiKey = pulisci(process.env.TRANSACTIONS_API_KEY);
-const segreto = pulisci(process.env.TRANSACTIONS_HMAC_SECRET);
+const prefisso = app ? `${app.toUpperCase()}_` : "";
+const apiKey = pulisci(process.env[`${prefisso}TRANSACTIONS_API_KEY`]);
+const segreto = pulisci(process.env[`${prefisso}TRANSACTIONS_HMAC_SECRET`]);
 const base = (pulisci(process.env.TRANSACTIONS_URL) || "https://deluxy-transactions.vercel.app").replace(/\/$/, "");
 if (!apiKey || !segreto) {
-  console.error("Mancano TRANSACTIONS_API_KEY / TRANSACTIONS_HMAC_SECRET: lancialo dalla cartella dell'app di origine con --env-file=.env");
+  console.error(
+    `Mancano ${prefisso}TRANSACTIONS_API_KEY / ${prefisso}TRANSACTIONS_HMAC_SECRET.\n` +
+      (app
+        ? `Compila la sezione «${app}» in .env.altre-app e rilancia con --env-file=.env.altre-app.\n` +
+          "Per vedere cosa c'è e cosa manca: node --env-file=.env.altre-app scripts/chiavi-presenti.mjs"
+        : "Lancialo dalla cartella dell'app di origine con --env-file=.env, oppure da qui con --app <nome> e --env-file=.env.altre-app.")
+  );
   process.exit(2);
 }
 console.log(`${piano.length} righe in piano · chiave ${apiKey.slice(0, 10)}… · verso ${base}`);
