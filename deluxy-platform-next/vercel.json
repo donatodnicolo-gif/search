@@ -56,6 +56,10 @@
     {
       "path": "/api/v1/cron/calendario-unici",
       "schedule": "10,40 * * * *"
+    },
+    {
+      "path": "/api/v1/cron/copia-ordini",
+      "schedule": "35 * * * *"
     }
   ],
   "routes": [

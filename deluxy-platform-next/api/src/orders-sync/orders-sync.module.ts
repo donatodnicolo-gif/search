@@ -191,6 +191,18 @@ export class OrdersSyncService {
       /** Scorre TUTTI gli ordini di Orders, senza tetto: è la corsa notturna. */
       tutti?: boolean;
       /**
+       * ⭐⭐ 12/09/2026 (regola utente: «aggiorna la copia ogni ora»). Si ferma appena la copia degli
+       * ordini è aggiornata: NON scrive niente su Orders e non tocca le consegne.
+       *
+       * Serve perché il prezzo pagato dal cliente arrivava nei conti solo dopo la corsa delle 02:30:
+       * un ordine nato nel pomeriggio restava senza valore fino al giorno dopo, e le consegne del
+       * canale app mostravano il costo del fornitore al posto del venduto (caso #101402, Flowers #2923).
+       *
+       * ⚠️ Leggere è a buon mercato, scrivere no: ogni PATCH lascia una riga nella storia dell ordine,
+       * e ventiquattro corse al giorno la renderebbero illeggibile. Per questo qui si legge e basta.
+       */
+      soloCopia?: boolean;
+      /**
        * Solo questi ordini (numero Shopify, la coda del gid). Serve quando si
        * corregge un pugno di consegne e non ha senso riscrivere gli ingredienti
        * di novemila ordini: ogni PATCH lascia una riga nella storia dell'ordine,
@@ -290,6 +302,11 @@ export class OrdersSyncService {
       pagina++;
     }
     const ordiniClienteAggiornati = await this.aggiornaOrdineCliente(economia);
+
+    // La corsa oraria finisce qui: la copia è aggiornata, e su Orders non si scrive niente.
+    if (opzioni.soloCopia) {
+      return { ok: true, soloCopia: true, ordiniLetti: economia.length, ordiniClienteAggiornati };
+    }
 
     // 2) Le consegne che portano un numero d'ordine conosciuto.
     const deliveries = await this.prisma.delivery.findMany({
@@ -1136,6 +1153,32 @@ export class CronMarginiController {
     // dentro i 300 s della funzione con margine, insieme al resto della corsa.
     const ricorrenti = await this.ricorrenti.genera().catch((e) => ({ ok: false, errore: (e as Error).message }));
     return { ...margini, valetFermi, ricorrenti };
+  }
+
+  /**
+   * ⭐⭐ 12/09/2026 (regola utente: «aggiorna la copia ogni ora») — LA COPIA DEGLI ORDINI, OGNI ORA.
+   *
+   * Fino a ieri il prezzo pagato dal cliente entrava nei conti solo con la corsa delle 02:30: un ordine
+   * nato nel pomeriggio restava senza valore fino al giorno dopo. Sulle consegne del canale app questo
+   * si vedeva subito, perché lì la riga porta il costo del FORNITORE: la #101402 mostrava 90 € dove il
+   * cliente ne aveva pagati 150, e l'ordine Flowers #2923 semplicemente non era ancora nella copia.
+   *
+   * ⚠️ Questa corsa LEGGE e basta: aggiorna `OrdineCliente` e non scrive niente su Orders. I margini
+   * continuano a partire una volta al giorno, perché ogni PATCH lascia una riga nella storia
+   * dell'ordine e ventiquattro corse al giorno la renderebbero illeggibile.
+   *
+   * ⚠️ Finestra corta (7 giorni): serve a prendere il nuovo, non a rifare l'archivio. Sette giorni
+   * coprono un fine settimana lungo di cron fermo senza scorrere migliaia di pagine ogni ora.
+   */
+  @Get('copia-ordini')
+  @Public() // come le altre: l'identità è il segreto del cron, verificato per primo
+  @ApiOperation({ summary: 'Corsa oraria: aggiorna la copia degli ordini di Orders (solo lettura, nessuna scrittura su Orders)' })
+  async copiaOrdini(@Headers('authorization') authorization?: string, @Query('giorni') giorniQuery?: string) {
+    const segreto = process.env.CRON_SECRET ?? '';
+    if (!segreto || authorization !== `Bearer ${segreto}`) throw new UnauthorizedException();
+    const giorni = Math.min(60, Math.max(1, Number(giorniQuery) || 7));
+    const da = new Date(Date.now() - giorni * 86_400_000).toISOString().slice(0, 10);
+    return this.service.spingiMargini({ soloCopia: true, da, tutti: true });
   }
 
   /**
