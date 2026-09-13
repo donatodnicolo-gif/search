@@ -913,7 +913,7 @@ export default async function PartnerDetail({
                     <td>{nomeMese(t.dalMese)} {t.dalAnno}</td>
                     <td>{pctIt(t.feePercent)}</td>
                     <td style={{ textAlign: "right" }}>
-                      <form action={eliminaTariffa.bind(null, t.id, id)}>
+                      <form action={eliminaTariffa.bind(null, t.id, id, anno)}>
                         <ConfermaElimina
                           oggetto="questa tariffa"
                           conseguenza="I mesi coperti da questa fee useranno la tariffa precedente al ricalcolo."
@@ -926,7 +926,7 @@ export default async function PartnerDetail({
             </table>
           </div>
         )}
-        <form action={aggiungiTariffa.bind(null, id)} style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <form action={aggiungiTariffa.bind(null, id, anno)} style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
           <div>
             <label className="field-label">Dal mese</label>
             <select name="dalMese" defaultValue={new Date().getMonth() + 1} style={{ width: "auto" }}>

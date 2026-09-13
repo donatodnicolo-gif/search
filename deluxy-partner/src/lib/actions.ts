@@ -4,6 +4,27 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "./db";
+import { ANNO_CORRENTE } from "./queries";
+
+/**
+ * Il link alla scheda partner che si porta dietro l'ANNO guardato.
+ *
+ * ⭐ 13/09/2026 — le azioni del mese rimandavano a `/partner/<id>` senza anno:
+ * lavorando su un mese del 2025 si veniva sbalzati sul 2026 e il mese spariva
+ * sotto gli occhi. L'anno si mette solo quando NON è quello corrente, così i
+ * link di tutti i giorni restano corti e quelli già in giro continuano a valere.
+ */
+function schedaPartner(
+  partnerId: string,
+  anno: number,
+  params: Record<string, string> = {},
+  hash?: string
+): string {
+  const qs = new URLSearchParams(params);
+  if (anno !== ANNO_CORRENTE) qs.set("anno", String(anno));
+  const q = qs.toString();
+  return `/partner/${partnerId}${q ? `?${q}` : ""}${hash ? `#${hash}` : ""}`;
+}
 import { feeApplicabile, feeDaTariffe } from "./fee";
 import { risolviAnagrafica, contattoAmministrativo, aggiornaAnagrafica, creaAnagrafica, scritturaAnagraficheAttiva, statoAnalisiDaClienteAnno, type CampiAnagrafica } from "./anagrafiche";
 import { allineaPartnerDaRegistro } from "./allinea-registro";
@@ -583,18 +604,18 @@ export async function registraFicComeServizio(partnerId: string, fd: FormData) {
       update: { commFattEmessa: true, commFattNumero: numero },
     });
     revalidateAll();
-    redirect(`/partner/${partnerId}?ficreg=fee#mese-${mese}`);
+    redirect(schedaPartner(partnerId, anno, { ficreg: "fee" }, `mese-${mese}`));
   }
 
   if (numero) {
     const esiste = await prisma.fatturaServizio.findFirst({ where: { partnerId, numero } });
-    if (esiste) redirect(`/partner/${partnerId}?ficreg=gia#mese-${mese}`);
+    if (esiste) redirect(schedaPartner(partnerId, anno, { ficreg: "gia" }, `mese-${mese}`));
   }
   await prisma.fatturaServizio.create({
     data: { partnerId, tipologiaId, anno, mese, numero, imponibile, aliquotaIva, descrizione },
   });
   revalidateAll();
-  redirect(`/partner/${partnerId}?ficreg=ok#mese-${mese}`);
+  redirect(schedaPartner(partnerId, anno, { ficreg: "ok" }, `mese-${mese}`));
 }
 
 // ---------- Vendite vendor ----------
@@ -673,11 +694,11 @@ export async function riallineaFeeVendite(partnerId: string, anno: number) {
     }
   }
   revalidateAll();
-  redirect(`/partner/${partnerId}`);
+  redirect(schedaPartner(partnerId, anno));
 }
 
 // Aggiunge/aggiorna una decorrenza di fee: "dal mese/anno la fee diventa X%".
-export async function aggiungiTariffa(partnerId: string, fd: FormData) {
+export async function aggiungiTariffa(partnerId: string, annoVisto: number, fd: FormData) {
   const dalAnno = n(fd, "dalAnno");
   const dalMese = n(fd, "dalMese");
   const feePercent = n(fd, "feePercent");
@@ -692,13 +713,13 @@ export async function aggiungiTariffa(partnerId: string, fd: FormData) {
     categoria: "partner", entita: "partner", entitaId: partnerId,
   });
   revalidateAll();
-  redirect(`/partner/${partnerId}`);
+  redirect(schedaPartner(partnerId, annoVisto));
 }
 
-export async function eliminaTariffa(id: string, partnerId: string) {
+export async function eliminaTariffa(id: string, partnerId: string, annoVisto: number) {
   await prisma.tariffaPartner.delete({ where: { id } });
   revalidateAll();
-  redirect(`/partner/${partnerId}`);
+  redirect(schedaPartner(partnerId, annoVisto));
 }
 
 export async function deleteVendita(id: string) {
@@ -730,7 +751,7 @@ export async function aggiungiExtra(partnerId: string, anno: number, mese: numbe
   const descrizione = String(fd.get("descrizione") ?? "").trim();
   const importo = n(fd, "importo");
   if (importo == null || importo === 0) {
-    redirect(`/partner/${partnerId}?extra=importo#mese-${mese}`);
+    redirect(schedaPartner(partnerId, anno, { extra: "importo" }, `mese-${mese}`));
   }
   // ⭐ 09/09/2026 (regola dell'utente): «per tutti gli extra d'ora in poi la
   // descrizione è obbligatoria». Il `required` sul campo aiuta chi usa il
@@ -738,14 +759,14 @@ export async function aggiungiExtra(partnerId: string, anno: number, mese: numbe
   // QUI, altrimenti basta una POST per rimetterci dentro un numero senza
   // causale — che è esattamente il guaio dei 211 mesi importati dal foglio.
   if (!descrizione) {
-    redirect(`/partner/${partnerId}?extra=descrizione#mese-${mese}`);
+    redirect(schedaPartner(partnerId, anno, { extra: "descrizione" }, `mese-${mese}`));
   }
   await prisma.extraSaldo.create({
     data: { partnerId, anno, mese, descrizione, importo, origine: "manuale" },
   });
   await ricalcolaExtra(partnerId, anno, mese);
   revalidateAll();
-  redirect(`/partner/${partnerId}#mese-${mese}`);
+  redirect(schedaPartner(partnerId, anno, {}, `mese-${mese}`));
 }
 
 export async function eliminaExtra(id: string, partnerId: string) {
@@ -755,7 +776,7 @@ export async function eliminaExtra(id: string, partnerId: string) {
     await ricalcolaExtra(ex.partnerId, ex.anno, ex.mese);
   }
   revalidateAll();
-  redirect(`/partner/${partnerId}${ex ? `#mese-${ex.mese}` : ""}`);
+  redirect(schedaPartner(partnerId, ex?.anno ?? ANNO_CORRENTE, {}, ex ? `mese-${ex.mese}` : undefined));
 }
 
 // ---------- Saldo mensile / bonifici ----------
@@ -846,7 +867,7 @@ export async function salvaNoteMese(
   // Torna sul mese con una conferma esplicita: salvando un testo identico a
   // prima non cambiava niente a schermo e sembrava che il bottone non facesse
   // nulla. Ora si vede sempre l'esito (salvata / rimossa).
-  redirect(`/partner/${partnerId}?nota=${note?.trim() ? "ok" : "vuota"}&mese=${mese}#mese-${mese}`);
+  redirect(schedaPartner(partnerId, anno, { nota: note?.trim() ? "ok" : "vuota", mese: String(mese) }, `mese-${mese}`));
 }
 
 // Annulla i pagamenti registrati per un mese (torna a "da saldare")
