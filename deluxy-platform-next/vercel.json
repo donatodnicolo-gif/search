@@ -60,6 +60,10 @@
     {
       "path": "/api/v1/cron/copia-ordini",
       "schedule": "35 * * * *"
+    },
+    {
+      "path": "/api/v1/cron/proposte-scadute",
+      "schedule": "3,13,23,33,43,53 * * * *"
     }
   ],
   "routes": [

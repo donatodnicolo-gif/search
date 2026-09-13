@@ -2223,6 +2223,13 @@ model Sale {
   deliveryId         String? // consegna generata dall'accettazione (più vendite possono condividerla)
   /// ⭐ 04/09/2026 (regola utente): QUANDO la vendita è passata in storico
   /// (accettata, non accettata, annullata). Null finché è aperta.
+  /// ⭐⭐ 13/09/2026 (regola utente): «se passa un ora da quando è arrivata la proposta e non ha
+  /// accettato» la vendita passa al fornitore successivo — non solo quando rifiuta.
+  ///
+  /// Quando è stata fatta la proposta CORRENTE. Si riazzera a ogni passaggio a un nuovo partner:
+  /// l ora è di chi ce l ha adesso, non dell ordine. ⚠️ Non si usa `updatedAt`: quello cambia per
+  /// qualunque modifica, e una nota aggiunta dall ufficio farebbe ripartire il conto da capo.
+  propostaDal        DateTime?
   historyAt          DateTime?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt

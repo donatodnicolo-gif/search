@@ -4,17 +4,20 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Headers,
   Injectable,
   Module,
   NotFoundException,
   Param,
   Patch,
   Post,
+  Query,
+  UnauthorizedException,
   Logger,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { apertoNellaFinestra, statoDelGiorno } from '../common/disponibilita-partner';
-import { CurrentUser, JwtUser, Roles } from '../common/decorators';
+import { CurrentUser, JwtUser, Public, Roles } from '../common/decorators';
 import { DeliveryStatus, NotificationType, ProductType, Role, SaleStatus } from '../common/enums';
 import { prezzoAlPartner } from '../common/prezzo-partner';
 import { PrismaService } from '../prisma/prisma.service';
@@ -2072,6 +2075,7 @@ export class SalesService {
       data: {
         partnerId,
         status: SaleStatus.PROPOSTA,
+            propostaDal: new Date(), // ⭐ 13/09: l orologio dell ora riparte a ogni proposta
         historyAt: null,
         assignmentReason: "scelto a mano dall'ufficio sullo storico",
       },
@@ -2166,6 +2170,7 @@ export class SalesService {
         partnerId,
         discountPercent: sconto,
         status: SaleStatus.PROPOSTA,
+            propostaDal: new Date(), // ⭐ 13/09: l orologio dell ora riparte a ogni proposta
         assignmentReason: [vendita.assignmentReason, `preventivo di ${partner.insegna}: ${prezzo} €`].filter(Boolean).join(' · '),
       },
       include: { partner: { select: { id: true, insegna: true } } },
@@ -2273,6 +2278,93 @@ export class SalesService {
     return agg;
   }
 
+
+  /**
+   * ⭐⭐ 13/09/2026 (regola utente): «se passa un'ora da quando è arrivata la proposta e non ha
+   * accettato» — il passaggio al fornitore successivo non avviene solo su rifiuto, ma anche sul
+   * SILENZIO.
+   *
+   * IL FATTO. La mail al partner lo prometteva già («senza risposta la proposta passa al fornitore
+   * successivo») e non era vero: niente lo faceva. Una proposta senza risposta restava ferma per
+   * sempre — la #12946 di Clivati è rimasta appesa dalle 14:56 alle 08:12 del giorno dopo, e la
+   * consegna, che nasce solo all'accettazione, per tutta la notte non è esistita.
+   *
+   * ⚠️ Si passa al prossimo con lo STESSO codice del rifiuto: chi non ha risposto entra fra i
+   * «rifiutati» per non riproporgli la stessa cosa in giro, e i controlli (provincia, apertura,
+   * variante, minimo, raggio) valgono uguali. Se nessun altro è idoneo la vendita torna ALL'UFFICIO
+   * invece di girare a vuoto.
+   * ⚠️ Non si tocca ciò che è già stato deciso: solo lo stato «proposta», e solo se l'ora è passata
+   * davvero. Il conto parte da `propostaDal`, che si riazzera a ogni nuova proposta.
+   */
+  async passaAvantiLeScadute(minuti = 60, applica = true) {
+    const limite = new Date(Date.now() - minuti * 60_000);
+    const scadute = await this.prisma.sale.findMany({
+      where: { status: SaleStatus.PROPOSTA, propostaDal: { not: null, lt: limite } },
+      include: { partner: { select: { id: true, insegna: true } } },
+      take: 200,
+    });
+    const esito = { guardate: scadute.length, passate: 0, tornateAllUfficio: 0, saltate: 0, dettaglio: [] as string[] };
+    if (!applica) return { ...esito, anteprima: true };
+
+    for (const vendita of scadute) {
+      const nome = vendita.partner?.insegna ?? 'partner';
+      let rifiutati: string[] = [];
+      try { rifiutati = JSON.parse(vendita.refusedPartnerIds ?? '[]'); } catch { rifiutati = []; }
+      if (vendita.partnerId && !rifiutati.includes(vendita.partnerId)) rifiutati.push(vendita.partnerId);
+
+      let prossimo: Candidato | null = null;
+      const prodotto = vendita.productId
+        ? await this.prisma.product.findUnique({ where: { id: vendita.productId } })
+        : null;
+      if (prodotto && vendita.provinceId) {
+        const ordine = await this.ordineDaOrders(vendita.externalOrderId).catch(() => null);
+        const f = SalesService.fasciaInOrari(ordine?.consegna?.fascia);
+        prossimo = await this.scegliPartner(
+          prodotto as unknown as ProdottoDaSmistare,
+          vendita.provinceId,
+          { giorno: vendita.deliveryDate ?? new Date(), dalle: f.dalle, alle: f.alle, variantId: (vendita as { productVariantId?: string | null }).productVariantId ?? null },
+          rifiutati,
+        ).catch(() => null);
+      }
+
+      if (prossimo) {
+        const dopo = await this.prisma.partner.findUnique({ where: { id: prossimo.partnerId }, select: { insegna: true } });
+        const agg = await this.prisma.sale.update({
+          where: { id: vendita.id },
+          data: {
+            partnerId: prossimo.partnerId,
+            status: SaleStatus.PROPOSTA,
+            propostaDal: new Date(),
+            historyAt: null,
+            refusedPartnerIds: JSON.stringify(rifiutati),
+            assignmentReason: `nessuna risposta da ${nome} in ${minuti} minuti · proposta a ${dopo?.insegna ?? 'partner successivo'} (${prossimo.motivo})`,
+          },
+          include: { partner: { select: { id: true, insegna: true } } },
+        });
+        await this.registra(vendita.id, 'stato', `Nessuna risposta da ${nome} entro ${minuti} minuti: proposta a ${dopo?.insegna ?? prossimo.partnerId} — ${prossimo.motivo}`);
+        await this.avvisaProposta(agg);
+        esito.passate++;
+        esito.dettaglio.push(`${vendita.externalOrderNumber ?? vendita.id}: ${nome} → ${dopo?.insegna ?? '—'}`);
+        continue;
+      }
+
+      // Nessun altro fornitore possibile: torna all'ufficio, che decide a mano.
+      await this.prisma.sale.update({
+        where: { id: vendita.id },
+        data: {
+          status: SaleStatus.DA_GESTIRE,
+          propostaDal: null,
+          refusedPartnerIds: JSON.stringify(rifiutati),
+          assignmentReason: `nessuna risposta da ${nome} in ${minuti} minuti · nessun altro fornitore idoneo`,
+        },
+      });
+      await this.registra(vendita.id, 'stato', `Nessuna risposta da ${nome} entro ${minuti} minuti e nessun altro fornitore idoneo: torna da gestire`);
+      esito.tornateAllUfficio++;
+      esito.dettaglio.push(`${vendita.externalOrderNumber ?? vendita.id}: ${nome} → ufficio`);
+    }
+    return esito;
+  }
+
   /**
    * Il partner rifiuta: la vendita passa al prossimo della lista, e chi ha
    * rifiutato non la rivede piu'. Se non resta nessuno torna «da gestire».
@@ -2335,6 +2427,7 @@ export class SalesService {
           data: {
             partnerId: prossimo.partnerId,
             status: SaleStatus.PROPOSTA,
+            propostaDal: new Date(), // ⭐ 13/09: l orologio dell ora riparte a ogni proposta
             historyAt: null,
             refusedPartnerIds: JSON.stringify(rifiutati),
             assignmentReason: `rifiutata da ${nome} · proposta a ${dopo?.insegna ?? 'partner successivo'} (${prossimo.motivo})`,
@@ -2464,6 +2557,7 @@ export class SalesService {
             partnerId: scelto.partnerId,
             assignmentReason: scelto.motivo,
             status: SaleStatus.PROPOSTA,
+            propostaDal: new Date(), // ⭐ 13/09: l orologio dell ora riparte a ogni proposta
             ...(scelto.prezzoPartner !== undefined
               ? { discountPercent: SalesService.quotaPerDare(v.amount, scelto.prezzoPartner) }
               : {}),
@@ -3378,6 +3472,31 @@ function arrotonda(n: number): number {
 // autenticato (roles.guard.ts). Questo controller non ne aveva nessuno: un
 // VALET leggeva tutto. Provato con un token vero il 27/08/2026. I ruoli qui
 // sono gli stessi che il frontend applica alla pagina (app.routes.ts).
+/**
+ * ⭐⭐ 13/09/2026 (regola utente) — LA CORSA CHE FA SCADERE LE PROPOSTE.
+ *
+ * Ogni dieci minuti guarda le vendite in «proposta» ferme da più di un ora e le passa al fornitore
+ * successivo. Dieci minuti e non sessanta: se girasse una volta l ora, una proposta arrivata subito
+ * dopo la corsa resterebbe ferma quasi due ore invece di una.
+ *
+ * ⚠️ L identità è il segreto del cron, verificata PRIMA di tutto, come le altre corse.
+ */
+@ApiTags('cron')
+@Controller('cron')
+export class CronProposteController {
+  constructor(private readonly sales: SalesService) {}
+
+  @Get('proposte-scadute')
+  @Public()
+  @ApiOperation({ summary: "Passa al fornitore successivo le proposte senza risposta da più di un ora" })
+  @ApiQuery({ name: 'minuti', required: false, description: 'quanto silenzio basta (default 60)' })
+  async proposteScadute(@Headers('authorization') authorization?: string, @Query('minuti') minuti?: string) {
+    const segreto = process.env.CRON_SECRET ?? '';
+    if (!segreto || authorization !== `Bearer ${segreto}`) throw new UnauthorizedException();
+    const m = Math.min(1440, Math.max(5, Number(minuti) || 60));
+    return this.sales.passaAvantiLeScadute(m, true);
+  }
+}
 @Roles(Role.ADMIN, Role.OPERATION, Role.PROJECT_MANAGER, Role.PARTNER)
 @Controller('sales')
 export class SalesController {
@@ -3547,7 +3666,7 @@ export class SalesController {
 
 @Module({
   imports: [NotificationsModule, SettingsModule, OrdersClientModule],
-  controllers: [SalesController],
+  controllers: [SalesController, CronProposteController],
   providers: [SalesService],
   exports: [SalesService],
 })
