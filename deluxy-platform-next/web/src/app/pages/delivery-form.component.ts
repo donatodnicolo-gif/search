@@ -781,7 +781,9 @@ interface ProductRow {
       textarea.field { resize: vertical; font-family: inherit; width: 100%; }
       .muted { color: var(--text-tertiary); font-size: 14px; margin: 0; }
       .divider { height: 1px; background: var(--hairline); margin: 18px 0; }
-      .prod-row { display: grid; grid-template-columns: 1fr 120px auto; gap: 8px; margin-bottom: 10px; align-items: center; }
+      /* ⚠️ 13/09/2026: minmax(0, 1fr) e non 1fr — un <input> ha una larghezza minima sua (≈170px),
+         quindi con 1fr la riga non si restringe e straborda sul tablet. Stessa trappola del calendario. */
+      .prod-row { display: grid; grid-template-columns: minmax(0, 1fr) 120px auto; gap: 8px; margin-bottom: 10px; align-items: center; }
       .prod-foto { border: 1px solid var(--hairline); background: var(--surface); border-radius: 10px; padding: 0; cursor: zoom-in; overflow: hidden; width: 56px; height: 56px; flex: 0 0 auto; }
       .prod-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
       .foto-scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.72); display: grid; place-items: center; z-index: 70; padding: 24px; }
@@ -789,7 +791,7 @@ interface ProductRow {
       .foto-box img { max-width: 100%; max-height: 78vh; display: block; border-radius: 10px; }
       .foto-x { position: absolute; top: 6px; right: 6px; border: 0; background: rgba(0,0,0,0.55); color: #fff; border-radius: 999px; width: 28px; height: 28px; cursor: pointer; }
       .prod-item { border: 1px solid var(--hairline); border-radius: var(--radius-m); padding: 12px 14px; margin-bottom: 10px; }
-      .prod-top { display: grid; grid-template-columns: 1fr 120px auto; gap: 8px; align-items: center; }
+      .prod-top { display: grid; grid-template-columns: minmax(0, 1fr) 120px auto; gap: 8px; align-items: center; }
       /* Ricerca prodotto: l'input col menu dei risultati sotto (§9 overflow). */
       .prod-cerca { position: relative; min-width: 0; }
       .prod-cerca .field { width: 100%; font-size: 15px; padding: 10px 12px; }
@@ -2126,6 +2128,11 @@ export class DeliveryFormComponent implements AfterViewInit {
           }
         }
         if (this.model.partnerId && !this.editId()) { this.applicaPoliticaIdentita(); this.applicaRitiroPartner(); }
+        // ⭐⭐ 13/09/2026 (segnalazione utente: «cambiando il partner non mi cambia l'indirizzo di
+        // ritiro»): in MODIFICA il ritiro salvato può essere l'indirizzo del partner di PRIMA. Se
+        // coincide con quello del partner attuale lo si dichiara automatico, così al cambio di
+        // partner si aggiorna; un indirizzo scritto a mano (diverso dalla sede) resta intoccato.
+        if (this.model.partnerId && this.editId()) this.riconosciRitiroAutomatico();
         // Arrivati i listini: la vendita forzata si riallinea a quella DEL
         // partner e la proposta di prezzo si rifà con la fee giusta.
         if (this.daVendita()) { this.forzaServizioVendita(); this.proponiPrezzoDiListino(); }
@@ -2348,6 +2355,17 @@ export class DeliveryFormComponent implements AfterViewInit {
 
   onPartnerChange(): void {
     this.partnerSel.set(this.model.partnerId);
+    /**
+     * ⭐⭐ 13/09/2026 (segnalazione utente: «anche in prezzo non si vede il campo corretto»).
+     * Sulla VENDITA il campo Prezzo deve restare VUOTO — la fee si calcola alla fatturazione sulle
+     * righe (regola dell'01/09) — e il numero che si vede è solo un suggerimento sotto al campo. Su
+     * una consegna già salvata però lì dentro c'era la fee del partner PRECEDENTE, che dopo il cambio
+     * è semplicemente il numero di un altro. Si svuota e il calcolo riparte dal listino nuovo.
+     */
+    if (this.selectedService()?.pricingModel === 'VENDITA' && this.model.price != null) {
+      this.model.price = null;
+      this.prezzoProposto = null;
+    }
     // ⭐ 07/09/2026 (segnalazione utente: «ho selezionato Clivati 1969 e in elenco non mi mostra
     // prima i suoi»): la tendina era stata riempita PRIMA di scegliere il partner e nessuno la
     // rileggeva. Cambiare partner cambia quali prodotti vanno in cima: si ricarica.
@@ -2463,6 +2481,18 @@ export class DeliveryFormComponent implements AfterViewInit {
    * imposta solo se il campo è vuoto o conteneva ancora l'indirizzo del partner
    * precedente — un ritiro scritto a mano non si tocca.
    */
+  /**
+   * ⚠️ Serve SOLO in modifica. Il campo ritiro arriva dal database e non porta scritto se l'ha messo
+   * l'app o una persona: l'unica cosa osservabile è che coincida con la sede del partner. Se coincide
+   * è automatico — e allora cambiando partner deve seguire il partner nuovo.
+   */
+  private riconosciRitiroAutomatico(): void {
+    const partner = this.partners().find((x) => x.id === this.model.partnerId);
+    const sede = (partner?.address ?? '').trim();
+    const attuale = (this.model.pickupAddress ?? '').trim();
+    if (sede && attuale && sede === attuale) this.ritiroAuto = sede;
+  }
+
   private applicaRitiroPartner(): void {
     const partner = this.partners().find((x) => x.id === this.model.partnerId);
     const addr = (partner?.address ?? '').trim();

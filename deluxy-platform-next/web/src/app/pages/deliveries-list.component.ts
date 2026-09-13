@@ -86,6 +86,8 @@ interface PropostaVendita {
   recipientLastName?: string | null;
   recipientAddress?: string | null;
   deliveryDate?: string | null;
+  /** ⭐ 13/09/2026: a chi è proposta. Serve all ufficio, che le vede tutte. */
+  partner?: { insegna?: string | null } | null;
 }
 
 @Component({
@@ -311,6 +313,8 @@ interface PropostaVendita {
             <div class="proposta-info">
               <strong>@if (p.externalOrderNumber) { #{{ p.externalOrderNumber }} · }{{ p.productName || p.product?.name }}</strong>
               @if (p.variantName) { <span class="muted"> · {{ p.variantName }}</span> }
+              <!-- ⚠️ L'insegna solo per l'ufficio: al partner dire il proprio nome su ogni riga è rumore. -->
+              @if (!ePartnerProposte() && p.partner?.insegna) { <span class="a-chi">→ {{ p.partner?.insegna }}</span> }
               <span class="muted riga2">
                 @if (p.recipientFirstName || p.recipientLastName) { {{ p.recipientFirstName }} {{ p.recipientLastName }} — }
                 {{ p.recipientAddress || p.province?.name }}
@@ -1528,6 +1532,7 @@ interface PropostaVendita {
       /* Ordini proposti al partner: un blocco che si vede, sopra la lista. */
       .proposte { margin-bottom: 14px; padding: 14px 16px; border: 1px solid var(--gold-soft); }
       .proposte-testa { display: flex; align-items: center; gap: 6px; font-size: 15px; }
+      .a-chi { font-size: 12.5px; color: var(--gold, #b8963e); font-weight: 600; margin-left: 6px; }
       .proposte-hint { margin: 4px 0 10px; font-size: 13px; }
       .proposta { display: flex; align-items: center; justify-content: space-between; gap: 12px;
                   padding: 10px 0; border-top: 1px solid var(--hairline); flex-wrap: wrap; }
@@ -2373,7 +2378,7 @@ export class DeliveriesListComponent {
     this.load();
     // Gli ordini smistati in attesa di risposta: solo per il PARTNER, che
     // li accetta o rifiuta da qui (deciso dall'utente il 31/08).
-    if (this.roleOf() === 'PARTNER') this.caricaProposte();
+    if (this.puoRispondereAlleProposte()) this.caricaProposte();
     // Badge «già inviato» su reclami/rimborsi (02/09): un giro solo, le proprie.
     this.caricaSegnalazioniProprie();
     // ⭐ 04/09 (regola utente): la lista si riallinea DA SOLA ogni 30″ —
@@ -2384,7 +2389,7 @@ export class DeliveriesListComponent {
     avviaAutoAggiornamento({
       ricarica: () => {
         this.load(true);
-        if (this.roleOf() === 'PARTNER') this.caricaProposte();
+        if (this.puoRispondereAlleProposte()) this.caricaProposte();
       },
       sospeso: () => !!(this.statoFor() || this.codiceFor() || this.codiceInCorso() || this.assignFor() || this.additionalFor() || this.segnalPer()
         || this.confermaPendente() || this.azioneDiMassa() || this.inCorsoDiMassa() || this.salvandoStato()
@@ -2403,6 +2408,19 @@ export class DeliveriesListComponent {
   readonly proposte = signal<PropostaVendita[]>([]);
   readonly propostaInCorso = signal(false);
   readonly propostaAvviso = signal<string | null>(null);
+
+  /**
+   * ⭐ 13/09/2026 (regola utente): la fascia è del partner E dell'ufficio. Il perimetro lo fa il
+   * server — il partner riceve solo le proprie, l'ufficio le vede tutte e può rispondere al posto suo
+   * (l'accettazione registra chi ha risposto: «dal partner …» o «dall'ufficio»).
+   */
+  /** Chi guarda è il partner? Serve al template, che non può leggere roleOf (privata). */
+  ePartnerProposte(): boolean { return this.roleOf() === 'PARTNER'; }
+
+  puoRispondereAlleProposte(): boolean {
+    const r = this.roleOf();
+    return r === 'PARTNER' || r === 'ADMIN' || r === 'OPERATION';
+  }
 
   private caricaProposte(): void {
     this.http.get<PropostaVendita[]>(`${environment.apiUrl}/sales`).subscribe({

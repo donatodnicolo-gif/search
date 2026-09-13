@@ -2539,3 +2539,38 @@ model DeliveryRuleLog {
 
   @@index([deliveryRuleId, createdAt])
 }
+
+/// ⭐⭐ 13/09/2026 (regola utente, dopo il caso Clivati) — IL REGISTRO DEGLI ARRIVI DAL PLUGIN.
+///
+/// Il sito di un partner chiama `POST /api/deliveries/sync/woo-order`. Finora si vedeva solo ciò che
+/// era ANDATO A BUON FINE: una consegna nata. Se il plugin chiamava e prendeva 401 — chiave cambiata,
+/// sandbox accesa, partner spento — di qui non se ne sapeva niente, e la domanda «ci è arrivato
+/// l'ordine?» costava un'indagine invece di dieci secondi.
+///
+/// ⚠️ NON si registra il corpo intero né la chiave: la chiave è una credenziale (si tengono le ultime
+/// quattro lettere per riconoscerla) e il corpo contiene nome, indirizzo e telefono di un cliente.
+/// Un registro tecnico non è il posto dove archiviare i dati di chi ordina.
+model ArrivoWoo {
+  id         String   @id @default(cuid())
+  /// Quando è arrivata la chiamata.
+  quando     DateTime @default(now())
+  /// created | duplicato | chiave-mancante | chiave-non-valida | dati-mancanti | errore
+  esito      String
+  /// Il partner riconosciuto dalla chiave; vuoto se la chiave non valeva.
+  partnerId  String?
+  /// L'insegna al momento della chiamata: se il partner cambia nome, il registro resta leggibile.
+  insegna    String?
+  /// Le ultime 4 lettere della chiave presentata: basta a dire «è quella vecchia» senza esporla.
+  chiaveFine String?
+  /// Numero d'ordine del sito (ddtNumber/orderId), quando c'è.
+  ordine     String?
+  /// Il sito che ha chiamato, come si dichiara nel corpo.
+  sito       String?
+  /// Il numero della consegna nata, quando è nata.
+  consegna   Int?
+  /// Il perché, per gli esiti che non sono «created».
+  motivo     String?
+
+  @@index([quando])
+  @@index([esito, quando])
+}

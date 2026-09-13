@@ -104,7 +104,9 @@ interface DiscountRow { provinceId: string; discountPercent: number | null; }
       .num { text-align: right; }
       textarea.field { resize: vertical; font-family: inherit; width: 100%; }
       .muted { color: var(--text-tertiary); font-size: 14px; margin: 0; }
-      .row2 { display: grid; grid-template-columns: 1fr 180px auto; gap: 8px; margin-bottom: 10px; align-items: center; }
+      /* ⚠️ 13/09/2026: minmax(0, 1fr) e non 1fr — un <input> ha una larghezza minima sua (≈170px),
+         quindi con 1fr la riga non si restringe e straborda sul tablet. Stessa trappola del calendario. */
+      .row2 { display: grid; grid-template-columns: minmax(0, 1fr) 180px auto; gap: 8px; margin-bottom: 10px; align-items: center; }
       .icon-btn { width: 34px; height: 34px; border: none; border-radius: 8px; background: var(--fill); color: var(--text-secondary); cursor: pointer; font-size: 13px; }
       .icon-btn:hover { background: rgba(215,0,21,0.09); color: var(--red); }
       .add { margin-top: 4px; align-self: flex-start; }

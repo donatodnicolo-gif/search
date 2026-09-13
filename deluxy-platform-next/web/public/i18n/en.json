@@ -877,13 +877,12 @@
     },
     "recipientHidden": "Shown once you start the delivery",
     "proposte": {
-      "appenaTitolo": "Just accepted: {{n}}",
-      "appenaHint": "Deliveries born from your acceptances today. They stay here until you close the page; in the table they sit in date order.",
-      "appenaChiudi": "Got it",
-      "title": "Orders proposed to you",
-      "hint": "Automatically routed orders awaiting your reply: accepting creates the delivery, refusing passes the order to another shop.",
+      "titolo": "{{n}} proposals are waiting for an answer",
+      "spiega": "The delivery is born when you accept: while the proposal sits here, the table has nothing.",
       "accetta": "Accept",
-      "rifiuta": "Refuse"
+      "rifiuta": "Decline",
+      "unico": "Unique",
+      "confermaRifiuto": "Decline «{{p}}»? The proposal moves on to the next supplier."
     },
     "vendita": {
       "accetta": "Accept",

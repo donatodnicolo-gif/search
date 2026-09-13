@@ -6,12 +6,14 @@ import {
   HttpCode,
   Injectable,
   Logger,
+  Get,
   Module,
   Post,
+  Query,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtUser, Public } from '../common/decorators';
+import { ApiBearerAuth, ApiHeader, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { JwtUser, Public, Roles } from '../common/decorators';
 import { DeliveryStatus, Role } from '../common/enums';
 import { DeliveriesModule } from '../deliveries/deliveries.module';
 import { DeliveriesService } from '../deliveries/deliveries.service';
@@ -149,17 +151,72 @@ export class WooLegacyService {
     return m ? `${m[1]}:${m[2]}` : undefined;
   }
 
+  /**
+   * ⭐⭐ 13/09/2026 (regola utente, dopo il caso Clivati) — SI SEGNA OGNI CHIAMATA, ANCHE QUELLE
+   * RESPINTE.
+   *
+   * Prima si vedeva solo ciò che era andato a buon fine: una consegna nata. Se il plugin chiamava e
+   * prendeva 401 — chiave cambiata, sandbox accesa, partner spento — di qui non se ne sapeva niente,
+   * e la domanda «ci è arrivato l'ordine?» costava un'indagine invece di dieci secondi.
+   *
+   * ⚠️ Non si registra il corpo né la chiave: la chiave è una credenziale (restano le ultime quattro
+   * lettere, che bastano a dire «è quella vecchia») e il corpo porta nome, indirizzo e telefono di un
+   * cliente. Un registro tecnico non è un archivio di dati personali.
+   * ⚠️ Se il registro non riesce a scrivere, la consegna si fa lo stesso: un diario che blocca il
+   * lavoro che dovrebbe raccontare è peggio di nessun diario.
+   */
+  private async segna(dati: {
+    esito: string; chiave?: string; partnerId?: string | null; insegna?: string | null;
+    ordine?: string | null; sito?: string | null; consegna?: number | null; motivo?: string | null;
+  }): Promise<void> {
+    try {
+      const k = (dati.chiave ?? '').trim();
+      await (this.prisma as unknown as { arrivoWoo: { create: (a: unknown) => Promise<unknown> } }).arrivoWoo.create({
+        data: {
+          esito: dati.esito,
+          partnerId: dati.partnerId ?? null,
+          insegna: dati.insegna ?? null,
+          chiaveFine: k ? k.slice(-4) : null,
+          ordine: dati.ordine ?? null,
+          sito: dati.sito ?? null,
+          consegna: dati.consegna ?? null,
+          motivo: dati.motivo ?? null,
+        },
+      });
+    } catch (e) {
+      this.logger?.warn?.(`Registro arrivi WooCommerce non scritto: ${(e as Error).message}`);
+    }
+  }
+
   async ricevi(chiave: string | undefined, p: WooLegacyPayload) {
     const k = (chiave ?? '').trim();
-    if (!k) throw new UnauthorizedException('Chiave partner mancante (header x-deluxy-partner-key)');
+    const sito = (p as { externalOrderSource?: string | null }).externalOrderSource ?? null;
+    const ordineChiesto = String(p.orderId ?? p.ddtNumber ?? '').trim() || null;
+    if (!k) {
+      await this.segna({ esito: 'chiave-mancante', ordine: ordineChiesto, sito, motivo: 'header x-deluxy-partner-key assente' });
+      throw new UnauthorizedException('Chiave partner mancante (header x-deluxy-partner-key)');
+    }
     const partner = await this.prisma.partner.findUnique({
       where: { woocommerceApiKey: k },
       include: { services: { include: { serviceType: { select: { id: true, name: true, pricingModel: true } } } } },
     });
-    if (!partner || !partner.active) throw new UnauthorizedException('Chiave partner non valida');
+    if (!partner || !partner.active) {
+      await this.segna({
+        esito: 'chiave-non-valida', chiave: k, ordine: ordineChiesto, sito,
+        partnerId: partner?.id ?? null, insegna: partner?.insegna ?? null,
+        motivo: partner ? 'partner spento' : 'nessun partner con questa chiave',
+      });
+      throw new UnauthorizedException('Chiave partner non valida');
+    }
     const ordine = String(p.orderId ?? p.ddtNumber ?? '').trim();
-    if (!ordine) throw new BadRequestException('orderId mancante');
-    if (!(p.address ?? '').trim()) throw new BadRequestException('address mancante');
+    if (!ordine) {
+      await this.segna({ esito: 'dati-mancanti', chiave: k, partnerId: partner.id, insegna: partner.insegna, sito, motivo: 'orderId mancante' });
+      throw new BadRequestException('orderId mancante');
+    }
+    if (!(p.address ?? '').trim()) {
+      await this.segna({ esito: 'dati-mancanti', chiave: k, partnerId: partner.id, insegna: partner.insegna, ordine, sito, motivo: 'address mancante' });
+      throw new BadRequestException('address mancante');
+    }
 
     // Idempotente: il plugin non ritenta, ma un checkout ricaricato può
     // rimandare lo stesso ordine. Stesso partner + stesso DDT = stessa consegna.
@@ -167,7 +224,10 @@ export class WooLegacyService {
       where: { partnerId: partner.id, deletedAt: null, ddtNumber: ordine, notes: { contains: '[WooCommerce #' } },
       select: { id: true, code: true },
     });
-    if (esistente) return { status: true, deliveryId: esistente.code, statusCode: 200, giaRicevuto: true };
+    if (esistente) {
+      await this.segna({ esito: 'duplicato', chiave: k, partnerId: partner.id, insegna: partner.insegna, ordine, sito, consegna: esistente.code, motivo: 'stesso ordine già ricevuto' });
+      return { status: true, deliveryId: esistente.code, statusCode: 200, giaRicevuto: true };
+    }
 
     // Il servizio: il listino del partner a PREZZO FISSO («consegna» se c'è),
     // altrimenti un servizio a prezzo fisso del catalogo. Il prezzo lo mette
@@ -242,7 +302,36 @@ export class WooLegacyService {
     } as JwtUser;
     const d: any = await this.deliveries.create(dto, utente);
     this.logger.log(`WooCommerce #${ordine} di ${partner.insegna} → consegna #${d.code}${nonACatalogo.length ? ` (${nonACatalogo.length} righe non a catalogo)` : ''}`);
+    await this.segna({ esito: 'created', chiave: k, partnerId: partner.id, insegna: partner.insegna, ordine, sito, consegna: d.code });
     return { status: true, deliveryId: d.code, statusCode: 201 };
+  }
+}
+
+/**
+ * ⭐⭐ 13/09/2026 (regola utente) — IL REGISTRO SI LEGGE DALL APP.
+ *
+ * Scrivere il diario e non poterlo aprire sarebbe metà lavoro: qui l ufficio vede le ultime chiamate
+ * dei siti dei partner, comprese quelle respinte, e la domanda «ci è arrivato l ordine?» si chiude
+ * senza aprire un terminale.
+ */
+@ApiTags('woocommerce')
+@ApiBearerAuth()
+@Controller('arrivi-woo')
+export class ArriviWooController {
+  constructor(private readonly prisma: PrismaService) {}
+
+  @Get()
+  @Roles(Role.ADMIN, Role.OPERATION)
+  @ApiOperation({ summary: 'Le ultime chiamate dai siti WooCommerce dei partner: accettate, duplicate e RESPINTE' })
+  @ApiQuery({ name: 'giorni', required: false, description: 'finestra in giorni (default 14)' })
+  async elenco(@Query('giorni') giorni?: string) {
+    const g = Math.min(120, Math.max(1, Number(giorni) || 14));
+    const da = new Date(Date.now() - g * 86_400_000);
+    const righe = await (this.prisma as unknown as { arrivoWoo: { findMany: (a: unknown) => Promise<unknown[]> } })
+      .arrivoWoo.findMany({ where: { quando: { gte: da } }, orderBy: { quando: 'desc' }, take: 300 });
+    const conta: Record<string, number> = {};
+    for (const r of righe as { esito: string }[]) conta[r.esito] = (conta[r.esito] ?? 0) + 1;
+    return { giorni: g, totale: righe.length, perEsito: conta, righe };
   }
 }
 
@@ -285,7 +374,7 @@ export class WoocommerceController {
 
 @Module({
   imports: [DeliveriesModule],
-  controllers: [WoocommerceController, WooLegacyController],
+  controllers: [WoocommerceController, WooLegacyController, ArriviWooController],
   providers: [WoocommerceService, WooLegacyService],
 })
 export class WoocommerceModule {}
