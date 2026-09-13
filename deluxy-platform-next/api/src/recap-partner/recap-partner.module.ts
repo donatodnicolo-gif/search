@@ -79,7 +79,9 @@ const SELEZIONE = {
   deliveredByPartner: true,
   partner: { select: { id: true, insegna: true, email: true, active: true, deleted: true } },
   valet: { select: { firstName: true, lastName: true, phone: true } },
-  serviceType: { select: { name: true } },
+  // ⚠️ `pricingModel` e `hideCustomerInfo` NON sono decorazione: la mascheratura dei dati del
+  // cliente li legge per decidere che cosa togliere. Toglierli dalla selezione spegne una protezione.
+  serviceType: { select: { name: true, pricingModel: true, hideCustomerInfo: true } },
   products: {
     where: { deletedAt: null },
     select: {
@@ -323,11 +325,36 @@ export class RecapPartnerService {
         ? '<tr><th>Consegna</th><td>A cura tua (consegna da partner)</td></tr>'
         : `<tr><th>Ritiro</th><td>${d.valet ? `${e(d.valet.firstName)} ${e(d.valet.lastName)}${d.valet.phone ? ` &middot; ${e(d.valet.phone)}` : ''}` : 'un valet Deluxy (ancora da assegnare)'}
             &middot; ${fascia(d.pickupTimeFrom, d.pickupTimeTo, d.pickupFlexible)}${d.pickupAddress ? `<div class="muted">${e(d.pickupAddress)}</div>` : ''}</td></tr>`;
-      const destinatario = [
-        e(`${d.recipientFirstName} ${d.recipientLastName}`.trim()),
-        `<div>${e(d.recipientAddress)}${d.recipientIntercom ? ` &middot; citofono ${e(d.recipientIntercom)}` : ''}</div>`,
-        d.recipientPhone ? `<div class="muted">${e(d.recipientPhone)}</div>` : '',
-      ].join('');
+      /**
+       * ⭐⭐ 13/09/2026 (regola utente: «nei recap mandati via mail ai partner nascondi i dati dei
+       * clienti come da regola privacy»).
+       *
+       * La regola esiste nell'app dal 31/08 — sui servizi di VENDITA il cliente finale è di Deluxy,
+       * non del partner, e i suoi dati non gli si mostrano; lo stesso vale col flag
+       * `hideCustomerInfo` del servizio. La deroga è una sola: **se è il partner a consegnare**, i
+       * dati gli servono per consegnare davvero.
+       *
+       * ⚠️ La mail la scavalcava: la pagina nascondeva e il riepilogo delle 7 del mattino mandava
+       * nome, indirizzo, citofono e telefono per posta — dove restano, si inoltrano e non si revocano.
+       * Una protezione che vale in un posto solo non è una protezione.
+       *
+       * ⚠️ Si toglie il nome ma si tiene la ZONA (città e CAP): il partner deve poter capire quanta
+       * strada farà la merce e organizzarsi, senza sapere chi la riceve.
+       */
+      const svc = (d.serviceType ?? {}) as { pricingModel?: string | null; hideCustomerInfo?: boolean | null };
+      const daNascondere = !d.deliveredByPartner && (svc.pricingModel === 'VENDITA' || svc.hideCustomerInfo === true);
+      const zona = (() => {
+        const pezzi = String(d.recipientAddress ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+        const conCap = pezzi.find((x) => /\d{5}/.test(x));
+        return conCap ?? pezzi[pezzi.length - 1] ?? '';
+      })();
+      const destinatario = daNascondere
+        ? `<span class="muted">dati del cliente riservati</span>${zona ? `<div class="muted">zona ${e(zona)}</div>` : ''}`
+        : [
+            e(`${d.recipientFirstName} ${d.recipientLastName}`.trim()),
+            `<div>${e(d.recipientAddress)}${d.recipientIntercom ? ` &middot; citofono ${e(d.recipientIntercom)}` : ''}</div>`,
+            d.recipientPhone ? `<div class="muted">${e(d.recipientPhone)}</div>` : '',
+          ].join('');
       return `
       <div class="scheda">
         <div class="testa"><span class="num">#${d.code}</span><span class="ora">${fascia(d.deliveryTimeFrom, d.deliveryTimeTo, d.deliveryFlexible)}</span><span class="srv">${e(d.serviceType?.name ?? '')}</span></div>
