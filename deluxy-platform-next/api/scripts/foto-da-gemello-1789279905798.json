@@ -1,0 +1,38 @@
+[
+ {
+  "id": "cmt609en30gkyi6g8ih0vawf9",
+  "nome": "Bouquet Ortensie Verdi e Fiori Bianchi - Medio",
+  "sku": "ILXHPG-1",
+  "daSku": "ILXHPG-1RM",
+  "daArchiviato": true,
+  "imageUrl": "https://zegbztfxisqeowngvgvh.supabase.co/storage/v1/object/public/legacy/img/products/0ca04b8d-5514-45ed-a7d9-7ae128eab60f.jpg",
+  "images": null
+ },
+ {
+  "id": "cmt6096so0b9ui6g82rskbeqm",
+  "nome": "Van Gogh - Notte Stellata - Medio",
+  "sku": "JXZXEM-1",
+  "daSku": "JXZXEM-1RM",
+  "daArchiviato": true,
+  "imageUrl": "https://zegbztfxisqeowngvgvh.supabase.co/storage/v1/object/public/legacy/img/products/8e47c2e9-847c-4244-a8c6-fabbde437bb0.jpg",
+  "images": null
+ },
+ {
+  "id": "cmt6099ua0ddwi6g878sl0l22",
+  "nome": "Bouquet Pink Grace - Piccolo",
+  "sku": "SHUXWA1",
+  "daSku": "SHUXWA1xRM",
+  "daArchiviato": false,
+  "imageUrl": "https://zegbztfxisqeowngvgvh.supabase.co/storage/v1/object/public/legacy/img/products/9edf3ec3-5620-499f-b17d-596754d3b280.jpg",
+  "images": null
+ },
+ {
+  "id": "cmt609bke0ejli6g8qh03bjg4",
+  "nome": "Bouquet Purezza Eterea - Medio-Grande",
+  "sku": "MCUZEH-2",
+  "daSku": "MCUZEH-2MI",
+  "daArchiviato": true,
+  "imageUrl": "https://zegbztfxisqeowngvgvh.supabase.co/storage/v1/object/public/legacy/img/products/ca3801c7-fa0b-4dd4-996d-0f73a1a79f08.jpg",
+  "images": null
+ }
+]
