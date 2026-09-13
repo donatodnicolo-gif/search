@@ -147,7 +147,16 @@ interface Cell { ymd: string; day: number; inMonth: boolean; isToday: boolean; c
       .nav { display: flex; align-items: center; gap: 8px; }
       .nav .btn { padding: 6px 12px; }
       .month { min-width: 150px; text-align: center; font-weight: 600; font-size: 15px; text-transform: capitalize; }
-      .layout { display: grid; grid-template-columns: 1fr 340px; gap: 18px; align-items: start; }
+      /**
+       * ⚠️ 13/09/2026 (segnalazione utente, calendario del partner su tablet): la colonna era
+       * 1fr, e 1fr vuol dire minmax(AUTO, 1fr) — non può scendere sotto il contenuto. Quando lo
+       * spazio si stringe, la griglia dei giorni non si restringe: esce dalla sua scheda, i sabati
+       * e le domeniche finiscono sopra il pannello di destra e il pannello viene spinto fuori
+       * schermo. minmax(0, 1fr) è la correzione canonica: la colonna può stringersi davvero.
+       */
+      .layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start; }
+      /* E la scheda non lascia comunque uscire niente dai suoi bordi. */
+      .cal { min-width: 0; overflow: hidden; }
       .cal { padding: 16px; }
       .weekdays, .grid { display: grid; grid-template-columns: repeat(7, 1fr); }
       .weekdays { margin-bottom: 8px; }
@@ -191,7 +200,13 @@ interface Cell { ymd: string; day: number; inMonth: boolean; isToday: boolean; c
       .dl-top { font-size: 13px; font-weight: 600; }
       .dl-sub { font-size: 12px; color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .dl-time { font-size: 12.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
-      @media (max-width: 820px) { .layout { grid-template-columns: 1fr; } }
+      /**
+       * ⚠️ Le due colonne si separano a 1100px, non più a 820: su un tablet in orizzontale il
+       * calendario e una spalla da 340px stanno insieme solo a forza, e le caselle diventano
+       * francobolli da centrare col dito. Sotto quella soglia il pannello del giorno va sotto,
+       * dove c è tutta la larghezza.
+       */
+      @media (max-width: 1100px) { .layout { grid-template-columns: minmax(0, 1fr); } }
     `,
   ],
 })

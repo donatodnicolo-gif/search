@@ -263,6 +263,19 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
         <option value="">{{ 'sales.filtri.tipologia' | translate }}: {{ 'sales.filtri.tutte' | translate }}</option>
         @for (o of opzTipologie(); track o) { <option [value]="o">{{ o }}</option> }
       </select>
+      <!--
+        ⭐ 13/09/2026 (regola utente): «metti come filtri rapidi le date di consegna degli ordini:
+        oggi, domani». Le due date c'erano già e filtrano proprio sulla consegna, ma per vedere il
+        lavoro di domani bisognava compilarle tutte e due uguali — il gesto che si fa più spesso
+        costava il maggior numero di clic.
+      -->
+      <div class="quick-tabs date-rapide">
+        @for (g of GIORNI_RAPIDI; track g) {
+          <button type="button" class="quick-tab" [class.active]="giornoRapidoAttivo(g)" (click)="scegliGiornoRapido(g)">
+            {{ 'sales.filtri.' + g | translate }}
+          </button>
+        }
+      </div>
       <label class="fld-data"><span>{{ 'sales.filtri.dal' | translate }}</span><input class="field" type="date" name="fDal" [(ngModel)]="fDal" (ngModelChange)="filtroCambiato()" /></label>
       <label class="fld-data"><span>{{ 'sales.filtri.al' | translate }}</span><input class="field" type="date" name="fAl" [(ngModel)]="fAl" (ngModelChange)="filtroCambiato()" /></label>
       @if (filtriAttivi()) {
@@ -919,6 +932,13 @@ const PLUS_CODE = /^\s*[0-9A-Z]{4,8}\+[0-9A-Z]{2,4}\b[,\s]*/;
       /* Pop-up inserimento consegna */
       .ins-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 90;
         backdrop-filter: blur(2px); }
+      /* Le pillole hanno il loro vestito anche qui: il foglio globale dà solo il comportamento in
+         larghezza, e senza queste righe uscirebbero due bottoni grigi di sistema. */
+      .quick-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+      .quick-tab { border: 1px solid var(--hairline-strong); background: #fff; border-radius: 999px;
+        padding: 6px 13px; cursor: pointer; font-size: 13.5px; color: var(--text); }
+      .quick-tab.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+      .date-rapide { align-self: flex-end; }
       .ins-modal { position: fixed; z-index: 91; top: 3vh; left: 50%; transform: translateX(-50%);
         width: min(920px, 94vw); max-height: 94vh; display: flex; flex-direction: column;
         background: var(--surface, #fff); border-radius: 20px; overflow: hidden;
@@ -1527,6 +1547,36 @@ export class SalesListComponent {
   // prodotto (unico / preventivo / mix…), QUANDO si consegna (dal/al). Le tendine si riempiono
   // coi valori presenti in lista: non si offre un filtro che darebbe zero righe.
   fProvincia = ''; fPartner = ''; fBrand = ''; fTipologia = ''; fDal = ''; fAl = '';
+
+  /**
+   * ⭐ 13/09/2026 (regola utente) — LE SCORCIATOIE SULLA DATA DI CONSEGNA.
+   *
+   * Sono le stesse due date di sotto, messe con un clic: «oggi» e «domani» sono le domande che si
+   * fanno tutti i giorni, e farle costava compilare due campi uguali.
+   *
+   * ⚠️ La data si costruisce sull'ora LOCALE, non con toISOString: in UTC, di sera, «domani»
+   * diventerebbe dopodomani. È lo stesso inciampo già corretto in Merce in sede.
+   */
+  readonly GIORNI_RAPIDI = ['oggi', 'domani'] as const;
+
+  private giorno(scarto: number): string {
+    const d = new Date();
+    d.setDate(d.getDate() + scarto);
+    const due = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${due(d.getMonth() + 1)}-${due(d.getDate())}`;
+  }
+
+  giornoRapidoAttivo(g: 'oggi' | 'domani'): boolean {
+    const y = this.giorno(g === 'domani' ? 1 : 0);
+    return this.fDal === y && this.fAl === y;
+  }
+
+  /** Premuto una seconda volta si spegne: una scorciatoia che non si disfa è una trappola. */
+  scegliGiornoRapido(g: 'oggi' | 'domani'): void {
+    if (this.giornoRapidoAttivo(g)) { this.fDal = ''; this.fAl = ''; }
+    else { const y = this.giorno(g === 'domani' ? 1 : 0); this.fDal = y; this.fAl = y; }
+    this.filtroCambiato();
+  }
   readonly filtriVersione = signal(0);
   filtroCambiato(): void { this.filtriVersione.update((x) => x + 1); }
   filtriAttivi(): number { return [this.fProvincia, this.fPartner, this.fBrand, this.fTipologia, this.fDal, this.fAl].filter(Boolean).length; }

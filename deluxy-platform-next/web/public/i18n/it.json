@@ -2958,7 +2958,9 @@
       "dal": "Consegna dal",
       "al": "al",
       "tutte": "tutte",
-      "tutti": "tutti"
+      "tutti": "tutti",
+      "oggi": "Oggi",
+      "domani": "Domani"
     },
     "title": "Vendite",
     "caption": "Gli ordini smistati ai partner.",

@@ -2956,7 +2956,9 @@
       "dal": "Delivery from",
       "al": "to",
       "tutte": "all",
-      "tutti": "all"
+      "tutti": "all",
+      "oggi": "Today",
+      "domani": "Tomorrow"
     },
     "title": "Sales",
     "caption": "Orders dispatched to partners.",
